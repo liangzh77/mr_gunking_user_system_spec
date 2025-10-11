@@ -25,16 +25,16 @@
 
 **Purpose**: 项目结构初始化和基础配置
 
-- [ ] T001 创建项目目录结构 in project root (backend/, frontend/, sdk/, docs/)
-- [ ] T002 初始化后端Python项目 in backend/pyproject.toml and backend/requirements.txt
-- [ ] T003 配置Docker Compose in docker-compose.yml (PostgreSQL 14)
-- [ ] T004 配置环境变量模板 in backend/.env.example
-- [ ] T005 [P] 配置代码质量工具 in backend/ (black, ruff, mypy, pytest配置)
+- [X] T001 创建项目目录结构 in project root (backend/, frontend/, sdk/, docs/)
+- [X] T002 初始化后端Python项目 in backend/pyproject.toml and backend/requirements.txt
+- [X] T003 配置Docker Compose in docker-compose.yml (PostgreSQL 14)
+- [X] T004 配置环境变量模板 in backend/.env.example
+- [X] T005 [P] 配置代码质量工具 in backend/ (black, ruff, mypy, pytest配置)
 - [ ] T006 [P] 初始化前端Vue项目 in frontend/ (package.json, tsconfig.json, vite.config.ts)
 - [ ] T007 [P] 初始化Python SDK项目 in sdk/python/
-- [ ] T008 [P] 创建项目README in README.md
+- [X] T008 [P] 创建项目README in README.md
 
-**Checkpoint**: 项目结构就绪，Docker容器可以启动
+**Checkpoint**: ✅ 项目结构就绪，Docker容器可以启动 (MVP核心完成，前端和SDK可延后)
 
 ---
 
