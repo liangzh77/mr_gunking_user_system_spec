@@ -17,7 +17,4 @@ class Base(DeclarativeBase):
 
 
 # Import all models here for Alembic discovery
-# When models are created, import them here:
-# from ..models.admin import AdminAccount
-# from ..models.operator import OperatorAccount
-# etc.
+from ..models.admin import AdminAccount  # noqa: F401

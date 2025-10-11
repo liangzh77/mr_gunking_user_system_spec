@@ -159,9 +159,9 @@ def register_routes(app: FastAPI) -> None:
             "docs_url": "/api/docs" if not settings.is_production else "disabled",
         }
 
-    # API v1 routes will be added here
-    # from .api.v1 import api_router
-    # app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+    # API v1 routes
+    from .api.v1 import api_router
+    app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 # Create application instance

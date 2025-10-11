@@ -1,0 +1,228 @@
+"""Admin authentication service.
+
+This service handles admin login, logout, token management, and user info retrieval.
+"""
+
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core import (
+    UnauthorizedException,
+    create_access_token,
+    get_settings,
+    get_token_subject,
+    hash_password,
+    verify_password,
+    verify_token,
+)
+from ..models.admin import AdminAccount
+from ..schemas.admin import AdminLoginResponse, AdminUserInfo
+
+
+class AdminAuthService:
+    """Admin authentication service."""
+
+    def __init__(self, db: AsyncSession):
+        """Initialize service with database session.
+
+        Args:
+            db: Async database session
+        """
+        self.db = db
+        self.settings = get_settings()
+
+    async def login(
+        self, username: str, password: str, client_ip: str
+    ) -> AdminLoginResponse:
+        """Authenticate admin and generate access token.
+
+        Args:
+            username: Admin username
+            password: Plain text password
+            client_ip: Client IP address for logging
+
+        Returns:
+            AdminLoginResponse: Login response with token and user info
+
+        Raises:
+            UnauthorizedException: If credentials are invalid or account is inactive
+        """
+        # Find admin by username
+        result = await self.db.execute(
+            select(AdminAccount).where(AdminAccount.username == username)
+        )
+        admin = result.scalar_one_or_none()
+
+        if not admin:
+            raise UnauthorizedException("Invalid username or password")
+
+        # Verify password
+        if not verify_password(password, admin.password_hash):
+            raise UnauthorizedException("Invalid username or password")
+
+        # Check if account is active
+        if not admin.is_active:
+            raise UnauthorizedException("Account is inactive")
+
+        # Update last login info
+        admin.last_login_at = datetime.now(timezone.utc)
+        admin.last_login_ip = client_ip
+        await self.db.commit()
+        await self.db.refresh(admin)
+
+        # Generate access token
+        token = create_access_token(
+            subject=str(admin.id),
+            user_type="admin",
+            additional_claims={
+                "username": admin.username,
+                "role": admin.role,
+            },
+        )
+
+        # Calculate token expiration
+        expires_in = self.settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+        return AdminLoginResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=expires_in,
+            user=AdminUserInfo.model_validate(admin),
+        )
+
+    async def get_current_admin(self, token_payload: dict) -> AdminAccount:
+        """Get current admin from token payload.
+
+        Args:
+            token_payload: Decoded JWT token payload
+
+        Returns:
+            AdminAccount: Current admin account
+
+        Raises:
+            UnauthorizedException: If admin not found or inactive
+        """
+        admin_id = get_token_subject(token_payload)
+        if not admin_id:
+            raise UnauthorizedException("Invalid token")
+
+        result = await self.db.execute(
+            select(AdminAccount).where(AdminAccount.id == admin_id)
+        )
+        admin = result.scalar_one_or_none()
+
+        if not admin:
+            raise UnauthorizedException("Admin not found")
+
+        if not admin.is_active:
+            raise UnauthorizedException("Account is inactive")
+
+        return admin
+
+    async def get_user_info(self, admin_id: str) -> AdminUserInfo:
+        """Get admin user information.
+
+        Args:
+            admin_id: Admin account ID
+
+        Returns:
+            AdminUserInfo: Admin user information
+
+        Raises:
+            UnauthorizedException: If admin not found
+        """
+        result = await self.db.execute(
+            select(AdminAccount).where(AdminAccount.id == admin_id)
+        )
+        admin = result.scalar_one_or_none()
+
+        if not admin:
+            raise UnauthorizedException("Admin not found")
+
+        return AdminUserInfo.model_validate(admin)
+
+    async def refresh_token(self, old_token: str) -> AdminLoginResponse:
+        """Refresh access token.
+
+        Args:
+            old_token: Current access token
+
+        Returns:
+            AdminLoginResponse: New token and user info
+
+        Raises:
+            UnauthorizedException: If token is invalid
+        """
+        payload = verify_token(old_token)
+        if not payload:
+            raise UnauthorizedException("Invalid token")
+
+        admin_id = get_token_subject(payload)
+        if not admin_id:
+            raise UnauthorizedException("Invalid token")
+
+        # Get admin
+        result = await self.db.execute(
+            select(AdminAccount).where(AdminAccount.id == admin_id)
+        )
+        admin = result.scalar_one_or_none()
+
+        if not admin or not admin.is_active:
+            raise UnauthorizedException("Admin not found or inactive")
+
+        # Generate new token
+        new_token = create_access_token(
+            subject=str(admin.id),
+            user_type="admin",
+            additional_claims={
+                "username": admin.username,
+                "role": admin.role,
+            },
+        )
+
+        expires_in = self.settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+        return AdminLoginResponse(
+            access_token=new_token,
+            token_type="bearer",
+            expires_in=expires_in,
+            user=AdminUserInfo.model_validate(admin),
+        )
+
+    async def change_password(
+        self, admin_id: str, old_password: str, new_password: str
+    ) -> bool:
+        """Change admin password.
+
+        Args:
+            admin_id: Admin account ID
+            old_password: Current password
+            new_password: New password
+
+        Returns:
+            bool: True if password changed successfully
+
+        Raises:
+            UnauthorizedException: If old password is incorrect
+        """
+        result = await self.db.execute(
+            select(AdminAccount).where(AdminAccount.id == admin_id)
+        )
+        admin = result.scalar_one_or_none()
+
+        if not admin:
+            raise UnauthorizedException("Admin not found")
+
+        # Verify old password
+        if not verify_password(old_password, admin.password_hash):
+            raise UnauthorizedException("Current password is incorrect")
+
+        # Update password
+        admin.password_hash = hash_password(new_password)
+        admin.updated_at = datetime.now(timezone.utc)
+        await self.db.commit()
+
+        return True
