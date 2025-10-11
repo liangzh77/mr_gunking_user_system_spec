@@ -1,6 +1,17 @@
 """Core module containing configuration, security, and utilities."""
 
 from .config import Settings, get_settings, settings
+from .exceptions import (
+    AppException,
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    InternalServerException,
+    NotFoundException,
+    ServiceUnavailableException,
+    UnauthorizedException,
+    UnprocessableEntityException,
+)
 from .logging import (
     bind_context,
     clear_context,
@@ -50,6 +61,16 @@ __all__ = [
     "Settings",
     "get_settings",
     "settings",
+    # Exceptions
+    "AppException",
+    "BadRequestException",
+    "UnauthorizedException",
+    "ForbiddenException",
+    "NotFoundException",
+    "ConflictException",
+    "UnprocessableEntityException",
+    "InternalServerException",
+    "ServiceUnavailableException",
     # Logging
     "configure_logging",
     "get_logger",
