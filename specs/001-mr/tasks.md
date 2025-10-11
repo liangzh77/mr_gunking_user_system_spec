@@ -68,6 +68,7 @@
 - [ ] T022 实现依赖注入工厂 in backend/src/api/deps.py (get_db, get_current_user等)
 - [ ] T023 [P] 实现全局异常处理器 in backend/src/core/exceptions/handlers.py
 - [ ] T024 [P] 实现Pydantic配置模型 in backend/src/core/config.py (Settings类)
+- [ ] T024a [P] 实现健康检查端点 in backend/src/api/v1/health.py (GET /health，返回数据库状态、支付平台可用性，满足FR-060)
 
 ### 公共Schema和工具
 
@@ -615,7 +616,7 @@
 - [ ] T286 运行quickstart.md验证完整流程 (从环境搭建到首次授权)
 - [ ] T287 运行所有测试套件并生成报告
 - [ ] T288 代码审查和重构
-- [ ] T289 性能基准测试 (授权API P95 < 100ms, 吞吐量 ≥ 20 req/s峰值)
+- [ ] T289 性能基准测试 in backend/tests/performance/test_benchmark.py (授权API P95 < 100ms满足NFR-001, 峰值吞吐量 ≥ 20 req/s满足NFR-002, 10万条记录导出<30秒满足SC-009/NFR-004, 系统可用性≥99.5%验证SC-011/NFR-005)
 
 **Checkpoint**: 项目完成，可以投入生产
 
