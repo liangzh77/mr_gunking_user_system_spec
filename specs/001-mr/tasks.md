@@ -296,25 +296,25 @@
 
 ### 数据模型
 
-- [ ] T125 [P] [US5] 创建AdminAccount模型 in backend/src/models/admin.py (管理员账户表)
+- [X] T125 [P] [US5] 创建AdminAccount模型 in backend/src/models/admin.py (管理员账户表) ✅ 2025-10-12
 - [ ] T126 [P] [US5] 创建ApplicationRequest模型 in backend/src/models/app_request.py (应用授权申请表)
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T127 [P] [US5] 创建管理员登录Schema in backend/src/schemas/auth.py (AdminLoginRequest, AdminLoginResponse)
+- [X] T127 [P] [US5] 创建管理员登录Schema in backend/src/schemas/admin.py (AdminLoginRequest, AdminLoginResponse等9个schemas) ✅ 2025-10-12
 - [ ] T128 [P] [US5] 创建运营商管理Schema in backend/src/schemas/admin/operator.py (CreateOperatorRequest, OperatorDetailResponse)
 - [ ] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin/application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse)
 - [ ] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin/authorization.py (AuthorizeApplicationRequest, AuthorizationResponse)
 
 ### 业务服务
 
-- [ ] T131 [US5] 实现AdminService in backend/src/services/admin.py (管理员登录、运营商管理、API Key管理)
+- [X] T131 [US5] 实现AdminAuthService in backend/src/services/admin_auth.py (管理员登录、token刷新、密码修改) ✅ 2025-10-12
 - [ ] T132 [US5] 实现AdminApplicationService in backend/src/services/admin_application.py (应用创建、价格调整、玩家范围配置)
 - [ ] T133 [US5] 实现AdminAuthorizationService in backend/src/services/admin_authorization.py (授权审批、授权撤销)
 
 ### API接口 (可并行)
 
-- [ ] T134 [P] [US5] 实现管理员登录API in backend/src/api/v1/auth.py::admin_login (POST /v1/auth/admin/login)
+- [X] T134 [P] [US5] 实现管理员认证API in backend/src/api/v1/admin_auth.py (5个端点: login/logout/me/refresh/change-password) ✅ 2025-10-12
 - [ ] T135 [P] [US5] 实现创建运营商API in backend/src/api/v1/admin/operators.py::create_operator (POST /v1/admin/operators)
 - [ ] T136 [P] [US5] 实现运营商列表API in backend/src/api/v1/admin/operators.py::get_operators (GET /v1/admin/operators)
 - [ ] T137 [P] [US5] 实现运营商详情API in backend/src/api/v1/admin/operators.py::get_operator (GET /v1/admin/operators/{operator_id})
