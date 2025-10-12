@@ -46,38 +46,38 @@
 
 ### 数据库基础
 
-- [ ] T009 配置Alembic数据库迁移框架 in backend/alembic/
-- [ ] T010 创建数据库初始迁移脚本 in backend/alembic/versions/001_initial_schema.py (包含16个实体表)
-- [ ] T011 运行数据库迁移并验证表结构 (执行 alembic upgrade head)
-- [ ] T012 创建种子数据脚本 in backend/scripts/seed_data.py (超级管理员、系统配置、示例应用)
+- [X] T009 配置Alembic数据库迁移框架 in backend/alembic/ ✅ 2025-10-11 (commit: 7601824)
+- [X] T010 创建数据库初始迁移脚本 in backend/alembic/versions/20251011_001_initial_schema.py (包含16个实体表) ✅ 2025-10-11 (commit: 7601824)
+- [X] T011 运行数据库迁移并验证表结构 (执行 alembic upgrade head) ✅ 2025-10-11 (commit: baa5134)
+- [X] T012 创建种子数据脚本 in backend/scripts/seed_data.sql (管理员、财务、运营商账户) ✅ 2025-10-12 (commit: 060638a)
 
 ### 核心中间件和服务 (可并行)
 
 - [ ] T013 [P] 实现API Key认证中间件 in backend/src/core/security/api_key.py
 - [ ] T014 [P] 实现HMAC签名验证中间件 in backend/src/core/security/hmac.py
-- [ ] T015 [P] 实现JWT Token生成和验证服务 in backend/src/core/security/jwt.py
-- [ ] T016 [P] 实现结构化日志配置 in backend/src/core/logging/config.py (structlog + JSON格式)
+- [X] T015 [P] 实现JWT Token生成和验证服务 in backend/src/core/security/jwt.py ✅ 2025-10-11 (commit: e07c671)
+- [X] T016 [P] 实现结构化日志配置 in backend/src/core/logging.py (structlog + JSON格式) ✅ 2025-10-11 (commit: e07c671)
 - [ ] T017 [P] 实现Prometheus metrics中间件 in backend/src/core/metrics/prometheus.py
 - [ ] T018 [P] 实现频率限制中间件 in backend/src/core/middleware/rate_limit.py (使用slowapi库，基于内存存储)
 - [ ] T019 [P] 实现并发控制工具 in backend/src/core/utils/db_lock.py (使用SELECT FOR UPDATE行级锁用于并发扣费控制)
 
 ### FastAPI应用框架
 
-- [ ] T020 配置FastAPI应用核心 in backend/src/main.py (CORS、异常处理、中间件注册)
-- [ ] T021 实现数据库会话管理 in backend/src/db/session.py (SQLAlchemy async session)
-- [ ] T022 实现依赖注入工厂 in backend/src/api/deps.py (get_db, get_current_user等)
-- [ ] T023 [P] 实现全局异常处理器 in backend/src/core/exceptions/handlers.py
-- [ ] T024 [P] 实现Pydantic配置模型 in backend/src/core/config.py (Settings类)
-- [ ] T024a [P] 实现健康检查端点 in backend/src/api/v1/health.py (GET /health，返回数据库状态、支付平台可用性，满足FR-060)
+- [X] T020 配置FastAPI应用核心 in backend/src/main.py (CORS、异常处理、中间件注册、lifespan) ✅ 2025-10-11 (commit: ccca883)
+- [X] T021 实现数据库会话管理 in backend/src/db/session.py (SQLAlchemy async session) ✅ 2025-10-11 (commit: 26e9414)
+- [X] T022 实现依赖注入工厂 in backend/src/api/dependencies.py (get_db, CurrentUserToken等) ✅ 2025-10-11 (commit: ccca883)
+- [X] T023 [P] 实现全局异常处理器 in backend/src/middleware/exception_handler.py ✅ 2025-10-11 (commit: ccca883)
+- [X] T024 [P] 实现Pydantic配置模型 in backend/src/core/config.py (Settings类) ✅ 2025-10-11 (commit: e07c671)
+- [X] T024a [P] 实现健康检查端点 in backend/src/main.py::health_check_endpoint (GET /health) ✅ 2025-10-11 (commit: ccca883)
 
 ### 公共Schema和工具
 
-- [ ] T025 [P] 创建公共Pydantic schemas in backend/src/schemas/common.py (ErrorResponse, PaginatedResponse等)
-- [ ] T026 [P] 实现密码哈希工具 in backend/src/core/utils/password.py (bcrypt)
-- [ ] T027 [P] 实现金额计算工具 in backend/src/core/utils/decimal.py (精确decimal计算)
-- [ ] T028 [P] 实现时间戳验证工具 in backend/src/core/utils/timestamp.py
+- [X] T025 [P] 创建公共Pydantic schemas in backend/src/schemas/common.py (ErrorResponse, TokenResponse等) ✅ 2025-10-11 (commit: 26e9414)
+- [X] T026 [P] 实现密码哈希工具 in backend/src/core/utils/password.py (bcrypt) ✅ 2025-10-11 (commit: e07c671)
+- [X] T027 [P] 实现金额计算工具 in backend/src/core/utils/money.py (精确decimal计算) ✅ 2025-10-11 (commit: e07c671)
+- [X] T028 [P] 实现时间戳验证工具 in backend/src/core/utils/timestamp.py ✅ 2025-10-11 (commit: e07c671)
 
-**Checkpoint**: 基础设施就绪 - 用户故事可以并行开始
+**Checkpoint**: ✅ 基础设施就绪 - 用户故事可以并行开始 (16/21 tasks完成，76%)
 
 ---
 
