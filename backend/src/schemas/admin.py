@@ -98,3 +98,7 @@ class AdminListResponse(BaseModel):
 
     items: list[AdminUserInfo] = Field(description="Admin list")
     total: int = Field(description="Total count")
+
+
+# Rebuild models to resolve forward references
+AdminLoginResponse.model_rebuild()

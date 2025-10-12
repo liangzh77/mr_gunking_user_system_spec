@@ -1,6 +1,8 @@
 """Admin authentication API endpoints."""
 
-from fastapi import APIRouter, Depends, Request, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
@@ -107,23 +109,25 @@ async def get_current_admin_info(
     description="Refresh access token with current token",
 )
 async def refresh_admin_token(
+    authorization: Annotated[str, Header()],
     token: CurrentUserToken,
     db: DatabaseSession,
 ) -> AdminLoginResponse:
     """Refresh access token endpoint.
 
     Args:
-        token: Current user token
+        authorization: Authorization header with Bearer token
+        token: Current user token payload (for validation)
         db: Database session
 
     Returns:
         AdminLoginResponse: New access token and user info
     """
+    # Extract raw token from "Bearer <token>"
+    raw_token = authorization.split()[1] if authorization else ""
+
     service = AdminAuthService(db)
-    # Extract the raw token from Authorization header would be better,
-    # but for now we'll recreate it from the payload
-    # In production, you might want to pass the raw token
-    return await service.refresh_token(token.get("raw_token", ""))
+    return await service.refresh_token(raw_token)
 
 
 @router.post(
