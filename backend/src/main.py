@@ -10,7 +10,8 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .core import configure_logging, get_logger, get_settings
 from .db import close_db, health_check, init_db
@@ -158,6 +159,25 @@ def register_routes(app: FastAPI) -> None:
             "environment": settings.ENVIRONMENT,
             "docs_url": "/api/docs" if not settings.is_production else "disabled",
         }
+
+    # Prometheus metrics endpoint
+    @app.get(
+        "/metrics",
+        tags=["Monitoring"],
+        summary="Prometheus Metrics",
+        description="Export Prometheus metrics for monitoring",
+        include_in_schema=not settings.is_production
+    )
+    async def metrics() -> Response:
+        """Prometheus metrics endpoint.
+
+        Returns:
+            Response: Prometheus metrics in text format
+        """
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST
+        )
 
     # API v1 routes
     from .api.v1 import api_router
