@@ -8,7 +8,7 @@
 """
 import pytest
 from sqlalchemy import inspect
-from src.db.session import engine
+from src.db import get_engine
 
 @pytest.mark.asyncio
 async def test_database_schema_matches_specification():

@@ -1,4 +1,10 @@
-"""Pydantic schemas for request/response validation."""
+"""Pydantic schemas for request/response validation.
+
+User Story 1 - 游戏授权与实时计费:
+- auth: 游戏授权请求/响应
+- usage_record: 使用记录数据模型
+- transaction: 交易记录数据模型
+"""
 
 from .admin import (
     AdminChangePasswordRequest,
@@ -10,6 +16,12 @@ from .admin import (
     AdminUpdateRequest,
     AdminUserDetail,
     AdminUserInfo,
+)
+from .auth import (
+    GameAuthorizeRequest,
+    GameAuthorizeResponse,
+    GameAuthorizeData,
+    ErrorDetail,
 )
 from .common import (
     DateRangeFilter,
@@ -25,6 +37,17 @@ from .common import (
     TimestampMixin,
     TokenResponse,
     UUIDMixin,
+)
+from .transaction import (
+    TransactionRecordCreate,
+    TransactionRecordInDB,
+    TransactionRecordResponse,
+    RechargeRequest,
+)
+from .usage_record import (
+    UsageRecordCreate,
+    UsageRecordInDB,
+    UsageRecordResponse,
 )
 
 __all__ = [
@@ -56,4 +79,18 @@ __all__ = [
     "AdminUpdateRequest",
     "AdminChangePasswordRequest",
     "AdminListResponse",
+    # User Story 1: Auth schemas
+    "GameAuthorizeRequest",
+    "GameAuthorizeResponse",
+    "GameAuthorizeData",
+    "ErrorDetail",
+    # User Story 1: Usage record schemas
+    "UsageRecordCreate",
+    "UsageRecordInDB",
+    "UsageRecordResponse",
+    # User Story 1: Transaction schemas
+    "TransactionRecordCreate",
+    "TransactionRecordInDB",
+    "TransactionRecordResponse",
+    "RechargeRequest",
 ]

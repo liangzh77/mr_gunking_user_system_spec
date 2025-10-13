@@ -17,4 +17,11 @@ class Base(DeclarativeBase):
 
 
 # Import all models here for Alembic discovery
+# User Story 1 - 游戏授权与实时计费
 from ..models.admin import AdminAccount  # noqa: F401
+from ..models.operator import OperatorAccount  # noqa: F401
+from ..models.application import Application  # noqa: F401
+from ..models.site import OperationSite  # noqa: F401
+from ..models.usage_record import UsageRecord  # noqa: F401
+from ..models.transaction import TransactionRecord  # noqa: F401
+from ..models.authorization import OperatorAppAuthorization  # noqa: F401

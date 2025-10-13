@@ -99,43 +99,43 @@
 
 ### 测试任务 (TDD - 基于contracts/编写测试)
 
-- [ ] T029 [P] [US1] 契约测试：游戏授权接口 in backend/tests/contract/test_game_authorize.py (验证POST /v1/auth/game/authorize契约)
-- [ ] T030 [P] [US1] 集成测试：完整授权流程 in backend/tests/integration/test_authorization_flow.py (API Key验证 → 余额扣费 → 返回Token)
-- [ ] T031 [P] [US1] 集成测试：余额不足场景 in backend/tests/integration/test_insufficient_balance.py
-- [ ] T032 [P] [US1] 集成测试：会话ID幂等性 in backend/tests/integration/test_session_idempotency.py (防重复扣费)
+- [X] T029 [P] [US1] 契约测试：游戏授权接口 in backend/tests/contract/test_game_authorize.py (验证POST /v1/auth/game/authorize契约)
+- [X] T030 [P] [US1] 集成测试：完整授权流程 in backend/tests/integration/test_authorization_flow.py (API Key验证 → 余额扣费 → 返回Token)
+- [X] T031 [P] [US1] 集成测试：余额不足场景 in backend/tests/integration/test_insufficient_balance.py
+- [X] T032 [P] [US1] 集成测试：会话ID幂等性 in backend/tests/integration/test_session_idempotency.py (防重复扣费)
 - [ ] T033 [P] [US1] 集成测试：玩家数量范围验证 in backend/tests/integration/test_player_count_validation.py
-- [ ] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：格式错误、operatorId不匹配、时间戳过期超过5分钟、随机数不足16位等场景，验证返回HTTP 400及详细错误信息)
-- [ ] T034 [P] [US1] 集成测试：并发扣费冲突处理 in backend/tests/integration/test_concurrent_billing.py
+- [X] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：格式错误、operatorId不匹配、时间戳过期超过5分钟、随机数不足16位等场景，验证返回HTTP 400及详细错误信息)
+- [X] T034 [P] [US1] 集成测试：并发扣费冲突处理 in backend/tests/integration/test_concurrent_billing.py
 
 ### 数据模型 (可并行)
 
-- [ ] T035 [P] [US1] 创建OperatorAccount模型 in backend/src/models/operator.py (运营商账户表)
-- [ ] T036 [P] [US1] 创建Application模型 in backend/src/models/application.py (应用表)
-- [ ] T037 [P] [US1] 创建OperationSite模型 in backend/src/models/site.py (运营点表)
-- [ ] T038 [P] [US1] 创建UsageRecord模型 in backend/src/models/usage_record.py (使用记录表)
-- [ ] T039 [P] [US1] 创建TransactionRecord模型 in backend/src/models/transaction.py (交易记录表)
-- [ ] T040 [P] [US1] 创建OperatorAppAuthorization模型 in backend/src/models/authorization.py (应用授权关系表)
+- [X] T035 [P] [US1] 创建OperatorAccount模型 in backend/src/models/operator.py (运营商账户表)
+- [X] T036 [P] [US1] 创建Application模型 in backend/src/models/application.py (应用表)
+- [X] T037 [P] [US1] 创建OperationSite模型 in backend/src/models/site.py (运营点表)
+- [X] T038 [P] [US1] 创建UsageRecord模型 in backend/src/models/usage_record.py (使用记录表)
+- [X] T039 [P] [US1] 创建TransactionRecord模型 in backend/src/models/transaction.py (交易记录表)
+- [X] T040 [P] [US1] 创建OperatorAppAuthorization模型 in backend/src/models/authorization.py (应用授权关系表)
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T041 [P] [US1] 创建授权请求Schema in backend/src/schemas/auth.py (GameAuthorizeRequest, GameAuthorizeResponse)
-- [ ] T042 [P] [US1] 创建使用记录Schema in backend/src/schemas/usage.py (UsageRecordSchema)
-- [ ] T043 [P] [US1] 创建交易记录Schema in backend/src/schemas/transaction.py (TransactionSchema)
+- [X] T041 [P] [US1] 创建授权请求Schema in backend/src/schemas/auth.py (GameAuthorizeRequest, GameAuthorizeResponse)
+- [X] T042 [P] [US1] 创建使用记录Schema in backend/src/schemas/usage.py (UsageRecordSchema)
+- [X] T043 [P] [US1] 创建交易记录Schema in backend/src/schemas/transaction.py (TransactionSchema)
 
 ### 业务服务
 
-- [ ] T044 [US1] 实现AuthService in backend/src/services/auth.py (API Key验证、HMAC签名验证、应用授权检查、玩家数量验证)
-- [ ] T045 [US1] 实现BillingService in backend/src/services/billing.py (余额检查、扣费事务[行级锁+原子性]、使用记录创建、交易记录创建、会话ID幂等性检查)
+- [X] T044 [US1] 实现AuthService in backend/src/services/auth.py (API Key验证、HMAC签名验证、应用授权检查、玩家数量验证)
+- [X] T045 [US1] 实现BillingService in backend/src/services/billing.py (余额检查、扣费事务[行级锁+原子性]、使用记录创建、交易记录创建、会话ID幂等性检查)
 
 ### API接口
 
-- [ ] T046 [US1] 实现游戏授权API in backend/src/api/v1/auth.py::authorize_game (POST /v1/auth/game/authorize)
-- [ ] T047 [US1] 注册授权路由 in backend/src/main.py (app.include_router(auth.router))
+- [X] T046 [US1] 实现游戏授权API in backend/src/api/v1/auth.py::authorize_game (POST /v1/auth/game/authorize)
+- [X] T047 [US1] 注册授权路由 in backend/src/main.py (app.include_router(auth.router))
 
 ### 单元测试 (补充)
 
-- [ ] T048 [P] [US1] AuthService单元测试 in backend/tests/unit/services/test_auth_service.py
-- [ ] T049 [P] [US1] BillingService单元测试 in backend/tests/unit/services/test_billing_service.py
+- [X] T048 [P] [US1] AuthService单元测试 in backend/tests/unit/services/test_auth_service.py
+- [X] T049 [P] [US1] BillingService单元测试 in backend/tests/unit/services/test_billing_service.py
 
 **Checkpoint**: User Story 1完成 - 核心授权计费功能可独立测试和演示
 
