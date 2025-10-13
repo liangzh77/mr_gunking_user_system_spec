@@ -208,6 +208,11 @@ class BillingService:
 
             return usage_record, transaction_record, balance_after
 
+        except HTTPException:
+            # HTTPException直接向上传播(包括402余额不足等业务异常)
+            await self.db.rollback()
+            raise
+
         except IntegrityError as e:
             # 捕获session_id唯一约束冲突(幂等性保护)
             await self.db.rollback()

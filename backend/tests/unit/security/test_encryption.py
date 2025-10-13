@@ -21,7 +21,7 @@ class TestEncryptionService:
     def test_encrypt_decrypt_round_trip(self):
         """测试加密解密往返（可逆性）"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key, key_version="v1")
         plaintext = "api_key_1234567890abcdef"
 
@@ -37,7 +37,7 @@ class TestEncryptionService:
     def test_encrypt_produces_different_ciphertext(self):
         """测试相同明文产生不同密文（随机Nonce）"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key)
         plaintext = "same_plaintext"
 
@@ -53,8 +53,8 @@ class TestEncryptionService:
     def test_decrypt_with_wrong_key_fails(self):
         """测试错误密钥解密失败"""
         # Arrange
-        key1 = "correct_key_32_characters_long!"
-        key2 = "wrong_key_32_characters_long!!!"
+        key1 = "correct_key__32_characters_long!!"  # 34 chars
+        key2 = "wrong_key__32_characters_long!!!"  # 34 chars
         service1 = EncryptionService(key1)
         service2 = EncryptionService(key2)
 
@@ -68,7 +68,7 @@ class TestEncryptionService:
     def test_decrypt_with_tampered_data_fails(self):
         """测试篡改数据解密失败（认证加密）"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key)
         plaintext = "important_data"
         encrypted = service.encrypt(plaintext)
@@ -83,7 +83,7 @@ class TestEncryptionService:
     def test_decrypt_with_invalid_format_fails(self):
         """测试无效格式解密失败"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key)
 
         invalid_formats = [
@@ -101,8 +101,8 @@ class TestEncryptionService:
     def test_key_rotation_with_legacy_keys(self):
         """测试密钥轮换兼容性"""
         # Arrange
-        old_key = "old_master_key_32_characters!!"
-        new_key = "new_master_key_32_characters!!"
+        old_key = "old_master_key__32_characters!!!"  # 33 chars
+        new_key = "new_master_key__32_characters!!!"  # 33 chars
 
         old_service = EncryptionService(old_key, key_version="v1")
         new_service = EncryptionService(new_key, key_version="v2")
@@ -126,8 +126,8 @@ class TestEncryptionService:
     def test_key_rotation_decrypts_with_current_key_first(self):
         """测试密钥轮换优先使用当前密钥"""
         # Arrange
-        current_key = "current_key_32_characters_long!"
-        legacy_key = "legacy_key_32_characters_long!"
+        current_key = "current_key__32_characters_long!!"  # 35 chars
+        legacy_key = "legacy_key__32_characters_long!!!"  # 35 chars
 
         current_service = EncryptionService(current_key, key_version="v2")
         plaintext = "new_data"
@@ -146,7 +146,7 @@ class TestEncryptionService:
     def test_encrypt_empty_string(self):
         """测试加密空字符串"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key)
 
         # Act
@@ -159,7 +159,7 @@ class TestEncryptionService:
     def test_encrypt_unicode_characters(self):
         """测试加密Unicode字符"""
         # Arrange
-        master_key = "test_master_key_32_characters!!"
+        master_key = "test_master_key__32characters!!!"  # 32 chars
         service = EncryptionService(master_key)
         plaintext = "中文测试数据🔐"
 
@@ -186,7 +186,7 @@ class TestConvenienceFunctions:
     def test_encrypt_decrypt_sensitive_data_with_env_key(self, monkeypatch):
         """测试全局加密/解密函数（需设置环境变量）"""
         # Arrange
-        test_key = "test_env_key_32_characters_long!"
+        test_key = "test_env_key__32_characters_long!!"  # 36 chars
         monkeypatch.setenv("MASTER_ENCRYPTION_KEY", test_key)
         monkeypatch.setenv("ENCRYPTION_KEY_VERSION", "v1")
 

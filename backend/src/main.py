@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .core import configure_logging, get_logger, get_settings
+from .core.metrics import prometheus  # Import to register metrics
 from .db import close_db, health_check, init_db
 from .middleware import register_exception_handlers
 from .schemas import HealthCheckResponse
