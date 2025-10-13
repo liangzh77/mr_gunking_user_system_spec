@@ -33,6 +33,7 @@
 - [ ] T006 [P] 初始化前端Vue项目 in frontend/ (package.json, tsconfig.json, vite.config.ts)
 - [ ] T007 [P] 初始化Python SDK项目 in sdk/python/
 - [X] T008 [P] 创建项目README in README.md
+- [ ] T005a 生成OpenAPI契约规范 in specs/001-mr/contracts/openapi.yaml (基于data-model.md和spec.md的API需求，定义60+端点的请求/响应Schema、错误码、认证方式，使用datamodel-code-generator或手动编写，必须在Phase 3测试编写前完成)
 
 **Checkpoint**: ✅ 项目结构就绪，Docker容器可以启动 (MVP核心完成，前端和SDK可延后)
 
@@ -49,7 +50,8 @@
 - [X] T009 配置Alembic数据库迁移框架 in backend/alembic/ ✅ 2025-10-11 (commit: 7601824)
 - [X] T010 创建数据库初始迁移脚本 in backend/alembic/versions/20251011_001_initial_schema.py (包含16个实体表) ✅ 2025-10-11 (commit: 7601824)
 - [X] T011 运行数据库迁移并验证表结构 (执行 alembic upgrade head) ✅ 2025-10-11 (commit: baa5134)
-- [X] T012 创建种子数据脚本 in backend/scripts/seed_data.sql (管理员、财务、运营商账户) ✅ 2025-10-12 (commit: 060638a)
+- [ ] T010a 验证迁移脚本与data-model.md一致性 in backend/tests/integration/test_schema_consistency.py (使用SQLAlchemy反射读取数据库Schema，对比data-model.md定义的表名/字段/类型/索引/约束，不匹配时测试失败并输出差异报告)
+- [X] T012 创建种子数据脚本 in backend/scripts/seed_data.sql (至少包含: 1个超级管理员账号admin/Admin@123、1个财务账号finance/Finance@123、2个测试运营商账号operator1/operator2含初始余额1000元) ✅ 2025-10-12 (commit: 060638a)
 
 ### 核心中间件和服务 (可并行)
 
@@ -57,8 +59,12 @@
 - [ ] T014 [P] 实现HMAC签名验证中间件 in backend/src/core/security/hmac.py
 - [X] T015 [P] 实现JWT Token生成和验证服务 in backend/src/core/security/jwt.py ✅ 2025-10-11 (commit: e07c671)
 - [X] T016 [P] 实现结构化日志配置 in backend/src/core/logging.py (structlog + JSON格式) ✅ 2025-10-11 (commit: e07c671)
-- [ ] T017 [P] 实现Prometheus metrics中间件 in backend/src/core/metrics/prometheus.py
-- [ ] T018 [P] 实现频率限制中间件 in backend/src/core/middleware/rate_limit.py (使用slowapi库，基于内存存储)
+- [ ] T017 [P] 实现Prometheus metrics中间件 in backend/src/core/metrics/prometheus.py (实现NFR-017a定义的8个核心指标：mr_auth_requests_total、mr_auth_latency_seconds、mr_operator_balance_yuan、mr_payment_callback_total、mr_revenue_total_yuan、mr_db_connection_pool_active、mr_api_errors_total、mr_rate_limit_blocked_total，使用prometheus_client库，暴露/metrics端点)
+- [ ] T017a [P] 契约测试：Prometheus指标格式 in backend/tests/contract/test_prometheus_metrics.py (验证/metrics端点返回有效Prometheus格式、包含所有NFR-017a定义的指标)
+- [ ] T017b [P] 集成测试：指标准确性 in backend/tests/integration/test_metrics_accuracy.py (触发授权请求，验证mr_auth_requests_total递增、mr_auth_latency_seconds正确记录)
+- [ ] T018 [P] 实现频率限制中间件 in backend/src/core/middleware/rate_limit.py (使用slowapi库，实现FR-055双重限制：单运营商10次/分钟、单IP 100次/分钟，超限返回HTTP 429及Retry-After响应头)
+- [ ] T018a [P] 集成测试：频率限制功能 in backend/tests/integration/test_rate_limit.py (验证单运营商10次/分钟限制、单IP 100次/分钟限制、超限返回HTTP 429及Retry-After头)
+- [ ] T018b [P] 单元测试：频率限制计数器 in backend/tests/unit/middleware/test_rate_limit.py (验证计数器递增、重置、并发安全)
 - [ ] T019 [P] 实现并发控制工具 in backend/src/core/utils/db_lock.py (使用SELECT FOR UPDATE行级锁用于并发扣费控制)
 
 ### FastAPI应用框架
@@ -68,32 +74,37 @@
 - [X] T022 实现依赖注入工厂 in backend/src/api/dependencies.py (get_db, CurrentUserToken等) ✅ 2025-10-11 (commit: ccca883)
 - [X] T023 [P] 实现全局异常处理器 in backend/src/middleware/exception_handler.py ✅ 2025-10-11 (commit: ccca883)
 - [X] T024 [P] 实现Pydantic配置模型 in backend/src/core/config.py (Settings类) ✅ 2025-10-11 (commit: e07c671)
-- [X] T024a [P] 实现健康检查端点 in backend/src/main.py::health_check_endpoint (GET /health) ✅ 2025-10-11 (commit: ccca883)
+- [X] T024a [P] 实现健康检查端点 in backend/src/main.py::health_check_endpoint (GET /health，返回JSON格式{"status":"healthy|degraded|unhealthy","checks":{...}}，检查项：database执行SELECT 1验证PostgreSQL连接、payment_api调用支付平台健康检查端点超时5秒标记不可用、disk_space检查发票存储路径可用空间>1GB，状态判定：所有通过→200 healthy、支付API不可用但数据库正常→200 degraded、数据库不可用→503 unhealthy) ✅ 2025-10-11 (commit: ccca883)
 
 ### 公共Schema和工具
 
 - [X] T025 [P] 创建公共Pydantic schemas in backend/src/schemas/common.py (ErrorResponse, TokenResponse等) ✅ 2025-10-11 (commit: 26e9414)
 - [X] T026 [P] 实现密码哈希工具 in backend/src/core/utils/password.py (bcrypt) ✅ 2025-10-11 (commit: e07c671)
+- [ ] T026a [P] 实现加密工具类 in backend/src/core/security/encryption.py (AES-256-GCM加密/解密、密钥派生函数PBKDF2、支持多版本密钥解密以兼容密钥轮换场景，主密钥从环境变量MASTER_ENCRYPTION_KEY读取)
+- [ ] T026b [P] 单元测试：加密工具 in backend/tests/unit/security/test_encryption.py (验证加密可逆性、密钥轮换兼容性、错误密钥解密失败)
 - [X] T027 [P] 实现金额计算工具 in backend/src/core/utils/money.py (精确decimal计算) ✅ 2025-10-11 (commit: e07c671)
 - [X] T028 [P] 实现时间戳验证工具 in backend/src/core/utils/timestamp.py ✅ 2025-10-11 (commit: e07c671)
 
-**Checkpoint**: ✅ 基础设施就绪 - 用户故事可以并行开始 (16/21 tasks完成，76%)
+**Checkpoint**: ✅ 基础设施就绪 - 用户故事可以并行开始 (16/28 tasks完成，57% - 新增7个安全/监控/测试任务)
 
 ---
 
 ## Phase 3: User Story 1 - 游戏授权与实时计费 (Priority: P1) 🎯 MVP
 
+**依赖**: Phase 2 (基础设施) + T005a (contracts/已生成)
+
 **Goal**: 头显Server请求游戏授权，系统验证、扣费、返回Token
 
 **Independent Test**: 头显Server配置凭证 → 请求授权 → 扣费成功 → 游戏启动
 
-### 测试任务 (TDD - 先写测试)
+### 测试任务 (TDD - 基于contracts/编写测试)
 
 - [ ] T029 [P] [US1] 契约测试：游戏授权接口 in backend/tests/contract/test_game_authorize.py (验证POST /v1/auth/game/authorize契约)
 - [ ] T030 [P] [US1] 集成测试：完整授权流程 in backend/tests/integration/test_authorization_flow.py (API Key验证 → 余额扣费 → 返回Token)
 - [ ] T031 [P] [US1] 集成测试：余额不足场景 in backend/tests/integration/test_insufficient_balance.py
 - [ ] T032 [P] [US1] 集成测试：会话ID幂等性 in backend/tests/integration/test_session_idempotency.py (防重复扣费)
 - [ ] T033 [P] [US1] 集成测试：玩家数量范围验证 in backend/tests/integration/test_player_count_validation.py
+- [ ] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：格式错误、operatorId不匹配、时间戳过期超过5分钟、随机数不足16位等场景，验证返回HTTP 400及详细错误信息)
 - [ ] T034 [P] [US1] 集成测试：并发扣费冲突处理 in backend/tests/integration/test_concurrent_billing.py
 
 ### 数据模型 (可并行)
@@ -399,6 +410,11 @@
 - [ ] T188 [P] [US6] 实现查询审计日志API in backend/src/api/v1/finance/audit-logs.py::get_audit_logs (GET /v1/finance/audit-logs)
 - [ ] T189 [US6] 注册财务路由 in backend/src/main.py
 
+### 后台任务 (定时报表生成)
+
+- [ ] T189a [US6] 实现定时财务报表生成任务 in backend/src/tasks/scheduled_reports.py (使用APScheduler，每日凌晨1点生成日报、每周一凌晨生成周报、每月1日凌晨生成月报，报表包含收入统计/大客户数据/使用统计三部分，自动保存到文件系统backend/reports/并记录数据库finance_reports表)
+- [ ] T189b [P] [US6] 单元测试：报表生成调度 in backend/tests/unit/tasks/test_scheduled_reports.py (验证调度配置正确、报表生成逻辑、文件保存路径)
+
 ### 单元测试 (补充)
 
 - [ ] T190 [P] [US6] FinanceDashboardService单元测试 in backend/tests/unit/services/test_finance_dashboard_service.py
@@ -525,6 +541,7 @@
 - [ ] T241 [P] 实现消费统计页 in frontend/src/pages/operator/Statistics.vue (ECharts图表)
 - [ ] T242 [P] 实现消息中心页 in frontend/src/pages/operator/Messages.vue
 - [ ] T243 [P] 实现数据导出页 in frontend/src/pages/operator/Export.vue
+- [ ] T243a [P] 实现前端Vue组件单元测试 in frontend/tests/unit/ (使用Vitest，至少覆盖核心业务组件：Dashboard.vue、Recharge.vue、Statistics.vue，验证数据渲染、用户交互、API调用)
 
 ### 管理员端前端 (10个页面)
 
@@ -594,9 +611,11 @@
 
 ### 安全加固
 
-- [ ] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py
-- [ ] T277 [P] 实现敏感数据加密存储 (API Key、支付信息使用AES-256)
-- [ ] T278 [P] 实现异常IP检测和账户锁定 in backend/src/services/security.py
+- [ ] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py (包含TLS 1.3配置验证，拒绝TLS 1.2及以下版本连接)
+- [ ] T277 [P] 实现敏感数据加密存储 (使用T026a的encryption.py工具类，对运营商API Key、支付平台密钥、JWT Secret进行AES-256-GCM加密后存储数据库)
+- [ ] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟)
+- [ ] T278a [P] 集成测试：异常IP检测与锁定 in backend/tests/integration/test_ip_detection.py (模拟暴力攻击场景：连续失败25次、切换6个API Key，验证账户锁定operator_accounts.is_locked=true、验证告警邮件发送、验证锁定后授权请求返回HTTP 403)
+- [ ] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑)
 
 ### 文档和部署
 
@@ -617,6 +636,8 @@
 - [ ] T287 运行所有测试套件并生成报告
 - [ ] T288 代码审查和重构
 - [ ] T289 性能基准测试 in backend/tests/performance/test_benchmark.py (授权API P95 < 100ms满足NFR-001, 峰值吞吐量 ≥ 20 req/s满足NFR-002, 10万条记录导出<30秒满足SC-009/NFR-004, 系统可用性≥99.5%验证SC-011/NFR-005)
+- [ ] T289a [P] 编写性能基线测试 in backend/tests/performance/test_baseline.py (在优化前建立性能基线：当前授权API响应时间P50/P95/P99、数据库查询耗时、内存占用，优化后对比验证改进效果，遵循TDD原则不跳过测试)
+- [ ] T290 [P] 实现客户分类自动更新任务 in backend/src/tasks/tier_recalculation.py (使用APScheduler，每月1日凌晨2点根据上月消费额自动重新计算所有运营商客户分类：≥10000元→VIP、1000-10000元→普通、<1000元→试用，记录变更日志)
 
 **Checkpoint**: 项目完成，可以投入生产
 
@@ -754,7 +775,15 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 7. **独立测试**: 每个用户故事完成后应能独立测试，不依赖其他故事
 8. **配置外部化**: 价格、阈值、超时等配置存储在数据库或环境变量，零硬编码
 
-**总任务数**: 289个任务
+**总任务数**: 303个任务 (原289 + 新增14个安全/监控/测试任务)
+
+**新增任务摘要**:
+- Phase 1: T005a (OpenAPI契约生成)
+- Phase 2: T010a, T017a/b, T018a/b, T026a/b (基础设施测试和加密工具)
+- Phase 3: T033a (会话ID格式验证测试)
+- Phase 8: T189a/b (定时财务报表生成)
+- Phase 11: T243a (前端单元测试)
+- Phase 13: T278a/b, T289a, T290 (安全加固、性能基线、客户分类任务)
 
 **预计工作量**:
 - 1个全栈开发人员: 约3-4个月 (按优先级顺序)

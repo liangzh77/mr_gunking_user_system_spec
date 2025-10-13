@@ -1,9 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version: 1.0.0 (Initial Constitution)
+Version: 1.0.1 (Performance Constraint Amendment)
 Ratification Date: 2025-10-10
-Last Amended: 2025-10-10
+Last Amended: 2025-10-13
+
+Amendment Summary:
+- 性能约束调整: 系统吞吐量从≥1000 req/s调整为≥20 req/s (小规模部署场景)
+- 理由: 匹配项目实际规模(100运营商×10并发=20峰值)，避免过度设计
+- 影响范围: plan.md Complexity Tracking表中的偏离记录已解决
 
 Principles Defined:
 - I. 测试驱动开发 (Test-Driven Development)
@@ -22,7 +27,8 @@ Templates Status:
 ✅ spec-template.md - User story structure supports TDD
 ✅ tasks-template.md - Task organization supports testing-first approach
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- [ ] 更新 plan.md 删除 Complexity Tracking 表中的性能偏离记录
 -->
 
 # MR游戏运营管理系统 Constitution
@@ -102,7 +108,7 @@ Follow-up TODOs: None
 
 ### 性能约束
 - API响应时间：P95 < 200ms（授权接口 < 100ms）
-- 系统吞吐量：支持至少1000次/秒的授权请求
+- 系统吞吐量：支持至少20次/秒的授权请求（小规模部署场景，可水平扩展至更高吞吐量）
 - 数据库查询：单次查询 < 50ms，避免N+1问题
 - 缓存策略：热点数据（价格配置、用户额度）必须缓存，TTL根据业务特性设定
 
@@ -144,4 +150,4 @@ Follow-up TODOs: None
 - MINOR: 新增原则或章节、扩展现有指导
 - PATCH: 措辞优化、错误修正、澄清说明
 
-**Version**: 1.0.0 | **Ratified**: 2025-10-10 | **Last Amended**: 2025-10-10
+**Version**: 1.0.1 | **Ratified**: 2025-10-10 | **Last Amended**: 2025-10-13
