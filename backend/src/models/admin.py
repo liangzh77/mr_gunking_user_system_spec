@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db.base import Base
 
@@ -80,6 +80,31 @@ class AdminAccount(Base):
         nullable=False,
         server_default=func.current_timestamp(),
         onupdate=func.current_timestamp(),
+    )
+
+    # ==================== 关系定义 ====================
+    # 1:N - 一个管理员创建多个应用
+    created_applications: Mapped[list["Application"]] = relationship(
+        "Application",
+        back_populates="creator",
+        lazy="selectin",
+        foreign_keys="Application.created_by"
+    )
+
+    # 1:N - 一个管理员创建多个运营商账户
+    created_operators: Mapped[list["OperatorAccount"]] = relationship(
+        "OperatorAccount",
+        back_populates="creator",
+        lazy="selectin",
+        foreign_keys="OperatorAccount.created_by"
+    )
+
+    # 1:N - 一个管理员批准多个授权关系
+    approved_authorizations: Mapped[list["OperatorAppAuthorization"]] = relationship(
+        "OperatorAppAuthorization",
+        back_populates="approver",
+        lazy="selectin",
+        foreign_keys="OperatorAppAuthorization.authorized_by"
     )
 
     def __repr__(self) -> str:

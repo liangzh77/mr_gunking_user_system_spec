@@ -148,6 +148,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+# Alias for backward compatibility
+get_db = get_db_session
+
+
 @asynccontextmanager
 async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
     """Context manager for database sessions outside of FastAPI.
