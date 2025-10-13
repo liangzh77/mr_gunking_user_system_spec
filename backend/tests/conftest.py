@@ -157,9 +157,11 @@ async def reset_database(test_engine):
 
     yield
 
-    # 测试后清空所有表数据 (但不删除表结构)
-    # 注意：SQLite内存数据库在session作用域内共享
-    # 不需要drop表，只需要清空数据即可
+    # 测试后清空所有表数据（保持表结构）
+    async with test_engine.begin() as conn:
+        # 按依赖顺序删除数据（先删除子表，再删除父表）
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 @pytest.fixture
