@@ -33,7 +33,8 @@
       "Bash(timeout 30 .venv312/Scripts/pytest.exe:*)",
       "Bash(git rm:*)",
       "Bash(./run_tests.bat quick)",
-      "Bash(.venv312Scriptspytest.exe tests/contract/test_game_authorize.py::test_api_key_length -v --no-cov --tb=short)"
+      "Bash(.venv312Scriptspytest.exe tests/contract/test_game_authorize.py::test_api_key_length -v --no-cov --tb=short)",
+      "Bash(.venv312/Scripts/pip.exe list:*)"
     ],
     "deny": [],
     "ask": []

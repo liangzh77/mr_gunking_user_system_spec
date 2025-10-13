@@ -78,16 +78,23 @@ def register_exception_handlers(app: FastAPI) -> None:
             detail=exc.detail,
         )
 
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={
+        # If detail is a dict (custom error response), keep it in 'detail' field
+        # Otherwise, wrap string message in standard format
+        if isinstance(exc.detail, dict):
+            content = {"detail": exc.detail}
+        else:
+            content = {
                 "success": False,
                 "error": {
                     "type": "HTTPException",
                     "message": exc.detail,
                 },
                 "message": exc.detail,
-            },
+            }
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=content,
         )
 
     @app.exception_handler(RequestValidationError)

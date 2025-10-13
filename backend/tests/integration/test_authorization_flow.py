@@ -360,7 +360,7 @@ async def test_authorization_flow_inactive_application(test_data, test_db):
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     data = response.json()
-    assert data["detail"]["error_code"] == "APPLICATION_INACTIVE"
+    assert data["detail"]["error_code"] == "APP_INACTIVE"
 
     # 恢复应用状态
     application.is_active = True
@@ -408,7 +408,7 @@ async def test_authorization_flow_unauthorized_application(test_data, test_db):
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     data = response.json()
-    assert data["detail"]["error_code"] == "APPLICATION_NOT_AUTHORIZED"
+    assert data["detail"]["error_code"] == "APP_NOT_AUTHORIZED"
 
 
 @pytest.mark.asyncio
@@ -421,6 +421,10 @@ async def test_authorization_flow_site_not_owned(test_data, test_db):
     # 创建另一个运营商及其运营点
     another_operator = OperatorAccount(
         username="op_another_001",
+        full_name="Another Operator",  # 必填字段
+        email="another@test.com",
+        phone="13800138001",
+        password_hash="hashed_password",
         api_key="b" * 64,
         api_key_hash="hashed_secret_2",
         balance=Decimal("300.00"),
@@ -434,6 +438,7 @@ async def test_authorization_flow_site_not_owned(test_data, test_db):
     another_site = OperationSite(
         operator_id=another_operator.id,
         name="其他运营点",
+        address="上海市浦东新区测试路2号",  # 必填字段
         server_identifier="server_another_001",
         is_active=True
     )
