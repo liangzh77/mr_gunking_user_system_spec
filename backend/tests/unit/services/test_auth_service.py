@@ -156,11 +156,13 @@ async def auth_test_data(test_db):
     test_db.add(valid_authorization)
 
     # 创建授权关系 - 已过期授权
+    # 注意: expires_at必须大于authorized_at才能通过CHECK约束chk_expiry_future
     expired_authorization = OperatorAppAuthorization(
         operator_id=active_operator.id,
         application_id=inactive_app.id,
         authorized_by=admin.id,
-        expires_at=datetime.utcnow() - timedelta(days=1),  # 已过期
+        authorized_at=datetime.utcnow() - timedelta(days=10),  # 10天前授权
+        expires_at=datetime.utcnow() - timedelta(days=1),  # 1天前过期
         is_active=True
     )
     test_db.add(expired_authorization)
