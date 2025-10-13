@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     )
 
     # ========== API Configuration ==========
-    API_V1_PREFIX: str = Field(default="/api/v1", description="API v1 prefix path")
+    API_V1_PREFIX: str = Field(default="/v1", description="API v1 prefix path")
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000,http://localhost:5173",
         description="Allowed CORS origins (comma-separated)",

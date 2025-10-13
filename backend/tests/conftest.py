@@ -117,7 +117,7 @@ async def test_engine():
 
 @pytest.fixture
 async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
-    """创建测试数据库会话(每个测试函数独立事务)
+    """创建测试数据库会话(每个测试函数独立会话)
 
     使用方式:
     ```python
@@ -126,6 +126,8 @@ async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
         result = await test_db.execute(select(User))
         ...
     ```
+
+    注意：此fixture不自动管理事务。测试可以自行决定是否commit。
     """
     # 创建session factory
     async_session = async_sessionmaker(
@@ -136,12 +138,11 @@ async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
         autoflush=False,
     )
 
-    # 开始事务
+    # 创建会话但不开始事务
     async with async_session() as session:
-        async with session.begin():
-            yield session
-            # 测试结束后自动回滚
-            await session.rollback()
+        yield session
+        # 测试结束后关闭会话（不回滚）
+        await session.close()
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -180,6 +181,37 @@ def create_operator_defaults():
         "phone": "13900139000",
         "password_hash": "hashed_password_here",
     }
+
+
+@pytest.fixture(autouse=True)
+async def override_get_db(test_engine):
+    """自动覆盖FastAPI的get_db依赖，使用测试数据库
+
+    autouse=True 表示所有测试自动应用此fixture。
+    这样所有通过FastAPI TestClient/AsyncClient的测试都会使用内存数据库。
+    """
+    from src.main import app
+    from src.db.session import get_db
+
+    async_session = async_sessionmaker(
+        test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+
+    async def _get_test_db():
+        async with async_session() as session:
+            yield session
+
+    # 覆盖应用的get_db依赖
+    app.dependency_overrides[get_db] = _get_test_db
+
+    yield
+
+    # 测试结束后清除覆盖
+    app.dependency_overrides.clear()
 
 
 # Pytest markers配置
