@@ -737,3 +737,190 @@ class OperatorService:
         await self.db.refresh(site)
 
         return site
+
+    async def get_sites(
+        self,
+        operator_id: UUID,
+        include_deleted: bool = False
+    ) -> list:
+        """获取运营商的运营点列表 (T093)
+
+        Args:
+            operator_id: 运营商ID
+            include_deleted: 是否包含已删除的运营点(默认false)
+
+        Returns:
+            list[OperationSite]: 运营点列表(按创建时间降序)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.site import OperationSite
+        from sqlalchemy import desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            OperationSite.operator_id == operator_id
+        ]
+
+        # 是否包含已删除的运营点
+        if not include_deleted:
+            conditions.append(OperationSite.deleted_at.is_(None))
+
+        # 3. 查询运营点列表(按创建时间降序)
+        stmt = (
+            select(OperationSite)
+            .where(*conditions)
+            .order_by(desc(OperationSite.created_at))
+        )
+
+        result = await self.db.execute(stmt)
+        sites = result.scalars().all()
+
+        return list(sites)
+
+    async def update_site(
+        self,
+        operator_id: UUID,
+        site_id: UUID,
+        name: Optional[str] = None,
+        address: Optional[str] = None,
+        description: Optional[str] = None
+    ):
+        """更新运营点信息 (T095)
+
+        Args:
+            operator_id: 运营商ID
+            site_id: 运营点ID
+            name: 运营点名称(可选)
+            address: 详细地址(可选)
+            description: 运营点描述(可选)
+
+        Returns:
+            OperationSite: 更新后的运营点对象
+
+        Raises:
+            HTTPException 404: 运营商或运营点不存在
+        """
+        from ..models.site import OperationSite
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 查询运营点(必须属于该运营商且未删除)
+        site_stmt = select(OperationSite).where(
+            OperationSite.id == site_id,
+            OperationSite.operator_id == operator_id,
+            OperationSite.deleted_at.is_(None)
+        )
+        site_result = await self.db.execute(site_stmt)
+        site = site_result.scalar_one_or_none()
+
+        if not site:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "SITE_NOT_FOUND",
+                    "message": "运营点不存在或无权限访问"
+                }
+            )
+
+        # 3. 更新字段(仅更新提供的字段)
+        if name is not None:
+            site.name = name
+        if address is not None:
+            site.address = address
+        if description is not None:
+            site.description = description
+
+        await self.db.commit()
+        await self.db.refresh(site)
+
+        return site
+
+    async def delete_site(
+        self,
+        operator_id: UUID,
+        site_id: UUID
+    ) -> None:
+        """删除运营点(软删除) (T096)
+
+        Args:
+            operator_id: 运营商ID
+            site_id: 运营点ID
+
+        Raises:
+            HTTPException 404: 运营商或运营点不存在
+        """
+        from ..models.site import OperationSite
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 查询运营点(必须属于该运营商且未删除)
+        site_stmt = select(OperationSite).where(
+            OperationSite.id == site_id,
+            OperationSite.operator_id == operator_id,
+            OperationSite.deleted_at.is_(None)
+        )
+        site_result = await self.db.execute(site_stmt)
+        site = site_result.scalar_one_or_none()
+
+        if not site:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "SITE_NOT_FOUND",
+                    "message": "运营点不存在或无权限访问"
+                }
+            )
+
+        # 3. 软删除(设置deleted_at时间戳)
+        site.deleted_at = datetime.now(timezone.utc)
+
+        await self.db.commit()

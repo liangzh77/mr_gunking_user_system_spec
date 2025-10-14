@@ -26,7 +26,9 @@ from ...schemas.operator import (
     RefundItem,
     RefundListResponse,
     SiteCreateRequest,
+    SiteListResponse,
     SiteResponse,
+    SiteUpdateRequest,
     TransactionItem,
     TransactionListResponse,
     UsageItem,
@@ -895,5 +897,308 @@ async def create_site(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"创建运营点失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/sites",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="查询运营点列表",
+    description="获取当前运营商的所有运营点列表"
+)
+async def get_sites(
+    include_deleted: bool = Query(False, description="是否包含已删除的运营点"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """查询运营点列表API (T093)
+
+    Args:
+        include_deleted: 是否包含已删除的运营点
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "sites": [SiteResponse对象列表]
+            }
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取运营点列表
+    try:
+        sites = await operator_service.get_sites(
+            operator_id=operator_id,
+            include_deleted=include_deleted
+        )
+
+        # 转换为响应格式
+        site_responses = []
+        for site in sites:
+            site_responses.append(SiteResponse(
+                site_id=f"site_{site.id}",
+                name=site.name,
+                address=site.address,
+                description=site.description,
+                is_deleted=site.deleted_at is not None,
+                created_at=site.created_at,
+                updated_at=site.updated_at
+            ))
+
+        return {
+            "success": True,
+            "data": {
+                "sites": site_responses
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询运营点列表失败: {str(e)}"
+            }
+        )
+
+
+@router.put(
+    "/me/sites/{site_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="更新运营点信息",
+    description="更新运营点的名称、地址、描述"
+)
+async def update_site(
+    site_id: str,
+    request: SiteUpdateRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """更新运营点API (T095)
+
+    Args:
+        site_id: 运营点ID (格式: site_<uuid>)
+        request: 更新运营点请求
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "运营点信息已更新",
+            "data": SiteResponse对象
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商或运营点不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析site_id
+    try:
+        if site_id.startswith("site_"):
+            site_uuid = UUID(site_id[5:])
+        else:
+            site_uuid = UUID(site_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_SITE_ID",
+                "message": f"无效的运营点ID格式: {site_id}"
+            }
+        )
+
+    # 调用服务层更新运营点
+    try:
+        site = await operator_service.update_site(
+            operator_id=operator_id,
+            site_id=site_uuid,
+            name=request.name,
+            address=request.address,
+            description=request.description
+        )
+
+        # 转换为响应格式
+        site_response = SiteResponse(
+            site_id=f"site_{site.id}",
+            name=site.name,
+            address=site.address,
+            description=site.description,
+            is_deleted=site.deleted_at is not None,
+            created_at=site.created_at,
+            updated_at=site.updated_at
+        )
+
+        return {
+            "success": True,
+            "message": "运营点信息已更新",
+            "data": site_response
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"更新运营点失败: {str(e)}"
+            }
+        )
+
+
+@router.delete(
+    "/me/sites/{site_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="删除运营点",
+    description="删除运营点(逻辑删除),历史数据保留"
+)
+async def delete_site(
+    site_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """删除运营点API (T096)
+
+    Args:
+        site_id: 运营点ID (格式: site_<uuid>)
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "运营点已删除"
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商或运营点不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析site_id
+    try:
+        if site_id.startswith("site_"):
+            site_uuid = UUID(site_id[5:])
+        else:
+            site_uuid = UUID(site_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_SITE_ID",
+                "message": f"无效的运营点ID格式: {site_id}"
+            }
+        )
+
+    # 调用服务层删除运营点
+    try:
+        await operator_service.delete_site(
+            operator_id=operator_id,
+            site_id=site_uuid
+        )
+
+        return {
+            "success": True,
+            "message": "运营点已删除"
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"删除运营点失败: {str(e)}"
             }
         )
