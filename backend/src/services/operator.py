@@ -513,3 +513,67 @@ class OperatorService:
         transactions = result.scalars().all()
 
         return list(transactions), total
+
+    async def get_refunds(
+        self,
+        operator_id: UUID,
+        page: int = 1,
+        page_size: int = 20
+    ) -> tuple[list, int]:
+        """查询运营商退款记录(分页) (T075)
+
+        Args:
+            operator_id: 运营商ID
+            page: 页码(从1开始)
+            page_size: 每页数量
+
+        Returns:
+            tuple[list, int]: (退款记录列表, 总记录数)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.refund import RefundRecord
+        from sqlalchemy import func, desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            RefundRecord.operator_id == operator_id
+        ]
+
+        # 3. 查询总记录数
+        count_stmt = select(func.count(RefundRecord.id)).where(*conditions)
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 4. 分页查询退款记录
+        offset = (page - 1) * page_size
+        stmt = (
+            select(RefundRecord)
+            .where(*conditions)
+            .order_by(desc(RefundRecord.created_at))  # 按时间降序
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.db.execute(stmt)
+        refunds = result.scalars().all()
+
+        return list(refunds), total

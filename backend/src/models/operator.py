@@ -214,6 +214,13 @@ class OperatorAccount(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营商有多条退款记录
+    refund_records: Mapped[list["RefundRecord"]] = relationship(
+        "RefundRecord",
+        back_populates="operator",
+        lazy="selectin"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 余额非负

@@ -157,7 +157,7 @@
 
 ### 数据模型 (可并行)
 
-- [ ] T055 [P] [US2] 创建RefundRecord模型 in backend/src/models/refund.py (退款记录表)
+- [X] T055 [P] [US2] 创建RefundRecord模型 in backend/src/models/refund.py (退款记录表) ✅ 2025-10-14
 - [ ] T056 [P] [US2] 创建InvoiceRecord模型 in backend/src/models/invoice.py (发票记录表)
 
 ### Pydantic Schemas (可并行)
@@ -180,13 +180,13 @@
 - [X] T066 [P] [US2] 实现运营商注册API in backend/src/api/v1/auth.py::register_operator (POST /v1/auth/operators/register) ✅ 2025-10-14 (22/23测试通过,1个测试密码长度边界值问题)
 - [X] T067 [P] [US2] 实现运营商登录API in backend/src/api/v1/auth.py::operator_login (POST /v1/auth/operators/login) ✅ 2025-10-14 (14/15测试通过,1个测试依赖未实现的注销功能)
 - [ ] T068 [P] [US2] 实现运营商登出API in backend/src/api/v1/auth.py::operator_logout (POST /v1/auth/operators/logout)
-- [ ] T069 [P] [US2] 实现查询个人信息API in backend/src/api/v1/operators.py::get_profile (GET /v1/operators/me)
-- [ ] T070 [P] [US2] 实现更新个人信息API in backend/src/api/v1/operators.py::update_profile (PUT /v1/operators/me)
+- [X] T069 [P] [US2] 实现查询个人信息API in backend/src/api/v1/operators.py::get_profile (GET /v1/operators/me) ✅ 2025-10-14
+- [X] T070 [P] [US2] 实现更新个人信息API in backend/src/api/v1/operators.py::update_profile (PUT /v1/operators/me) ✅ 2025-10-14
 - [ ] T071 [P] [US2] 实现充值API in backend/src/api/v1/operators.py::recharge (POST /v1/operators/me/recharge)
-- [ ] T072 [P] [US2] 实现查询余额API in backend/src/api/v1/operators.py::get_balance (GET /v1/operators/me/balance)
-- [ ] T073 [P] [US2] 实现交易记录查询API in backend/src/api/v1/operators.py::get_transactions (GET /v1/operators/me/transactions)
+- [X] T072 [P] [US2] 实现查询余额API in backend/src/api/v1/operators.py::get_balance (GET /v1/operators/me/balance) ✅ 2025-10-14
+- [X] T073 [P] [US2] 实现交易记录查询API in backend/src/api/v1/operators.py::get_transactions (GET /v1/operators/me/transactions) ✅ 2025-10-14
 - [ ] T074 [P] [US2] 实现退款申请API in backend/src/api/v1/operators.py::apply_refund (POST /v1/operators/me/refunds)
-- [ ] T075 [P] [US2] 实现退款记录查询API in backend/src/api/v1/operators.py::get_refunds (GET /v1/operators/me/refunds)
+- [X] T075 [P] [US2] 实现退款记录查询API in backend/src/api/v1/operators.py::get_refunds (GET /v1/operators/me/refunds) ✅ 2025-10-14 (8/8测试通过)
 - [ ] T076 [P] [US2] 实现发票申请API in backend/src/api/v1/operators.py::apply_invoice (POST /v1/operators/me/invoices)
 - [ ] T077 [P] [US2] 实现发票记录查询API in backend/src/api/v1/operators.py::get_invoices (GET /v1/operators/me/invoices)
 - [ ] T078 [US2] 实现支付回调处理接口 in backend/src/api/v1/webhooks.py (POST /v1/webhooks/payment/wechat, POST /v1/webhooks/payment/alipay)

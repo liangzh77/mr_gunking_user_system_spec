@@ -9,12 +9,16 @@ User Story 1 - 游戏授权与实时计费:
 - UsageRecord: 游戏会话使用记录
 - TransactionRecord: 资金交易记录
 - OperatorAppAuthorization: 运营商应用授权关系
+
+User Story 2 - 运营商账户与财务管理:
+- RefundRecord: 退款申请记录
 """
 
 from .admin import AdminAccount
 from .application import Application
 from .authorization import OperatorAppAuthorization
 from .operator import OperatorAccount
+from .refund import RefundRecord
 from .site import OperationSite
 from .transaction import TransactionRecord
 from .usage_record import UsageRecord
@@ -27,4 +31,5 @@ __all__ = [
     "UsageRecord",
     "TransactionRecord",
     "OperatorAppAuthorization",
+    "RefundRecord",
 ]

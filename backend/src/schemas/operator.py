@@ -515,3 +515,121 @@ class TransactionListResponse(BaseModel):
             ]
         }
     }
+
+
+# ========== 退款记录相关 Schema (T075) ==========
+
+class RefundItem(BaseModel):
+    """退款记录项 (T075)
+
+    单条退款申请记录的详细信息
+    """
+    refund_id: str = Field(
+        ...,
+        description="退款ID"
+    )
+
+    requested_amount: str = Field(
+        ...,
+        description="申请退款金额(申请时的余额,字符串格式)"
+    )
+
+    actual_refund_amount: Optional[str] = Field(
+        None,
+        description="实际退款金额(审核时的余额)"
+    )
+
+    status: str = Field(
+        ...,
+        description="审核状态: pending/approved/rejected"
+    )
+
+    reason: str = Field(
+        ...,
+        description="退款原因"
+    )
+
+    reject_reason: Optional[str] = Field(
+        None,
+        description="拒绝原因(status=rejected时)"
+    )
+
+    reviewed_by: Optional[str] = Field(
+        None,
+        description="审核人ID"
+    )
+
+    reviewed_at: Optional[datetime] = Field(
+        None,
+        description="审核时间"
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="申请时间"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "refund_id": "refund_20250115_001",
+                    "requested_amount": "100.00",
+                    "actual_refund_amount": "80.00",
+                    "status": "approved",
+                    "reason": "业务调整，不再继续使用",
+                    "reject_reason": None,
+                    "reviewed_by": "fin_001",
+                    "reviewed_at": "2025-01-16T10:00:00.000Z",
+                    "created_at": "2025-01-15T15:00:00.000Z"
+                }
+            ]
+        }
+    }
+
+
+class RefundListResponse(BaseModel):
+    """退款记录列表响应(分页) (T075)
+
+    返回分页的退款申请记录列表
+    """
+    page: int = Field(..., description="当前页码", ge=1)
+    page_size: int = Field(..., description="每页数量", ge=1, le=100)
+    total: int = Field(..., description="总记录数", ge=0)
+    items: list[RefundItem] = Field(..., description="退款记录列表")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 2,
+                    "items": [
+                        {
+                            "refund_id": "refund_20250115_001",
+                            "requested_amount": "100.00",
+                            "actual_refund_amount": "80.00",
+                            "status": "approved",
+                            "reason": "业务调整，不再继续使用",
+                            "reject_reason": None,
+                            "reviewed_by": "fin_001",
+                            "reviewed_at": "2025-01-16T10:00:00.000Z",
+                            "created_at": "2025-01-15T15:00:00.000Z"
+                        },
+                        {
+                            "refund_id": "refund_20250110_002",
+                            "requested_amount": "200.00",
+                            "actual_refund_amount": None,
+                            "status": "pending",
+                            "reason": "测试退款申请",
+                            "reject_reason": None,
+                            "reviewed_by": None,
+                            "reviewed_at": None,
+                            "created_at": "2025-01-10T14:00:00.000Z"
+                        }
+                    ]
+                }
+            ]
+        }
+    }

@@ -23,6 +23,8 @@ from ...schemas.operator import (
     BalanceResponse,
     OperatorProfile,
     OperatorUpdateRequest,
+    RefundItem,
+    RefundListResponse,
     TransactionItem,
     TransactionListResponse,
 )
@@ -493,5 +495,142 @@ async def get_transactions(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询交易记录失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/refunds",
+    response_model=RefundListResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询退款记录",
+    description="""
+    查询当前登录运营商的退款申请记录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **查询参数**:
+    - page: 页码(默认1,最小1)
+    - page_size: 每页数量(默认20,最小1,最大100)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页数量
+    - total: 总记录数
+    - items: 退款记录列表
+      - refund_id: 退款记录ID
+      - requested_amount: 申请退款金额(字符串格式)
+      - actual_refund_amount: 实际退款金额(字符串格式,可能为null)
+      - status: 审核状态 (pending=待审核, approved=已通过, rejected=已拒绝)
+      - reason: 退款原因
+      - reject_reason: 拒绝原因(status=rejected时有值)
+      - reviewed_by: 审核人ID(财务人员,可能为null)
+      - reviewed_at: 审核时间(可能为null)
+      - created_at: 申请时间
+
+    **注意事项**:
+    - 结果按申请时间降序排列(最新的在前)
+    - 金额为字符串避免浮点精度问题
+    """
+)
+async def get_refunds(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+) -> RefundListResponse:
+    """查询运营商退款记录API (T075)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+        page: 页码
+        page_size: 每页数量
+
+    Returns:
+        RefundListResponse: 分页的退款记录列表
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取退款记录
+    try:
+        refunds, total = await operator_service.get_refunds(
+            operator_id=operator_id,
+            page=page,
+            page_size=page_size
+        )
+
+        # 转换为响应格式
+        items = []
+        for refund in refunds:
+            items.append(RefundItem(
+                refund_id=f"refund_{refund.id}",
+                requested_amount=str(refund.requested_amount),
+                actual_refund_amount=str(refund.actual_refund_amount) if refund.actual_refund_amount else None,
+                status=refund.status,
+                reason=refund.reason,
+                reject_reason=refund.reject_reason,
+                reviewed_by=f"fin_{refund.reviewed_by}" if refund.reviewed_by else None,
+                reviewed_at=refund.reviewed_at,
+                created_at=refund.created_at
+            ))
+
+        return RefundListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items
+        )
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询退款记录失败: {str(e)}"
             }
         )
