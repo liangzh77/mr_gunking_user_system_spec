@@ -1205,3 +1205,99 @@ async def delete_site(
                 "message": f"删除运营点失败: {str(e)}"
             }
         )
+
+
+# ========== 使用统计接口 (T112-T114) ==========
+
+@router.get(
+    "/me/statistics/by-site",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="按运营点统计",
+    description="查询各运营点的使用情况统计(场次、玩家、消费)"
+)
+async def get_statistics_by_site(
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """按运营点统计API (T112)
+
+    Args:
+        start_time: 开始时间(可选)
+        end_time: 结束时间(可选)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "sites": [
+                    {
+                        "site_id": "site_xxx",
+                        "site_name": "北京朝阳门店",
+                        "total_sessions": 60,
+                        "total_players": 270,
+                        "total_cost": "2700.00"
+                    }
+                ]
+            }
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取统计数据
+    try:
+        statistics = await operator_service.get_statistics_by_site(
+            operator_id=operator_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "sites": statistics
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询统计数据失败: {str(e)}"
+            }
+        )
