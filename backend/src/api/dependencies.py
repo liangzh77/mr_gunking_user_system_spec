@@ -59,7 +59,10 @@ async def get_current_user_token(
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authorization header",
+            detail={
+                "error_code": "MISSING_TOKEN",
+                "message": "Missing authorization header"
+            },
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -71,7 +74,10 @@ async def get_current_user_token(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
+            detail={
+                "error_code": "INVALID_TOKEN_FORMAT",
+                "message": "Invalid authorization header format"
+            },
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -80,7 +86,10 @@ async def get_current_user_token(
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Invalid or expired token"
+            },
             headers={"WWW-Authenticate": "Bearer"},
         )
 

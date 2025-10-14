@@ -7,10 +7,11 @@
 - 运营商列表
 """
 from datetime import datetime
-from typing import Optional
+from decimal import Decimal
+from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, field_serializer, model_validator
 import re
 
 
@@ -231,8 +232,7 @@ class OperatorProfile(BaseModel):
 
     name: str = Field(
         ...,
-        description="真实姓名或公司名",
-        alias="full_name"
+        description="真实姓名或公司名"
     )
 
     phone: str = Field(
@@ -247,8 +247,7 @@ class OperatorProfile(BaseModel):
 
     category: str = Field(
         ...,
-        description="客户分类: trial/standard/vip",
-        alias="customer_tier"
+        description="客户分类: trial/standard/vip"
     )
 
     balance: str = Field(
@@ -277,8 +276,6 @@ class OperatorProfile(BaseModel):
     )
 
     model_config = {
-        "from_attributes": True,
-        "populate_by_name": True,
         "json_schema_extra": {
             "examples": [
                 {

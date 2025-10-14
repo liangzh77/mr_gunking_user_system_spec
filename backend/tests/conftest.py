@@ -193,7 +193,8 @@ async def override_get_db(test_engine):
     这样所有通过FastAPI TestClient/AsyncClient的测试都会使用内存数据库。
     """
     from src.main import app
-    from src.db.session import get_db
+    from src.db.session import get_db as get_db_session
+    from src.api.dependencies import get_db as get_db_dependency
 
     async_session = async_sessionmaker(
         test_engine,
@@ -207,8 +208,9 @@ async def override_get_db(test_engine):
         async with async_session() as session:
             yield session
 
-    # 覆盖应用的get_db依赖
-    app.dependency_overrides[get_db] = _get_test_db
+    # 覆盖应用的get_db依赖 (两个位置都需要覆盖)
+    app.dependency_overrides[get_db_session] = _get_test_db
+    app.dependency_overrides[get_db_dependency] = _get_test_db
 
     yield
 

@@ -269,7 +269,19 @@ class OperatorService:
                 }
             )
 
-        return OperatorProfile.model_validate(operator)
+        return OperatorProfile(
+            operator_id=operator.id,
+            username=operator.username,
+            name=operator.full_name,
+            phone=operator.phone,
+            email=operator.email,
+            category=operator.customer_tier,
+            balance=str(operator.balance),
+            is_active=operator.is_active,
+            is_locked=operator.is_locked,
+            last_login_at=operator.last_login_at,
+            created_at=operator.created_at
+        )
 
     async def update_profile(
         self,
@@ -318,7 +330,19 @@ class OperatorService:
         await self.db.commit()
         await self.db.refresh(operator)
 
-        return OperatorProfile.model_validate(operator)
+        return OperatorProfile(
+            operator_id=operator.id,
+            username=operator.username,
+            name=operator.full_name,
+            phone=operator.phone,
+            email=operator.email,
+            category=operator.customer_tier,
+            balance=str(operator.balance),
+            is_active=operator.is_active,
+            is_locked=operator.is_locked,
+            last_login_at=operator.last_login_at,
+            created_at=operator.created_at
+        )
 
     async def deactivate_account(self, operator_id: UUID) -> None:
         """注销运营商账户(软删除)
