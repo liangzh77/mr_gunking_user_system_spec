@@ -633,3 +633,137 @@ class RefundListResponse(BaseModel):
             ]
         }
     }
+
+
+# ========== 使用记录相关 Schema (T102/T110) ==========
+
+class UsageItem(BaseModel):
+    """使用记录项 (T102)
+
+    单条游戏使用记录的详细信息
+    """
+    usage_id: str = Field(
+        ...,
+        description="使用记录ID"
+    )
+
+    session_id: str = Field(
+        ...,
+        description="会话ID(幂等性标识)"
+    )
+
+    site_id: str = Field(
+        ...,
+        description="运营点ID"
+    )
+
+    site_name: str = Field(
+        ...,
+        description="运营点名称"
+    )
+
+    app_id: str = Field(
+        ...,
+        description="应用ID"
+    )
+
+    app_name: str = Field(
+        ...,
+        description="应用名称"
+    )
+
+    player_count: int = Field(
+        ...,
+        description="玩家数量"
+    )
+
+    unit_price: str = Field(
+        ...,
+        description="单人价格(历史快照,字符串格式)"
+    )
+
+    total_cost: str = Field(
+        ...,
+        description="总费用(字符串格式)"
+    )
+
+    game_duration: Optional[int] = Field(
+        None,
+        description="游戏时长(秒,可选)"
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="授权时间(游戏启动时间)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "usage_id": "usage_20250115_001",
+                    "session_id": "op_12345_1704067200_a1b2c3d4e5f6g7h8",
+                    "site_id": "site_beijing_001",
+                    "site_name": "北京朝阳门店",
+                    "app_id": "app_space_adventure_001",
+                    "app_name": "太空探险",
+                    "player_count": 5,
+                    "unit_price": "10.00",
+                    "total_cost": "50.00",
+                    "game_duration": 1800,
+                    "created_at": "2025-01-15T12:30:00.000Z"
+                }
+            ]
+        }
+    }
+
+
+class UsageListResponse(BaseModel):
+    """使用记录列表响应(分页) (T102)
+
+    返回分页的使用记录列表
+    """
+    page: int = Field(..., description="当前页码", ge=1)
+    page_size: int = Field(..., description="每页数量", ge=1, le=100)
+    total: int = Field(..., description="总记录数", ge=0)
+    items: list[UsageItem] = Field(..., description="使用记录列表")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 2,
+                    "items": [
+                        {
+                            "usage_id": "usage_20250115_001",
+                            "session_id": "op_12345_1704067200_a1b2c3d4e5f6g7h8",
+                            "site_id": "site_beijing_001",
+                            "site_name": "北京朝阳门店",
+                            "app_id": "app_space_adventure_001",
+                            "app_name": "太空探险",
+                            "player_count": 5,
+                            "unit_price": "10.00",
+                            "total_cost": "50.00",
+                            "game_duration": 1800,
+                            "created_at": "2025-01-15T12:30:00.000Z"
+                        },
+                        {
+                            "usage_id": "usage_20250114_002",
+                            "session_id": "op_12345_1703980800_b2c3d4e5f6g7h8i9",
+                            "site_id": "site_shanghai_001",
+                            "site_name": "上海浦东门店",
+                            "app_id": "app_star_war_001",
+                            "app_name": "星际战争",
+                            "player_count": 8,
+                            "unit_price": "12.00",
+                            "total_cost": "96.00",
+                            "game_duration": 2400,
+                            "created_at": "2025-01-14T15:20:00.000Z"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
