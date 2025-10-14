@@ -1,13 +1,15 @@
-"""授权API接口 (T046)
+"""授权API接口 (T046, T066, T067)
 
-此模块定义游戏授权相关的API端点。
+此模块定义授权相关的API端点。
 
 端点:
-- POST /v1/auth/game/authorize - 游戏授权请求
+- POST /v1/auth/game/authorize - 游戏授权请求 (T046)
+- POST /v1/auth/operators/register - 运营商注册 (T066)
+- POST /v1/auth/operators/login - 运营商登录 (T067)
 
 认证方式:
-- API Key认证 (X-API-Key header)
-- HMAC签名验证 (X-Signature header)
+- 游戏授权: API Key认证 (X-API-Key header) + HMAC签名验证
+- 运营商注册/登录: 无需认证
 """
 
 from typing import Optional
@@ -22,9 +24,16 @@ from ...schemas.auth import (
     GameAuthorizeData,
     GameAuthorizeRequest,
     GameAuthorizeResponse,
+    LoginResponse,
+    OperatorLoginRequest,
+)
+from ...schemas.operator import (
+    OperatorRegisterRequest,
+    OperatorRegisterResponse,
 )
 from ...services.auth_service import AuthService
 from ...services.billing_service import BillingService
+from ...services.operator import OperatorService
 
 router = APIRouter(prefix="/auth", tags=["授权"])
 
@@ -207,3 +216,200 @@ async def authorize_game(
     )
 
     return GameAuthorizeResponse(success=True, data=response_data)
+
+
+# ==================== 运营商注册和登录 (User Story 2) ====================
+
+
+@router.post(
+    "/operators/register",
+    response_model=OperatorRegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "请求参数错误(用户名已存在、密码强度不足、手机号格式错误等)"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="运营商注册",
+    description="""
+    创建新的运营商账户。
+
+    **请求参数**:
+    - username: 用户名(3-20字符,仅字母数字下划线,唯一)
+    - password: 密码(8-32字符,必须包含大小写字母和数字)
+    - name: 真实姓名或公司名(2-50字符)
+    - phone: 联系电话(11位中国手机号)
+    - email: 邮箱地址
+
+    **响应数据**:
+    - operator_id: 运营商ID (格式: op_{uuid})
+    - username: 用户名
+    - api_key: API Key (64位十六进制字符串,**仅显示一次,请妥善保存**)
+    - category: 客户分类(新注册默认为trial)
+    - balance: 账户余额(初始为0.00元)
+    - created_at: 创建时间
+
+    **安全特性**:
+    - 密码使用bcrypt哈希存储
+    - API Key使用密码学安全随机数生成(secrets模块)
+    - 用户名唯一性验证
+    """
+)
+async def register_operator(
+    request: OperatorRegisterRequest,
+    db: AsyncSession = Depends(get_db)
+) -> OperatorRegisterResponse:
+    """运营商注册API (T066)
+
+    处理运营商注册请求,创建账户并生成API Key。
+
+    Args:
+        request: 注册请求数据(包含username, password, name, phone, email)
+        db: 数据库会话
+
+    Returns:
+        OperatorRegisterResponse: 注册成功响应(包含operator_id和api_key)
+
+    Raises:
+        HTTPException 400: 参数错误(用户名已存在、密码不符合要求等)
+        HTTPException 500: 服务器内部错误
+    """
+    operator_service = OperatorService(db)
+
+    try:
+        # 调用服务层创建运营商账户
+        data = await operator_service.register(request)
+
+        # 包装响应格式
+        from ...schemas.operator import OperatorRegisterResponse
+        return OperatorRegisterResponse(
+            success=True,
+            message="注册成功",
+            data=data
+        )
+
+    except HTTPException:
+        # 重新抛出业务逻辑异常(如用户名已存在)
+        raise
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"注册失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/operators/login",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "请求参数错误(缺少必填字段或字段为空)"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "认证失败(用户名或密码错误)"
+        },
+        403: {
+            "model": ErrorResponse,
+            "description": "账户已注销或被锁定"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="运营商登录",
+    description="""
+    运营商账户登录。
+
+    **请求参数**:
+    - username: 用户名(必填)
+    - password: 密码(必填)
+
+    **响应数据**:
+    - success: 请求是否成功(true)
+    - data.access_token: JWT Token (用于后续API认证)
+    - data.token_type: Token类型(Bearer)
+    - data.expires_in: Token有效期(秒,30天=2592000秒)
+    - data.operator: 运营商基本信息
+        - operator_id: 运营商ID
+        - username: 用户名
+        - name: 真实姓名或公司名
+        - category: 客户分类(trial/normal/vip)
+
+    **使用JWT Token**:
+    在后续请求中,在Header中添加:
+    ```
+    Authorization: Bearer {access_token}
+    ```
+
+    **安全特性**:
+    - 密码使用bcrypt验证
+    - JWT Token有效期30天
+    - 更新最近登录时间和IP
+    - 检查账户状态(是否注销/锁定)
+    """
+)
+async def login_operator(
+    request: OperatorLoginRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> LoginResponse:
+    """运营商登录API (T067)
+
+    处理运营商登录请求,验证凭证并返回JWT Token。
+
+    Args:
+        request: 登录请求数据(包含username, password)
+        http_request: FastAPI Request对象(用于获取客户端IP)
+        db: 数据库会话
+
+    Returns:
+        LoginResponse: 登录成功响应(包含access_token和operator信息)
+
+    Raises:
+        HTTPException 400: 参数错误(缺少必填字段)
+        HTTPException 401: 认证失败(用户名或密码错误)
+        HTTPException 403: 账户已注销或被锁定
+        HTTPException 500: 服务器内部错误
+    """
+    operator_service = OperatorService(db)
+
+    try:
+        # 获取客户端IP
+        client_ip = http_request.client.host if http_request.client else None
+
+        # 调用服务层进行登录
+        response = await operator_service.login(
+            username=request.username,
+            password=request.password,
+            login_ip=client_ip
+        )
+
+        return response
+
+    except HTTPException:
+        # 重新抛出业务逻辑异常(如认证失败、账户锁定等)
+        raise
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"登录失败: {str(e)}"
+            }
+        )

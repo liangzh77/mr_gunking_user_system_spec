@@ -78,11 +78,12 @@ def register_exception_handlers(app: FastAPI) -> None:
             detail=exc.detail,
         )
 
-        # If detail is a dict (custom error response), keep it in 'detail' field
-        # Otherwise, wrap string message in standard format
+        # If detail is a dict (custom error response like {error_code, message}), return it directly
+        # This is used by our service layer exceptions
         if isinstance(exc.detail, dict):
-            content = {"detail": exc.detail}
+            content = exc.detail
         else:
+            # For string messages, wrap in standard format
             content = {
                 "success": False,
                 "error": {
@@ -108,7 +109,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             exc: Validation error
 
         Returns:
-            JSONResponse: Validation error response
+            JSONResponse: Validation error response (400 Bad Request with error_code/message)
         """
         logger.warning(
             "validation_error",
@@ -117,16 +118,52 @@ def register_exception_handlers(app: FastAPI) -> None:
             errors=exc.errors(),
         )
 
+        # 提取第一个验证错误信息
+        errors = exc.errors()
+        first_error = errors[0] if errors else {}
+        field = first_error.get("loc", [])[-1] if first_error.get("loc") else "unknown"
+        error_type = first_error.get("type", "validation_error")
+
+        # 构造友好的错误消息
+        if "missing" in error_type:
+            message = f"缺少必填字段: {field}"
+        elif "string_too_short" in error_type:
+            message = f"字段 {field} 长度不足"
+        elif "string_too_long" in error_type:
+            message = f"字段 {field} 长度超限"
+        elif "value_error" in error_type:
+            # 对于field_validator抛出的ValueError,从msg中提取友好消息
+            msg = first_error.get("msg", "")
+            if "Value error, " in msg:
+                message = msg.replace("Value error, ", "")
+            else:
+                message = msg
+        else:
+            message = first_error.get("msg", "请求参数验证失败")
+
+        # 序列化errors,移除不可序列化的对象(如ValueError实例)
+        serializable_errors = []
+        for error in errors:
+            serializable_error = {
+                "type": error.get("type"),
+                "loc": error.get("loc"),
+                "msg": error.get("msg"),
+                "input": str(error.get("input")) if error.get("input") is not None else None,
+            }
+            # ctx中可能包含不可序列化的对象,只保留字符串表示
+            if "ctx" in error and error["ctx"]:
+                serializable_error["ctx"] = {
+                    k: str(v) for k, v in error["ctx"].items()
+                }
+            serializable_errors.append(serializable_error)
+
+        # 返回契约格式(error_code + message)
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,  # 改为400而非422
             content={
-                "success": False,
-                "error": {
-                    "type": "ValidationError",
-                    "message": "Request validation failed",
-                    "details": exc.errors(),
-                },
-                "message": "Request validation failed",
+                "error_code": "INVALID_PARAMS",
+                "message": message,
+                "details": serializable_errors,  # 保留详细错误信息用于调试(已序列化)
             },
         )
 

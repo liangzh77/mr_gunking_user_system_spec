@@ -109,8 +109,8 @@ class OperatorRegisterRequest(BaseModel):
     }
 
 
-class OperatorRegisterResponse(BaseModel):
-    """运营商注册响应 (T057)
+class OperatorRegisterData(BaseModel):
+    """运营商注册响应数据部分 (T057)
 
     返回新创建的运营商基本信息和API Key
     注意:API Key仅在注册时返回一次,请妥善保存
@@ -161,6 +161,51 @@ class OperatorRegisterResponse(BaseModel):
                     "category": "trial",
                     "balance": "0.00",
                     "created_at": "2025-01-01T10:00:00.000Z"
+                }
+            ]
+        }
+    }
+
+
+class OperatorRegisterResponse(BaseModel):
+    """运营商注册响应包装 (T057)
+
+    标准响应格式:
+    {
+        "success": true,
+        "message": "注册成功",
+        "data": {...}
+    }
+    """
+    success: bool = Field(
+        default=True,
+        description="请求是否成功"
+    )
+
+    message: str = Field(
+        default="注册成功",
+        description="响应消息"
+    )
+
+    data: OperatorRegisterData = Field(
+        ...,
+        description="注册数据"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "message": "注册成功",
+                    "data": {
+                        "operator_id": "op_12345",
+                        "username": "operator_beijing_01",
+                        "api_key": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
+                        "category": "trial",
+                        "balance": "0.00",
+                        "created_at": "2025-01-01T10:00:00.000Z"
+                    }
                 }
             ]
         }

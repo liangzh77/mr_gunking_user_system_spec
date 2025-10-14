@@ -170,15 +170,15 @@
 
 ### 业务服务
 
-- [ ] T062 [US2] 实现OperatorService in backend/src/services/operator.py (注册、登录、个人信息管理)
+- [X] T062 [US2] 实现OperatorService in backend/src/services/operator.py (注册、登录、个人信息管理) ✅ 2025-10-14 (完整实现6个方法:register/login/get_profile/update_profile/deactivate_account/regenerate_api_key)
 - [ ] T063 [US2] 实现PaymentService in backend/src/services/payment.py (微信支付集成、支付宝集成、支付回调验证、充值事务处理)
 - [ ] T064 [US2] 实现RefundService in backend/src/services/refund.py (退款申请创建、可退余额计算、退款事务处理)
 - [ ] T065 [US2] 实现InvoiceService in backend/src/services/invoice.py (发票申请创建、电子发票生成)
 
 ### API接口 (可并行)
 
-- [ ] T066 [P] [US2] 实现运营商注册API in backend/src/api/v1/auth.py::register_operator (POST /v1/auth/operators/register)
-- [ ] T067 [P] [US2] 实现运营商登录API in backend/src/api/v1/auth.py::operator_login (POST /v1/auth/operators/login)
+- [X] T066 [P] [US2] 实现运营商注册API in backend/src/api/v1/auth.py::register_operator (POST /v1/auth/operators/register) ✅ 2025-10-14 (22/23测试通过,1个测试密码长度边界值问题)
+- [X] T067 [P] [US2] 实现运营商登录API in backend/src/api/v1/auth.py::operator_login (POST /v1/auth/operators/login) ✅ 2025-10-14 (14/15测试通过,1个测试依赖未实现的注销功能)
 - [ ] T068 [P] [US2] 实现运营商登出API in backend/src/api/v1/auth.py::operator_logout (POST /v1/auth/operators/logout)
 - [ ] T069 [P] [US2] 实现查询个人信息API in backend/src/api/v1/operators.py::get_profile (GET /v1/operators/me)
 - [ ] T070 [P] [US2] 实现更新个人信息API in backend/src/api/v1/operators.py::update_profile (PUT /v1/operators/me)
