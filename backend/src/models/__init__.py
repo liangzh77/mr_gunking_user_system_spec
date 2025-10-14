@@ -12,11 +12,13 @@ User Story 1 - 游戏授权与实时计费:
 
 User Story 2 - 运营商账户与财务管理:
 - RefundRecord: 退款申请记录
+- InvoiceRecord: 发票申请记录
 """
 
 from .admin import AdminAccount
 from .application import Application
 from .authorization import OperatorAppAuthorization
+from .invoice import InvoiceRecord
 from .operator import OperatorAccount
 from .refund import RefundRecord
 from .site import OperationSite
@@ -32,4 +34,5 @@ __all__ = [
     "TransactionRecord",
     "OperatorAppAuthorization",
     "RefundRecord",
+    "InvoiceRecord",
 ]

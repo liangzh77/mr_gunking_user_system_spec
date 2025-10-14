@@ -1,4 +1,4 @@
-"""授权API接口 (T046, T066, T067)
+"""授权API接口 (T046, T066, T067, T068)
 
 此模块定义授权相关的API端点。
 
@@ -6,10 +6,12 @@
 - POST /v1/auth/game/authorize - 游戏授权请求 (T046)
 - POST /v1/auth/operators/register - 运营商注册 (T066)
 - POST /v1/auth/operators/login - 运营商登录 (T067)
+- POST /v1/auth/operators/logout - 运营商登出 (T068)
 
 认证方式:
 - 游戏授权: API Key认证 (X-API-Key header) + HMAC签名验证
 - 运营商注册/登录: 无需认证
+- 运营商登出: JWT Token认证 (Authorization: Bearer {token})
 """
 
 from typing import Optional
@@ -18,6 +20,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...api.dependencies import require_operator
 from ...db.session import get_db
 from ...schemas.auth import (
     ErrorResponse,
@@ -411,5 +414,97 @@ async def login_operator(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"登录失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/operators/logout",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "未认证或Token无效"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="运营商登出",
+    description="""
+    运营商退出登录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+
+    **实现说明**:
+    本API采用客户端清理Token策略,服务端只验证Token有效性:
+    - 客户端收到200响应后应立即清除本地存储的Token
+    - Token在有效期内仍可使用(无服务端黑名单)
+    - 建议客户端配合实现Token主动清理和过期检查
+
+    **Token黑名单支持**:
+    如需实现服务端Token黑名单(防止登出后Token仍可使用):
+    - 可集成Redis存储已登出的Token
+    - 在JWT中间件添加黑名单检查逻辑
+    - 当前实现为轻量级方案,适用于小规模部署
+
+    **响应数据**:
+    - success: 请求是否成功(true)
+    - message: "已退出登录"
+    """
+)
+async def logout_operator(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """运营商登出API (T068)
+
+    处理运营商登出请求。
+
+    当前实现策略:
+    - 验证Token有效性(通过require_operator依赖注入)
+    - 返回成功响应
+    - 依赖客户端清理本地Token
+    - 无服务端Token黑名单(简化实现)
+
+    扩展方向:
+    - 如需实现Token黑名单,可在此添加Redis逻辑
+    - 将token["jti"]或完整token加入Redis黑名单
+    - 设置过期时间与Token有效期一致
+
+    Args:
+        token: JWT Token payload (通过require_operator解析)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "已退出登录"
+        }
+
+    Raises:
+        HTTPException 401: Token无效或已过期
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        # 可选: 在此处添加Token黑名单逻辑
+        # 例如: await add_token_to_blacklist(token["jti"], expires_in=2592000)
+
+        # 返回成功响应
+        return {
+            "success": True,
+            "message": "已退出登录"
+        }
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"登出失败: {str(e)}"
             }
         )

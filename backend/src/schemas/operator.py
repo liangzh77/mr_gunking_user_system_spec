@@ -635,6 +635,33 @@ class RefundListResponse(BaseModel):
     }
 
 
+class RefundApplyRequest(BaseModel):
+    """退款申请请求 (T074)
+
+    契约定义: operator.yaml POST /operators/me/refunds
+
+    字段要求:
+    - reason: 10-500字符,退款原因说明
+    """
+    reason: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="退款原因",
+        examples=["业务调整，不再继续使用服务"]
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "reason": "业务调整，不再继续使用服务"
+                }
+            ]
+        }
+    }
+
+
 # ========== 使用记录相关 Schema (T102/T110) ==========
 
 class UsageItem(BaseModel):

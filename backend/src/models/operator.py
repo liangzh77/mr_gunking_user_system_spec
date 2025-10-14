@@ -221,6 +221,13 @@ class OperatorAccount(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营商有多条发票记录
+    invoice_records: Mapped[list["InvoiceRecord"]] = relationship(
+        "InvoiceRecord",
+        back_populates="operator",
+        lazy="selectin"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 余额非负

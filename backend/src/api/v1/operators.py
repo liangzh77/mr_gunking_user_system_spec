@@ -19,10 +19,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_operator
+from ...schemas.invoice import InvoiceRequestCreate, InvoiceResponse
 from ...schemas.operator import (
     BalanceResponse,
     OperatorProfile,
     OperatorUpdateRequest,
+    RefundApplyRequest,
     RefundItem,
     RefundListResponse,
     SiteCreateRequest,
@@ -505,6 +507,155 @@ async def get_transactions(
         )
 
 
+@router.post(
+    "/me/refunds",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "description": "余额为0无法申请退款"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        },
+        422: {
+            "description": "参数验证失败(reason长度不符合要求)"
+        }
+    },
+    summary="申请退款",
+    description="""
+    申请退款,仅退还当前账户余额(已消费金额不退)。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **请求参数**:
+    - reason: 退款原因(10-500字符,必填)
+
+    **业务规则**:
+    - 只退当前余额,已消费金额不退
+    - 余额为0时无法申请退款
+    - 退款状态初始为pending(待审核)
+    - requested_amount为申请时的余额快照
+
+    **响应数据**:
+    - refund_id: 退款申请ID (格式: refund_<uuid>)
+    - requested_amount: 申请退款金额(字符串格式)
+    - status: 审核状态 (pending)
+    - reason: 退款原因
+    - created_at: 申请时间
+
+    **注意事项**:
+    - 退款审核由财务人员处理
+    - 支持多次申请退款
+    - 金额为字符串避免浮点精度问题
+    """
+)
+async def apply_refund(
+    request: RefundApplyRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """申请退款API (T074)
+
+    Args:
+        request: 退款申请请求(包含reason)
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "退款申请已提交,待财务审核",
+            "data": {
+                "refund_id": "refund_<uuid>",
+                "requested_amount": "500.00",
+                "status": "pending",
+                "reason": "...",
+                "created_at": "2025-01-15T10:00:00Z",
+                "actual_refund_amount": null,
+                "reject_reason": null,
+                "reviewed_by": null,
+                "reviewed_at": null
+            }
+        }
+
+    Raises:
+        HTTPException 400: 余额为0无法申请退款
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层申请退款
+    try:
+        refund = await operator_service.apply_refund(
+            operator_id=operator_id,
+            reason=request.reason
+        )
+
+        # 转换为响应格式
+        return {
+            "success": True,
+            "message": "退款申请已提交,待财务审核",
+            "data": {
+                "refund_id": f"refund_{refund.id}",
+                "requested_amount": str(refund.requested_amount),
+                "status": refund.status,
+                "reason": refund.reason,
+                "created_at": refund.created_at,
+                "actual_refund_amount": None,
+                "reject_reason": None,
+                "reviewed_by": None,
+                "reviewed_at": None
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如400余额为0, 404运营商不存在)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"申请退款失败: {str(e)}"
+            }
+        )
+
+
 @router.get(
     "/me/refunds",
     response_model=RefundListResponse,
@@ -638,6 +789,308 @@ async def get_refunds(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询退款记录失败: {str(e)}"
+            }
+        )
+
+
+# ========== 发票管理接口 (T076-T077) ==========
+
+@router.post(
+    "/me/invoices",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "description": "开票金额超过已充值金额"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        },
+        422: {
+            "description": "参数验证失败(金额/税号/抬头格式不正确)"
+        }
+    },
+    summary="申请开具发票",
+    description="""
+    申请电子发票,财务审核通过后生成PDF下载链接。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **请求参数**:
+    - amount: 开票金额(字符串格式,精确到分,不能超过已充值金额)
+    - invoice_title: 发票抬头(公司名称,2-200字符)
+    - tax_id: 纳税人识别号(15-20位大写字母数字)
+    - email: 接收邮箱(可选,默认使用账户邮箱)
+
+    **业务规则**:
+    - 开票金额不能超过已充值金额
+    - 税号格式必须符合要求(15-20位字母数字)
+    - 发票状态初始为pending(待财务审核)
+    - 审核通过后生成PDF链接
+
+    **响应数据**:
+    - invoice_id: 发票ID (格式: inv_<uuid>)
+    - amount: 开票金额(字符串格式)
+    - invoice_title: 发票抬头
+    - tax_id: 纳税人识别号
+    - email: 接收邮箱
+    - status: 审核状态 (pending)
+    - pdf_url: PDF下载链接(审核通过后才有)
+    - created_at: 申请时间
+
+    **注意事项**:
+    - 财务审核后会生成电子发票PDF
+    - 支持多次申请发票
+    - 金额为字符串避免浮点精度问题
+    """
+)
+async def apply_invoice(
+    request: InvoiceRequestCreate,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """申请开具发票API (T076)
+
+    Args:
+        request: 发票申请请求
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "发票申请已提交，等待财务审核",
+            "data": InvoiceResponse对象
+        }
+
+    Raises:
+        HTTPException 400: 开票金额超过已充值金额
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层申请发票
+    try:
+        invoice = await operator_service.apply_invoice(
+            operator_id=operator_id,
+            amount=request.amount,
+            invoice_title=request.invoice_title,
+            tax_id=request.tax_id,
+            email=request.email
+        )
+
+        # 转换为响应格式
+        return {
+            "success": True,
+            "message": "发票申请已提交，等待财务审核",
+            "data": InvoiceResponse(
+                invoice_id=f"inv_{invoice.id}",
+                amount=str(invoice.amount),
+                invoice_title=invoice.invoice_title,
+                tax_id=invoice.tax_id,
+                email=invoice.email,
+                status=invoice.status,
+                pdf_url=invoice.pdf_url,
+                reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
+                reviewed_at=invoice.reviewed_at,
+                created_at=invoice.created_at
+            )
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如400金额超限, 404运营商不存在)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"申请发票失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/invoices",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询发票列表",
+    description="""
+    查询当前登录运营商的发票申请记录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **查询参数**:
+    - page: 页码(默认1,最小1)
+    - page_size: 每页数量(默认20,最小1,最大100)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页数量
+    - total: 总记录数
+    - items: 发票记录列表
+      - invoice_id: 发票ID
+      - amount: 开票金额(字符串格式)
+      - invoice_title: 发票抬头
+      - tax_id: 纳税人识别号
+      - email: 接收邮箱
+      - status: 审核状态 (pending=待审核, approved=已通过, rejected=已拒绝)
+      - pdf_url: PDF下载链接(status=approved时有值)
+      - reviewed_by: 审核人ID(财务人员,可能为null)
+      - reviewed_at: 审核时间(可能为null)
+      - created_at: 申请时间
+
+    **注意事项**:
+    - 结果按申请时间降序排列(最新的在前)
+    - 金额为字符串避免浮点精度问题
+    - 已审核通过的发票可下载PDF
+    """
+)
+async def get_invoices(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+) -> dict:
+    """查询运营商发票记录API (T077)
+
+    Args:
+        token: JWT Token payload
+        db: 数据库会话
+        page: 页码
+        page_size: 每页数量
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "page": 1,
+                "page_size": 20,
+                "total": 5,
+                "items": [InvoiceResponse对象列表]
+            }
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取发票记录
+    try:
+        invoices, total = await operator_service.get_invoices(
+            operator_id=operator_id,
+            page=page,
+            page_size=page_size
+        )
+
+        # 转换为响应格式
+        items = []
+        for invoice in invoices:
+            items.append(InvoiceResponse(
+                invoice_id=f"inv_{invoice.id}",
+                amount=str(invoice.amount),
+                invoice_title=invoice.invoice_title,
+                tax_id=invoice.tax_id,
+                email=invoice.email,
+                status=invoice.status,
+                pdf_url=invoice.pdf_url,
+                reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
+                reviewed_at=invoice.reviewed_at,
+                created_at=invoice.created_at
+            ))
+
+        return {
+            "success": True,
+            "data": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "items": items
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询发票记录失败: {str(e)}"
             }
         )
 

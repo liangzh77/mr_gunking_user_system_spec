@@ -578,6 +578,229 @@ class OperatorService:
 
         return list(refunds), total
 
+    async def apply_refund(
+        self,
+        operator_id: UUID,
+        reason: str
+    ):
+        """申请退款 (T074)
+
+        业务规则:
+        - 只退当前余额,已消费金额不退
+        - 余额为0时无法申请
+        - 退款状态初始为pending
+        - requested_amount为申请时的余额
+
+        Args:
+            operator_id: 运营商ID
+            reason: 退款原因
+
+        Returns:
+            RefundRecord: 新创建的退款申请记录
+
+        Raises:
+            HTTPException 400: 余额为0无法申请退款
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.refund import RefundRecord
+
+        # 1. 验证运营商存在并获取余额
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 检查余额是否大于0
+        if operator.balance <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_PARAMS",
+                    "message": "当前余额为0，无法申请退款"
+                }
+            )
+
+        # 3. 创建退款申请记录
+        refund = RefundRecord(
+            operator_id=operator_id,
+            requested_amount=operator.balance,  # 申请时的余额
+            status="pending",  # 初始状态为待审核
+            reason=reason
+        )
+
+        self.db.add(refund)
+        await self.db.commit()
+        await self.db.refresh(refund)
+
+        return refund
+
+    async def apply_invoice(
+        self,
+        operator_id: UUID,
+        amount: str,
+        invoice_title: str,
+        tax_id: str,
+        email: Optional[str] = None
+    ):
+        """申请开具发票 (T076)
+
+        业务规则:
+        - 开票金额不能超过已充值金额(total_recharged)
+        - 税号格式已由schema验证(15-20位字母数字)
+        - 发票状态初始为pending(待财务审核)
+        - email可选,默认使用账户邮箱
+
+        Args:
+            operator_id: 运营商ID
+            amount: 开票金额(字符串格式)
+            invoice_title: 发票抬头
+            tax_id: 纳税人识别号
+            email: 接收邮箱(可选)
+
+        Returns:
+            InvoiceRecord: 新创建的发票申请记录
+
+        Raises:
+            HTTPException 400: 开票金额超过已充值金额
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.invoice import InvoiceRecord
+        from ..models.transaction import TransactionRecord
+        from decimal import Decimal
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 计算已充值总额(sum所有recharge类型交易)
+        from sqlalchemy import func
+        recharge_sum_stmt = select(
+            func.sum(TransactionRecord.amount)
+        ).where(
+            TransactionRecord.operator_id == operator_id,
+            TransactionRecord.transaction_type == "recharge"
+        )
+        recharge_result = await self.db.execute(recharge_sum_stmt)
+        total_recharged = recharge_result.scalar() or Decimal("0.00")
+
+        # 3. 验证开票金额不超过已充值金额
+        invoice_amount = Decimal(amount)
+        if invoice_amount > total_recharged:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_PARAMS",
+                    "message": f"开票金额({amount}元)不能超过已充值金额({total_recharged}元)"
+                }
+            )
+
+        # 4. 设置email(如果未提供则使用账户邮箱)
+        final_email = email if email else operator.email
+
+        # 5. 创建发票申请记录
+        invoice = InvoiceRecord(
+            operator_id=operator_id,
+            amount=invoice_amount,
+            invoice_title=invoice_title,
+            tax_id=tax_id.upper(),  # 统一为大写
+            email=final_email,
+            status="pending"  # 初始状态为待审核
+        )
+
+        self.db.add(invoice)
+        await self.db.commit()
+        await self.db.refresh(invoice)
+
+        return invoice
+
+    async def get_invoices(
+        self,
+        operator_id: UUID,
+        page: int = 1,
+        page_size: int = 20
+    ) -> tuple[list, int]:
+        """查询运营商发票记录(分页) (T077)
+
+        Args:
+            operator_id: 运营商ID
+            page: 页码(从1开始)
+            page_size: 每页数量
+
+        Returns:
+            tuple[list, int]: (发票记录列表, 总记录数)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.invoice import InvoiceRecord
+        from sqlalchemy import func, desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            InvoiceRecord.operator_id == operator_id
+        ]
+
+        # 3. 查询总记录数
+        count_stmt = select(func.count(InvoiceRecord.id)).where(*conditions)
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 4. 分页查询发票记录
+        offset = (page - 1) * page_size
+        stmt = (
+            select(InvoiceRecord)
+            .where(*conditions)
+            .order_by(desc(InvoiceRecord.created_at))  # 按时间降序
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.db.execute(stmt)
+        invoices = result.scalars().all()
+
+        return list(invoices), total
+
     async def get_usage_records(
         self,
         operator_id: UUID,
