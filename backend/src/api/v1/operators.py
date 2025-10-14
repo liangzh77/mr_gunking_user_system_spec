@@ -1396,3 +1396,115 @@ async def get_statistics_by_app(
                 "message": f"查询统计数据失败: {str(e)}"
             }
         )
+
+
+@router.get(
+    "/me/statistics/consumption",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="消费统计(按时间)",
+    description="查询消费趋势,支持按天/周/月维度聚合,返回图表数据和汇总统计"
+)
+async def get_consumption_statistics(
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    dimension: str = Query("day", description="时间维度: day/week/month"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """按时间统计消费API (T114)
+
+    Args:
+        start_time: 开始时间(可选)
+        end_time: 结束时间(可选)
+        dimension: 时间维度 (day/week/month)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "dimension": "day",
+                "chart_data": [
+                    {
+                        "date": "2025-01-15",
+                        "total_sessions": 10,
+                        "total_players": 45,
+                        "total_cost": "450.00"
+                    }
+                ],
+                "summary": {
+                    "total_sessions": 100,
+                    "total_players": 450,
+                    "total_cost": "4500.00",
+                    "avg_players_per_session": 4.5
+                }
+            }
+        }
+
+    Raises:
+        HTTPException 400: dimension参数无效
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 验证dimension参数
+    if dimension not in ["day", "week", "month"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_DIMENSION",
+                "message": "dimension参数必须是: day, week 或 month"
+            }
+        )
+
+    # 调用服务层获取消费统计
+    try:
+        statistics = await operator_service.get_consumption_statistics(
+            operator_id=operator_id,
+            start_time=start_time,
+            end_time=end_time,
+            dimension=dimension
+        )
+
+        return {
+            "success": True,
+            "data": statistics
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询消费统计失败: {str(e)}"
+            }
+        )

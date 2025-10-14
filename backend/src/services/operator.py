@@ -1108,3 +1108,144 @@ class OperatorService:
             })
 
         return statistics
+
+    async def get_consumption_statistics(
+        self,
+        operator_id: UUID,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        dimension: str = "day"
+    ) -> dict:
+        """按时间统计消费趋势 (T114)
+
+        按day/week/month维度聚合:
+        - chart_data: 时间序列数据点列表
+        - summary: 汇总统计(总场次、总玩家、总消费、平均每场玩家数)
+
+        Args:
+            operator_id: 运营商ID
+            start_time: 开始时间(可选)
+            end_time: 结束时间(可选)
+            dimension: 时间维度 (day/week/month)
+
+        Returns:
+            dict: {
+                "dimension": str,
+                "chart_data": list[dict],
+                "summary": dict
+            }
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.usage_record import UsageRecord
+        from sqlalchemy import func, cast, Date
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            UsageRecord.operator_id == operator_id
+        ]
+
+        # 时间范围筛选
+        if start_time:
+            conditions.append(UsageRecord.game_started_at >= start_time)
+        if end_time:
+            conditions.append(UsageRecord.game_started_at <= end_time)
+
+        # 3. 根据dimension确定分组方式
+        # 使用数据库兼容的函数: strftime对SQLite和PostgreSQL都兼容
+        if dimension == "day":
+            # 按日分组: DATE(game_started_at)
+            date_trunc = cast(UsageRecord.game_started_at, Date).label('date')
+        elif dimension == "week":
+            # 按周分组: 使用strftime('%Y-W%W', game_started_at)
+            # SQLite: strftime('%Y-W%W', datetime)
+            # PostgreSQL也支持类似用法,或使用DATE_TRUNC
+            date_trunc = func.strftime('%Y-W%W', UsageRecord.game_started_at).label('date')
+        elif dimension == "month":
+            # 按月分组: 使用strftime('%Y-%m', game_started_at)
+            date_trunc = func.strftime('%Y-%m', UsageRecord.game_started_at).label('date')
+        else:
+            # 默认按日
+            date_trunc = cast(UsageRecord.game_started_at, Date).label('date')
+
+        # 4. 聚合查询: 按时间分组统计
+        stmt = (
+            select(
+                date_trunc,
+                func.count(UsageRecord.id).label('total_sessions'),
+                func.sum(UsageRecord.player_count).label('total_players'),
+                func.sum(UsageRecord.total_cost).label('total_cost')
+            )
+            .where(*conditions)
+            .group_by(date_trunc)
+            .order_by(date_trunc)  # 按时间升序
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 5. 格式化图表数据
+        chart_data = []
+        total_sessions_sum = 0
+        total_players_sum = 0
+        total_cost_sum = 0
+
+        for row in rows:
+            total_sessions = row.total_sessions or 0
+            total_players = int(row.total_players or 0)
+            total_cost = row.total_cost or 0
+
+            # 累加汇总数据
+            total_sessions_sum += total_sessions
+            total_players_sum += total_players
+            total_cost_sum += total_cost
+
+            # 格式化日期为字符串
+            if isinstance(row.date, str):
+                # week/month分组时已经是字符串格式
+                date_str = row.date
+            elif isinstance(row.date, datetime):
+                date_str = row.date.date().isoformat()
+            else:
+                date_str = row.date.isoformat()
+
+            chart_data.append({
+                "date": date_str,
+                "total_sessions": total_sessions,
+                "total_players": total_players,
+                "total_cost": f"{float(total_cost):.2f}"  # 确保格式为"0.00"
+            })
+
+        # 6. 计算汇总数据
+        avg_players_per_session = round(total_players_sum / total_sessions_sum, 1) if total_sessions_sum > 0 else 0.0
+
+        summary = {
+            "total_sessions": total_sessions_sum,
+            "total_players": total_players_sum,
+            "total_cost": f"{float(total_cost_sum):.2f}",  # 确保格式为"0.00"
+            "avg_players_per_session": avg_players_per_session
+        }
+
+        return {
+            "dimension": dimension,
+            "chart_data": chart_data,
+            "summary": summary
+        }

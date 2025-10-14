@@ -47,7 +47,19 @@
       "Bash(...venv312Scriptspytest.exe tests/contract/test_refunds.py -v --no-cov --tb=short)",
       "Bash(..run_tests.bat)",
       "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_refunds.py -v --no-cov --tb=short)",
-      "Read(//c/liangz77/python_projects/github_projects/**)"
+      "Read(//c/liangz77/python_projects/github_projects/**)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_create_site.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 PYTHONPATH=. ../.venv312/Scripts/pytest.exe tests/contract/test_create_site.py -v --no-cov --tb=short)",
+      "Bash(...venv312Scriptspytest.exe tests/contract/test_create_site.py -v --no-cov --tb=short)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_create_site.py -v --no-cov --tb=short)",
+      "Bash(.venv312Scriptspytest.exe backendtestscontracttest_create_site.py -v --no-cov --tb=short)",
+      "Bash(./run_tests.bat:*)",
+      "Bash(PYTHONPATH=backend backend/.venv312/Scripts/pytest.exe:*)",
+      "Bash(python3:*)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_statistics_by_site.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_consumption_statistics.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 set:*)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_consumption_statistics.py -v --no-cov --tb=short)"
     ],
     "deny": [],
     "ask": []
