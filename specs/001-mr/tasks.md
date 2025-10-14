@@ -50,7 +50,7 @@
 - [X] T009 配置Alembic数据库迁移框架 in backend/alembic/ ✅ 2025-10-11 (commit: 7601824)
 - [X] T010 创建数据库初始迁移脚本 in backend/alembic/versions/20251011_001_initial_schema.py (包含16个实体表) ✅ 2025-10-11 (commit: 7601824)
 - [X] T011 运行数据库迁移并验证表结构 (执行 alembic upgrade head) ✅ 2025-10-11 (commit: baa5134)
-- [ ] T010a 验证迁移脚本与data-model.md一致性 in backend/tests/integration/test_schema_consistency.py (使用SQLAlchemy反射读取数据库Schema，对比data-model.md定义的表名/字段/类型/索引/约束，不匹配时测试失败并输出差异报告)
+- [X] T010a 验证迁移脚本与data-model.md一致性 in backend/tests/integration/test_schema_consistency.py (使用SQLAlchemy反射读取数据库Schema，对比data-model.md定义的表名/字段/类型/索引/约束，不匹配时测试失败并输出差异报告) ✅ 2025-10-14 (commit: c01a3fb)
 - [X] T012 创建种子数据脚本 in backend/scripts/seed_data.sql (至少包含: 1个超级管理员账号admin/Admin@123、1个财务账号finance/Finance@123、2个测试运营商账号operator1/operator2含初始余额1000元) ✅ 2025-10-12 (commit: 060638a)
 
 ### 核心中间件和服务 (可并行)
@@ -85,7 +85,7 @@
 - [X] T027 [P] 实现金额计算工具 in backend/src/core/utils/money.py (精确decimal计算) ✅ 2025-10-11 (commit: e07c671)
 - [X] T028 [P] 实现时间戳验证工具 in backend/src/core/utils/timestamp.py ✅ 2025-10-11 (commit: e07c671)
 
-**Checkpoint**: ✅✅ **Phase 2 基础设施完成** - 用户故事可以并行开始 (27/28 tasks完成，96% - 仅T010a Schema一致性测试待完善)
+**Checkpoint**: ✅✅✅ **Phase 2 基础设施100%完成** - 用户故事可以并行开始 (28/28 tasks完成)
 
 ---
 
@@ -103,7 +103,7 @@
 - [X] T030 [P] [US1] 集成测试：完整授权流程 in backend/tests/integration/test_authorization_flow.py (API Key验证 → 余额扣费 → 返回Token)
 - [X] T031 [P] [US1] 集成测试：余额不足场景 in backend/tests/integration/test_insufficient_balance.py
 - [X] T032 [P] [US1] 集成测试：会话ID幂等性 in backend/tests/integration/test_session_idempotency.py (防重复扣费)
-- [ ] T033 [P] [US1] 集成测试：玩家数量范围验证 in backend/tests/integration/test_player_count_validation.py
+- [X] T033 [P] [US1] 集成测试：玩家数量范围验证 in backend/tests/integration/test_player_count_validation.py ✅ 2025-10-14 (8/8测试通过)
 - [X] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：格式错误、operatorId不匹配、时间戳过期超过5分钟、随机数不足16位等场景，验证返回HTTP 400及详细错误信息)
 - [X] T034 [P] [US1] 集成测试：并发扣费冲突处理 in backend/tests/integration/test_concurrent_billing.py
 
@@ -149,8 +149,8 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T050 [P] [US2] 契约测试：运营商注册接口 in backend/tests/contract/test_operator_register.py (POST /v1/auth/operators/register)
-- [ ] T051 [P] [US2] 契约测试：运营商登录接口 in backend/tests/contract/test_operator_login.py (POST /v1/auth/operators/login)
+- [X] T050 [P] [US2] 契约测试：运营商注册接口 in backend/tests/contract/test_operator_register.py (POST /v1/auth/operators/register) ✅ 2025-10-14 (23个测试用例,按TDD原则全部失败)
+- [X] T051 [P] [US2] 契约测试：运营商登录接口 in backend/tests/contract/test_operator_login.py (POST /v1/auth/operators/login) ✅ 2025-10-14 (15个测试用例,按TDD原则全部失败)
 - [ ] T052 [P] [US2] 契约测试：充值接口 in backend/tests/contract/test_recharge.py (POST /v1/operators/me/recharge)
 - [ ] T053 [P] [US2] 集成测试：完整财务流程 in backend/tests/integration/test_finance_flow.py (充值 → 查看余额 → 申请退款)
 - [ ] T054 [P] [US2] 集成测试：支付回调失败回滚 in backend/tests/integration/test_payment_callback_failure.py
@@ -162,8 +162,8 @@
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T057 [P] [US2] 创建运营商注册Schema in backend/src/schemas/operator.py (OperatorRegisterRequest, OperatorProfile)
-- [ ] T058 [P] [US2] 创建登录Schema in backend/src/schemas/auth.py (LoginRequest, LoginResponse)
+- [X] T057 [P] [US2] 创建运营商注册Schema in backend/src/schemas/operator.py (OperatorRegisterRequest, OperatorProfile) ✅ 2025-10-14
+- [X] T058 [P] [US2] 创建登录Schema in backend/src/schemas/auth.py (LoginRequest, LoginResponse) ✅ 2025-10-14
 - [ ] T059 [P] [US2] 创建充值Schema in backend/src/schemas/payment.py (RechargeRequest, RechargeResponse)
 - [ ] T060 [P] [US2] 创建退款Schema in backend/src/schemas/refund.py (RefundRequest, RefundResponse)
 - [ ] T061 [P] [US2] 创建发票Schema in backend/src/schemas/invoice.py (InvoiceRequest, InvoiceResponse)

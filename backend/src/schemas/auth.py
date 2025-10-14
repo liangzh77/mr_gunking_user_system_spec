@@ -1,12 +1,14 @@
-"""授权相关的Pydantic Schemas (T041)
+"""授权相关的Pydantic Schemas (T041, T058)
 
-此模块定义游戏授权API的请求和响应数据模型。
-对应 contracts/auth.yaml 中的 /auth/game/authorize 接口。
+此模块定义授权相关API的请求和响应数据模型:
+1. 游戏授权 (T041): /auth/game/authorize
+2. 运营商登录 (T058): /auth/operators/login
 
 关键验证:
 - session_id格式: {operatorId}_{timestamp}_{random16}
 - player_count范围: 1-100
 - 金额字段使用字符串(避免浮点精度问题)
+- JWT Token格式: Bearer {token}
 """
 
 from datetime import datetime
@@ -15,6 +17,186 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 import re
+
+
+# ==================== 登录相关模型 (T058) ====================
+
+
+class OperatorLoginRequest(BaseModel):
+    """运营商登录请求 (T058)
+
+    契约定义: auth.yaml /auth/operators/login
+
+    字段要求:
+    - username: 必填,用户名
+    - password: 必填,密码
+    """
+    username: str = Field(
+        ...,
+        min_length=1,
+        description="用户名",
+        examples=["operator_beijing_01"]
+    )
+
+    password: str = Field(
+        ...,
+        min_length=1,
+        description="密码",
+        examples=["StrongPass123"]
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "username": "operator_beijing_01",
+                    "password": "StrongPass123"
+                }
+            ]
+        }
+    }
+
+
+class OperatorInfo(BaseModel):
+    """运营商基本信息(登录响应中)"""
+    operator_id: str = Field(
+        ...,
+        description="运营商ID",
+        examples=["op_12345"]
+    )
+
+    username: str = Field(
+        ...,
+        description="用户名",
+        examples=["operator_beijing_01"]
+    )
+
+    name: str = Field(
+        ...,
+        description="真实姓名或公司名",
+        examples=["北京星空娱乐有限公司"]
+    )
+
+    category: str = Field(
+        ...,
+        description="客户分类: trial/normal/vip",
+        examples=["normal"]
+    )
+
+    @field_validator("category")
+    @classmethod
+    def validate_category_enum(cls, v: str) -> str:
+        """验证客户分类枚举值"""
+        valid_categories = ["trial", "normal", "vip"]
+        if v not in valid_categories:
+            raise ValueError(f"无效的客户分类: {v}, 必须是 {valid_categories} 之一")
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "operator_id": "op_12345",
+                    "username": "operator_beijing_01",
+                    "name": "北京星空娱乐有限公司",
+                    "category": "normal"
+                }
+            ]
+        }
+    }
+
+
+class LoginData(BaseModel):
+    """登录成功响应数据"""
+    access_token: str = Field(
+        ...,
+        description="JWT Token",
+        examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."]
+    )
+
+    token_type: str = Field(
+        default="Bearer",
+        description="Token类型",
+        examples=["Bearer"]
+    )
+
+    expires_in: int = Field(
+        ...,
+        description="Token有效期(秒),30天=2592000秒",
+        examples=[2592000]
+    )
+
+    operator: OperatorInfo = Field(
+        ...,
+        description="运营商信息"
+    )
+
+    @field_validator("access_token")
+    @classmethod
+    def validate_jwt_format(cls, v: str) -> str:
+        """验证JWT Token格式(应该有3部分由.分隔)"""
+        if v.count(".") != 2:
+            raise ValueError("JWT Token格式错误,应包含3部分由.分隔")
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "token_type": "Bearer",
+                    "expires_in": 2592000,
+                    "operator": {
+                        "operator_id": "op_12345",
+                        "username": "operator_beijing_01",
+                        "name": "北京星空娱乐有限公司",
+                        "category": "normal"
+                    }
+                }
+            ]
+        }
+    }
+
+
+class LoginResponse(BaseModel):
+    """登录成功响应包装 (T058)
+
+    标准响应格式:
+    {
+        "success": true,
+        "data": {...}
+    }
+    """
+    success: bool = Field(
+        default=True,
+        description="请求是否成功"
+    )
+
+    data: LoginData = Field(
+        ...,
+        description="登录数据"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "data": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "token_type": "Bearer",
+                        "expires_in": 2592000,
+                        "operator": {
+                            "operator_id": "op_12345",
+                            "username": "operator_beijing_01",
+                            "name": "北京星空娱乐有限公司",
+                            "category": "normal"
+                        }
+                    }
+                }
+            ]
+        }
+    }
 
 
 # ==================== 请求模型 ====================
