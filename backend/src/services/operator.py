@@ -683,3 +683,57 @@ class OperatorService:
         usage_records = result.scalars().all()
 
         return list(usage_records), total
+
+    async def create_site(
+        self,
+        operator_id: UUID,
+        name: str,
+        address: str,
+        description: Optional[str] = None
+    ):
+        """创建运营点 (T090/T092)
+
+        Args:
+            operator_id: 运营商ID
+            name: 运营点名称
+            address: 详细地址
+            description: 运营点描述(可选)
+
+        Returns:
+            OperationSite: 新创建的运营点对象
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.site import OperationSite
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 创建运营点
+        site = OperationSite(
+            operator_id=operator_id,
+            name=name,
+            address=address,
+            description=description
+        )
+
+        self.db.add(site)
+        await self.db.commit()
+        await self.db.refresh(site)
+
+        return site

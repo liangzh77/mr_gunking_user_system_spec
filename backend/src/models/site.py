@@ -66,6 +66,12 @@ class OperationSite(Base):
         comment="详细地址"
     )
 
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="运营点描述"
+    )
+
     contact_person: Mapped[Optional[str]] = mapped_column(
         String(64),
         nullable=True,

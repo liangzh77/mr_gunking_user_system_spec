@@ -767,3 +767,192 @@ class UsageListResponse(BaseModel):
             ]
         }
     }
+
+
+# ========== 运营点管理相关 Schema (T087/T092-T096) ==========
+
+class SiteCreateRequest(BaseModel):
+    """创建运营点请求 (T087/T092)
+
+    契约定义: operator.yaml POST /operators/me/sites
+
+    字段要求:
+    - name: 2-50字符,运营点名称
+    - address: 5-200字符,详细地址
+    - description: 0-500字符,可选描述
+    """
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        description="运营点名称",
+        examples=["北京朝阳门店"]
+    )
+
+    address: str = Field(
+        ...,
+        min_length=5,
+        max_length=200,
+        description="详细地址",
+        examples=["北京市朝阳区建国路88号"]
+    )
+
+    description: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="运营点描述(可选)",
+        examples=["朝阳区旗舰店，面积300平米"]
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "北京朝阳门店",
+                    "address": "北京市朝阳区建国路88号",
+                    "description": "朝阳区旗舰店，面积300平米"
+                }
+            ]
+        }
+    }
+
+
+class SiteUpdateRequest(BaseModel):
+    """更新运营点请求 (T087/T094)
+
+    契约定义: operator.yaml PUT /operators/me/sites/{site_id}
+
+    所有字段都是可选的,只更新提供的字段
+    """
+    name: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=50,
+        description="运营点名称"
+    )
+
+    address: Optional[str] = Field(
+        None,
+        min_length=5,
+        max_length=200,
+        description="详细地址"
+    )
+
+    description: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="运营点描述"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "北京朝阳旗舰店",
+                    "address": "北京市朝阳区建国路88号",
+                    "description": "朝阳区旗舰店，面积300平米，设备已升级"
+                }
+            ]
+        }
+    }
+
+
+class SiteResponse(BaseModel):
+    """运营点响应对象 (T087)
+
+    契约定义: operator.yaml OperationSite schema
+
+    返回运营点完整信息
+    """
+    site_id: str = Field(
+        ...,
+        description="运营点ID(格式: site_<uuid>)"
+    )
+
+    name: str = Field(
+        ...,
+        description="运营点名称"
+    )
+
+    address: str = Field(
+        ...,
+        description="详细地址"
+    )
+
+    description: Optional[str] = Field(
+        None,
+        description="运营点描述"
+    )
+
+    is_deleted: bool = Field(
+        ...,
+        description="是否已删除(逻辑删除标记)"
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="创建时间"
+    )
+
+    updated_at: datetime = Field(
+        ...,
+        description="更新时间"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "site_id": "site_beijing_001",
+                    "name": "北京朝阳门店",
+                    "address": "北京市朝阳区建国路88号",
+                    "description": "朝阳区旗舰店，面积300平米",
+                    "is_deleted": False,
+                    "created_at": "2025-01-01T10:00:00.000Z",
+                    "updated_at": "2025-01-15T14:30:00.000Z"
+                }
+            ]
+        }
+    }
+
+
+class SiteListResponse(BaseModel):
+    """运营点列表响应 (T093)
+
+    契约定义: operator.yaml GET /operators/me/sites
+
+    返回运营商所有运营点(非分页)
+    """
+    sites: list[SiteResponse] = Field(
+        ...,
+        description="运营点列表"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "sites": [
+                        {
+                            "site_id": "site_beijing_001",
+                            "name": "北京朝阳门店",
+                            "address": "北京市朝阳区建国路88号",
+                            "description": "朝阳区旗舰店，面积300平米",
+                            "is_deleted": False,
+                            "created_at": "2025-01-01T10:00:00.000Z",
+                            "updated_at": "2025-01-15T14:30:00.000Z"
+                        },
+                        {
+                            "site_id": "site_shanghai_001",
+                            "name": "上海浦东门店",
+                            "address": "上海市浦东新区世纪大道100号",
+                            "description": None,
+                            "is_deleted": False,
+                            "created_at": "2025-01-05T09:00:00.000Z",
+                            "updated_at": "2025-01-05T09:00:00.000Z"
+                        }
+                    ]
+                }
+            ]
+        }
+    }

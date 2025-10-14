@@ -25,6 +25,8 @@ from ...schemas.operator import (
     OperatorUpdateRequest,
     RefundItem,
     RefundListResponse,
+    SiteCreateRequest,
+    SiteResponse,
     TransactionItem,
     TransactionListResponse,
     UsageItem,
@@ -796,5 +798,102 @@ async def get_usage_records(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询使用记录失败: {str(e)}"
+            }
+        )
+
+
+# ========== 运营点管理接口 (T092-T096) ==========
+
+@router.post(
+    "/me/sites",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="创建运营点",
+    description="创建新的运营点(门店/业务单元)"
+)
+async def create_site(
+    request: SiteCreateRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """创建运营点API (T092)
+
+    Args:
+        request: 创建运营点请求
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "运营点创建成功",
+            "data": SiteResponse对象
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层创建运营点
+    try:
+        site = await operator_service.create_site(
+            operator_id=operator_id,
+            name=request.name,
+            address=request.address,
+            description=request.description
+        )
+
+        # 转换为响应格式
+        site_response = SiteResponse(
+            site_id=f"site_{site.id}",
+            name=site.name,
+            address=site.address,
+            description=site.description,
+            is_deleted=site.deleted_at is not None,
+            created_at=site.created_at,
+            updated_at=site.updated_at
+        )
+
+        return {
+            "success": True,
+            "message": "运营点创建成功",
+            "data": site_response
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"创建运营点失败: {str(e)}"
             }
         )
