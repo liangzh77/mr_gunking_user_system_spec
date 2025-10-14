@@ -11,15 +11,20 @@
 - 用户类型要求: operator
 """
 
+from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_operator
 from ...schemas.operator import (
+    BalanceResponse,
     OperatorProfile,
     OperatorUpdateRequest,
+    TransactionItem,
+    TransactionListResponse,
 )
 from ...services.operator import OperatorService
 
@@ -235,5 +240,258 @@ async def update_profile(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"更新个人信息失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/balance",
+    response_model=BalanceResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询账户余额",
+    description="""
+    查询当前登录运营商的账户余额和客户分类。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **响应数据**:
+    - balance: 账户余额(字符串格式,精确到分)
+    - category: 客户分类 (trial=试用, normal=普通, vip=VIP)
+
+    **注意事项**:
+    - balance为字符串避免浮点精度问题
+    - 余额精确到分(小数点后两位)
+    """
+)
+async def get_balance(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> BalanceResponse:
+    """查询运营商账户余额API (T072)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        BalanceResponse: 余额和客户分类信息
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取余额信息
+    try:
+        # 获取profile包含balance和category
+        profile = await operator_service.get_profile(operator_id)
+
+        return BalanceResponse(
+            balance=profile.balance,
+            category=profile.category
+        )
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询余额失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/transactions",
+    response_model=TransactionListResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询交易记录",
+    description="""
+    查询当前登录运营商的交易记录(充值和消费流水)。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **查询参数**:
+    - page: 页码(默认1,最小1)
+    - page_size: 每页数量(默认20,最小1,最大100)
+    - type: 交易类型过滤 (all=全部, recharge=充值, consumption=消费,默认all)
+    - start_time: 开始时间(ISO 8601格式,可选)
+    - end_time: 结束时间(ISO 8601格式,可选)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页数量
+    - total: 总记录数
+    - items: 交易记录列表
+      - transaction_id: 交易ID
+      - type: 交易类型 (recharge/consumption)
+      - amount: 交易金额(字符串格式)
+      - balance_after: 交易后余额
+      - created_at: 交易时间
+      - related_usage_id: 关联使用记录ID(消费类型)
+      - payment_method: 支付方式(充值类型): wechat/alipay
+
+    **注意事项**:
+    - 结果按交易时间降序排列(最新的在前)
+    - amount和balance_after为字符串避免浮点精度问题
+    """
+)
+async def get_transactions(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    type: str = Query("all", description="交易类型: all/recharge/consumption"),
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间")
+) -> TransactionListResponse:
+    """查询运营商交易记录API (T073)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+        page: 页码
+        page_size: 每页数量
+        type: 交易类型过滤
+        start_time: 开始时间
+        end_time: 结束时间
+
+    Returns:
+        TransactionListResponse: 分页的交易记录列表
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 验证type参数
+    if type not in ["all", "recharge", "consumption"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_TYPE",
+                "message": "type参数必须是: all, recharge 或 consumption"
+            }
+        )
+
+    # 调用服务层获取交易记录
+    try:
+        transactions, total = await operator_service.get_transactions(
+            operator_id=operator_id,
+            page=page,
+            page_size=page_size,
+            transaction_type=type if type != "all" else None,
+            start_time=start_time,
+            end_time=end_time
+        )
+
+        # 转换为响应格式
+        items = []
+        for trans in transactions:
+            items.append(TransactionItem(
+                transaction_id=f"txn_{trans.id}",
+                type=trans.transaction_type,
+                amount=str(trans.amount),
+                balance_after=str(trans.balance_after),
+                created_at=trans.created_at,
+                related_usage_id=f"usage_{trans.related_usage_id}" if trans.related_usage_id else None,
+                payment_method=trans.payment_channel
+            ))
+
+        return TransactionListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items
+        )
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询交易记录失败: {str(e)}"
             }
         )

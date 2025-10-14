@@ -433,3 +433,83 @@ class OperatorService:
         await self.db.commit()
 
         return new_api_key  # 返回明文,仅此一次
+
+    async def get_transactions(
+        self,
+        operator_id: UUID,
+        page: int = 1,
+        page_size: int = 20,
+        transaction_type: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> tuple[list, int]:
+        """查询运营商交易记录(分页) (T073)
+
+        Args:
+            operator_id: 运营商ID
+            page: 页码(从1开始)
+            page_size: 每页数量
+            transaction_type: 交易类型过滤 (recharge/consumption/all)
+            start_time: 开始时间(可选)
+            end_time: 结束时间(可选)
+
+        Returns:
+            tuple[list, int]: (交易记录列表, 总记录数)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.transaction import TransactionRecord
+        from sqlalchemy import func, desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            TransactionRecord.operator_id == operator_id
+        ]
+
+        # 交易类型过滤
+        if transaction_type and transaction_type != "all":
+            conditions.append(TransactionRecord.transaction_type == transaction_type)
+
+        # 时间范围过滤
+        if start_time:
+            conditions.append(TransactionRecord.created_at >= start_time)
+        if end_time:
+            conditions.append(TransactionRecord.created_at <= end_time)
+
+        # 3. 查询总记录数
+        count_stmt = select(func.count(TransactionRecord.id)).where(*conditions)
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 4. 分页查询交易记录
+        offset = (page - 1) * page_size
+        stmt = (
+            select(TransactionRecord)
+            .where(*conditions)
+            .order_by(desc(TransactionRecord.created_at))  # 按时间降序
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.db.execute(stmt)
+        transactions = result.scalars().all()
+
+        return list(transactions), total

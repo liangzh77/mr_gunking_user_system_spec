@@ -384,3 +384,134 @@ class OperatorListResponse(BaseModel):
             ]
         }
     }
+
+
+# ========== 余额相关 Schema (T072) ==========
+
+class BalanceResponse(BaseModel):
+    """运营商余额查询响应 (T072)
+
+    返回运营商当前余额和客户分类信息
+    """
+    balance: str = Field(
+        ...,
+        description="账户余额(元,字符串格式)"
+    )
+
+    category: str = Field(
+        ...,
+        description="客户分类: trial/normal/vip"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "balance": "1250.50",
+                    "category": "normal"
+                }
+            ]
+        }
+    }
+
+
+# ========== 交易记录相关 Schema (T073) ==========
+
+class TransactionItem(BaseModel):
+    """交易记录项 (T073)
+
+    单条交易记录的详细信息
+    """
+    transaction_id: str = Field(
+        ...,
+        description="交易ID"
+    )
+
+    type: str = Field(
+        ...,
+        description="交易类型: recharge/consumption"
+    )
+
+    amount: str = Field(
+        ...,
+        description="交易金额(字符串格式)"
+    )
+
+    balance_after: str = Field(
+        ...,
+        description="交易后余额"
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="交易时间"
+    )
+
+    related_usage_id: Optional[str] = Field(
+        None,
+        description="关联使用记录ID(消费类型)"
+    )
+
+    payment_method: Optional[str] = Field(
+        None,
+        description="支付方式(充值类型): wechat/alipay"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "transaction_id": "txn_20250115_123456",
+                    "type": "consumption",
+                    "amount": "50.00",
+                    "balance_after": "450.00",
+                    "created_at": "2025-01-15T12:30:00.000Z",
+                    "related_usage_id": "usage_20250115_001",
+                    "payment_method": None
+                }
+            ]
+        }
+    }
+
+
+class TransactionListResponse(BaseModel):
+    """交易记录列表响应(分页) (T073)
+
+    返回分页的交易记录列表
+    """
+    page: int = Field(..., description="当前页码", ge=1)
+    page_size: int = Field(..., description="每页数量", ge=1, le=100)
+    total: int = Field(..., description="总记录数", ge=0)
+    items: list[TransactionItem] = Field(..., description="交易记录列表")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 2,
+                    "items": [
+                        {
+                            "transaction_id": "txn_20250115_123456",
+                            "type": "consumption",
+                            "amount": "50.00",
+                            "balance_after": "450.00",
+                            "created_at": "2025-01-15T12:30:00.000Z",
+                            "related_usage_id": "usage_20250115_001",
+                            "payment_method": None
+                        },
+                        {
+                            "transaction_id": "txn_20250110_789012",
+                            "type": "recharge",
+                            "amount": "500.00",
+                            "balance_after": "500.00",
+                            "created_at": "2025-01-10T10:00:00.000Z",
+                            "related_usage_id": None,
+                            "payment_method": "wechat"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
