@@ -1012,3 +1012,99 @@ class OperatorService:
             })
 
         return statistics
+
+    async def get_statistics_by_app(
+        self,
+        operator_id: UUID,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> list[dict]:
+        """按应用统计使用情况 (T113)
+
+        聚合每个应用的:
+        - 总场次 (total_sessions)
+        - 总玩家人次 (total_players)
+        - 平均每场玩家数 (avg_players_per_session)
+        - 总消费 (total_cost)
+
+        Args:
+            operator_id: 运营商ID
+            start_time: 开始时间(可选)
+            end_time: 结束时间(可选)
+
+        Returns:
+            list[dict]: 各应用的统计数据列表
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.usage_record import UsageRecord
+        from ..models.application import Application
+        from sqlalchemy import func
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            UsageRecord.operator_id == operator_id
+        ]
+
+        # 时间范围筛选
+        if start_time:
+            conditions.append(UsageRecord.game_started_at >= start_time)
+        if end_time:
+            conditions.append(UsageRecord.game_started_at <= end_time)
+
+        # 3. 聚合查询: 按应用分组统计
+        stmt = (
+            select(
+                Application.id.label('app_id'),
+                Application.app_name.label('app_name'),
+                func.count(UsageRecord.id).label('total_sessions'),
+                func.sum(UsageRecord.player_count).label('total_players'),
+                func.sum(UsageRecord.total_cost).label('total_cost')
+            )
+            .select_from(UsageRecord)
+            .join(Application, UsageRecord.application_id == Application.id)
+            .where(*conditions)
+            .group_by(Application.id, Application.app_name)
+            .order_by(func.sum(UsageRecord.total_cost).desc())  # 按总消费降序
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 4. 格式化返回数据(包含平均每场玩家数)
+        statistics = []
+        for row in rows:
+            total_sessions = row.total_sessions or 0
+            total_players = int(row.total_players or 0)
+
+            # 计算平均每场玩家数
+            avg_players_per_session = round(total_players / total_sessions, 1) if total_sessions > 0 else 0.0
+
+            statistics.append({
+                "app_id": f"app_{row.app_id}",
+                "app_name": row.app_name,
+                "total_sessions": total_sessions,
+                "total_players": total_players,
+                "avg_players_per_session": avg_players_per_session,
+                "total_cost": str(row.total_cost or "0.00")
+            })
+
+        return statistics
