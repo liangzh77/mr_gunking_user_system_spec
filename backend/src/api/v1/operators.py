@@ -27,6 +27,8 @@ from ...schemas.operator import (
     RefundListResponse,
     TransactionItem,
     TransactionListResponse,
+    UsageItem,
+    UsageListResponse,
 )
 from ...services.operator import OperatorService
 
@@ -632,5 +634,167 @@ async def get_refunds(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询退款记录失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/usage-records",
+    response_model=UsageListResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        },
+        422: {
+            "description": "查询参数验证失败"
+        }
+    },
+    summary="查询使用记录",
+    description="""
+    查询当前登录运营商的游戏使用记录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **查询参数**:
+    - page: 页码(默认1,最小1)
+    - page_size: 每页数量(默认20,最小1,最大100)
+    - site_id: 运营点ID筛选(可选)
+    - app_id: 应用ID筛选(可选)
+    - start_time: 开始时间(ISO 8601格式,可选)
+    - end_time: 结束时间(ISO 8601格式,可选)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页数量
+    - total: 总记录数
+    - items: 使用记录列表
+      - usage_id: 使用记录ID
+      - session_id: 游戏会话ID(幂等性标识)
+      - site_id: 运营点ID
+      - site_name: 运营点名称
+      - app_id: 应用ID
+      - app_name: 应用名称
+      - player_count: 玩家数量
+      - unit_price: 单人价格(历史快照,字符串格式)
+      - total_cost: 总费用(字符串格式)
+      - game_duration: 游戏时长(秒,可能为null)
+      - created_at: 授权时间(游戏启动时间)
+
+    **注意事项**:
+    - 结果按游戏启动时间降序排列(最新的在前)
+    - 金额为字符串避免浮点精度问题
+    - 支持多维度筛选(运营点、应用、时间范围)
+    """
+)
+async def get_usage_records(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    site_id: Optional[str] = Query(None, description="运营点ID"),
+    app_id: Optional[str] = Query(None, description="应用ID"),
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间")
+) -> UsageListResponse:
+    """查询运营商使用记录API (T102/T110)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+        page: 页码
+        page_size: 每页数量
+        site_id: 运营点ID筛选
+        app_id: 应用ID筛选
+        start_time: 开始时间
+        end_time: 结束时间
+
+    Returns:
+        UsageListResponse: 分页的使用记录列表
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取使用记录
+    try:
+        usage_records, total = await operator_service.get_usage_records(
+            operator_id=operator_id,
+            page=page,
+            page_size=page_size,
+            site_id=site_id,
+            app_id=app_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+
+        # 转换为响应格式
+        items = []
+        for usage in usage_records:
+            items.append(UsageItem(
+                usage_id=f"usage_{usage.id}",
+                session_id=usage.session_id,
+                site_id=f"site_{usage.site_id}",
+                site_name=usage.site.name,
+                app_id=f"app_{usage.application_id}",
+                app_name=usage.application.app_name,
+                player_count=usage.player_count,
+                unit_price=str(usage.price_per_player),
+                total_cost=str(usage.total_cost),
+                game_duration=usage.game_duration_minutes * 60 if usage.game_duration_minutes else None,  # 转换为秒
+                created_at=usage.game_started_at
+            ))
+
+        return UsageListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items
+        )
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询使用记录失败: {str(e)}"
             }
         )

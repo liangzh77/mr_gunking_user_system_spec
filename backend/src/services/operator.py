@@ -577,3 +577,109 @@ class OperatorService:
         refunds = result.scalars().all()
 
         return list(refunds), total
+
+    async def get_usage_records(
+        self,
+        operator_id: UUID,
+        page: int = 1,
+        page_size: int = 20,
+        site_id: Optional[str] = None,
+        app_id: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> tuple[list, int]:
+        """查询运营商使用记录(分页) (T102/T110)
+
+        Args:
+            operator_id: 运营商ID
+            page: 页码(从1开始)
+            page_size: 每页数量
+            site_id: 运营点ID筛选(可选)
+            app_id: 应用ID筛选(可选)
+            start_time: 开始时间(可选)
+            end_time: 结束时间(可选)
+
+        Returns:
+            tuple[list, int]: (使用记录列表, 总记录数)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.usage_record import UsageRecord
+        from ..models.site import OperationSite
+        from ..models.application import Application
+        from sqlalchemy import func, desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            UsageRecord.operator_id == operator_id
+        ]
+
+        # 按运营点筛选
+        if site_id:
+            # 解析site_id: 支持 "site_<uuid>" 格式或直接UUID字符串
+            try:
+                if site_id.startswith("site_"):
+                    site_uuid = UUID(site_id[5:])  # 提取 "site_" 后的UUID部分
+                else:
+                    site_uuid = UUID(site_id)
+                conditions.append(UsageRecord.site_id == site_uuid)
+            except ValueError:
+                # 无效的UUID格式,忽略此筛选条件(返回空结果)
+                conditions.append(UsageRecord.site_id == UUID('00000000-0000-0000-0000-000000000000'))
+
+        # 按应用筛选
+        if app_id:
+            # 解析app_id: 支持 "app_<uuid>" 格式或直接UUID字符串
+            try:
+                if app_id.startswith("app_"):
+                    app_uuid = UUID(app_id[4:])  # 提取 "app_" 后的UUID部分
+                else:
+                    app_uuid = UUID(app_id)
+                conditions.append(UsageRecord.application_id == app_uuid)
+            except ValueError:
+                # 无效的UUID格式,忽略此筛选条件(返回空结果)
+                conditions.append(UsageRecord.application_id == UUID('00000000-0000-0000-0000-000000000000'))
+
+        # 时间范围筛选
+        if start_time:
+            conditions.append(UsageRecord.game_started_at >= start_time)
+        if end_time:
+            conditions.append(UsageRecord.game_started_at <= end_time)
+
+        # 3. 查询总记录数
+        count_stmt = select(func.count(UsageRecord.id)).where(*conditions)
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 4. 分页查询使用记录(联表查询site和application)
+        offset = (page - 1) * page_size
+        stmt = (
+            select(UsageRecord)
+            .where(*conditions)
+            .order_by(desc(UsageRecord.game_started_at))  # 按游戏启动时间降序
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.db.execute(stmt)
+        usage_records = result.scalars().all()
+
+        return list(usage_records), total

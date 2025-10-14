@@ -34,7 +34,20 @@
       "Bash(git rm:*)",
       "Bash(./run_tests.bat quick)",
       "Bash(.venv312Scriptspytest.exe tests/contract/test_game_authorize.py::test_api_key_length -v --no-cov --tb=short)",
-      "Bash(.venv312/Scripts/pip.exe list:*)"
+      "Bash(.venv312/Scripts/pip.exe list:*)",
+      "Bash(if [ -d \"C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/specs/001-mr/checklists\" ])",
+      "Bash(then echo \"EXISTS\")",
+      "Bash(else echo \"NOT_EXISTS\")",
+      "Bash(fi)",
+      "Bash(git log:*)",
+      "Bash(PYTHONPATH=. ../.venv312/Scripts/pytest.exe tests/contract/test_balance.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 ../.venv312/Scripts/pytest.exe tests/contract/test_balance.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_transactions.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_refunds.py -v --no-cov --tb=short)",
+      "Bash(...venv312Scriptspytest.exe tests/contract/test_refunds.py -v --no-cov --tb=short)",
+      "Bash(..run_tests.bat)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_refunds.py -v --no-cov --tb=short)",
+      "Read(//c/liangz77/python_projects/github_projects/**)"
     ],
     "deny": [],
     "ask": []
