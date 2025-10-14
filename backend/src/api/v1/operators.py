@@ -644,7 +644,7 @@ async def get_refunds(
 
 @router.get(
     "/me/usage-records",
-    response_model=UsageListResponse,
+    response_model=dict,
     status_code=status.HTTP_200_OK,
     responses={
         401: {
@@ -783,12 +783,15 @@ async def get_usage_records(
                 created_at=usage.game_started_at
             ))
 
-        return UsageListResponse(
-            page=page,
-            page_size=page_size,
-            total=total,
-            items=items
-        )
+        return {
+            "success": True,
+            "data": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "items": items
+            }
+        }
 
     except HTTPException:
         # 重新抛出服务层异常(如404)
