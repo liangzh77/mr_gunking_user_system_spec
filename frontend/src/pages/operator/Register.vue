@@ -27,7 +27,7 @@
           <el-input
             v-model="registerForm.password"
             type="password"
-            placeholder="8-64个字符,必须包含字母和数字"
+            placeholder="8-32个字符,必须包含大小写字母和数字"
             show-password
           />
         </el-form-item>
@@ -58,10 +58,10 @@
           />
         </el-form-item>
 
-        <el-form-item label="公司名称" prop="company_name">
+        <el-form-item label="姓名/公司" prop="name">
           <el-input
-            v-model="registerForm.company_name"
-            placeholder="选填,便于发票开具"
+            v-model="registerForm.name"
+            placeholder="真实姓名或公司名称"
             clearable
           />
         </el-form-item>
@@ -102,9 +102,9 @@ const formRef = ref<FormInstance>()
 const registerForm = reactive<RegisterRequest & { confirmPassword: string }>({
   username: '',
   password: '',
+  name: '',
   email: '',
   phone: '',
-  company_name: '',
   confirmPassword: '',
 })
 
@@ -126,11 +126,11 @@ const validatePassword = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请输入密码'))
   }
-  if (value.length < 8 || value.length > 64) {
-    return callback(new Error('密码长度在8-64个字符'))
+  if (value.length < 8 || value.length > 32) {
+    return callback(new Error('密码长度在8-32个字符'))
   }
-  if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
-    return callback(new Error('密码必须包含字母和数字'))
+  if (!(/[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value))) {
+    return callback(new Error('密码必须包含大小写字母和数字'))
   }
   callback()
 }
@@ -164,6 +164,10 @@ const rules: FormRules = {
     { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
   ],
   phone: [{ validator: validatePhone, trigger: 'blur' }],
+  name: [
+    { required: true, message: '请输入姓名或公司名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在2-50个字符', trigger: 'blur' },
+  ],
 }
 
 const handleRegister = async () => {

@@ -41,9 +41,9 @@ export interface LoginRequest {
 export interface RegisterRequest {
   username: string
   password: string
+  name: string  // 真实姓名或公司名
   email: string
   phone: string
-  company_name?: string
 }
 
 export interface LoginResponse {

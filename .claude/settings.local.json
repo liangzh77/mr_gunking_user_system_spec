@@ -59,7 +59,14 @@
       "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_statistics_by_site.py -v --no-cov --tb=short)",
       "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_consumption_statistics.py -v --no-cov --tb=short)",
       "Bash(timeout 30 set:*)",
-      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_consumption_statistics.py -v --no-cov --tb=short)"
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe tests/contract/test_consumption_statistics.py -v --no-cov --tb=short)",
+      "Read(//c/**)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe tests/contract/test_refund_request.py -v --no-cov --tb=short)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_refund_request.py -v --no-cov --tb=short)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_operator_logout.py -v --no-cov --tb=short)",
+      "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)",
+      "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)",
+      "Bash(/c/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)"
     ],
     "deny": [],
     "ask": []
