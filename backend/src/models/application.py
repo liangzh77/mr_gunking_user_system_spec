@@ -141,6 +141,13 @@ class Application(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个应用有多个授权申请
+    requests: Mapped[list["ApplicationRequest"]] = relationship(
+        "ApplicationRequest",
+        back_populates="application",
+        lazy="selectin"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 价格必须为正数

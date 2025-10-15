@@ -107,6 +107,14 @@ class AdminAccount(Base):
         foreign_keys="OperatorAppAuthorization.authorized_by"
     )
 
+    # 1:N - 一个管理员审核多个授权申请
+    reviewed_requests: Mapped[list["ApplicationRequest"]] = relationship(
+        "ApplicationRequest",
+        back_populates="reviewer",
+        lazy="selectin",
+        foreign_keys="ApplicationRequest.reviewed_by"
+    )
+
     def __repr__(self) -> str:
         """String representation of admin account."""
         return f"<AdminAccount(id={self.id}, username='{self.username}', role='{self.role}')>"

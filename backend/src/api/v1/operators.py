@@ -21,6 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_db, require_operator
 from ...schemas.invoice import InvoiceRequestCreate, InvoiceResponse
 from ...schemas.operator import (
+    ApplicationRequestCreate,
+    ApplicationRequestItem,
+    ApplicationRequestListResponse,
+    AuthorizedApplicationItem,
+    AuthorizedApplicationListResponse,
     BalanceResponse,
     OperatorProfile,
     OperatorUpdateRequest,
@@ -36,6 +41,7 @@ from ...schemas.operator import (
     UsageItem,
     UsageListResponse,
 )
+from ...schemas.payment import RechargeRequest, RechargeResponse
 from ...services.operator import OperatorService
 
 router = APIRouter(prefix="/operators", tags=["运营商"])
@@ -348,6 +354,140 @@ async def get_balance(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询余额失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/me/recharge",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "description": "充值金额不符合要求(必须在10-10000元之间)"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="发起充值",
+    description="""
+    创建充值订单并返回支付二维码。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **请求参数**:
+    - amount: 充值金额(字符串格式,10-10000元,最多2位小数)
+    - payment_method: 支付方式 (wechat=微信支付, alipay=支付宝)
+
+    **业务规则**:
+    - 充值金额范围: 10-10000元
+    - 订单有效期: 30分钟
+    - 支付成功后通过webhook回调更新余额
+
+    **响应数据**:
+    - order_id: 充值订单ID (格式: ord_recharge_<timestamp>_<uuid>)
+    - amount: 充值金额(字符串格式)
+    - payment_method: 支付方式 (wechat/alipay)
+    - qr_code_url: 支付二维码URL(用于扫码支付)
+    - payment_url: 支付页面URL(可选,用于H5场景)
+    - expires_at: 订单过期时间(30分钟后)
+
+    **注意事项**:
+    - 订单30分钟内未支付将自动过期
+    - 支付成功后余额实时更新
+    - 支持微信和支付宝两种支付方式
+    """
+)
+async def recharge(
+    request: RechargeRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """发起充值API (T071)
+
+    Args:
+        request: 充值请求(amount, payment_method)
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "充值订单创建成功",
+            "data": RechargeResponse对象
+        }
+
+    Raises:
+        HTTPException 400: 充值金额不符合要求
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层创建充值订单
+    try:
+        recharge_order = await operator_service.create_recharge_order(
+            operator_id=operator_id,
+            amount=request.amount,
+            payment_method=request.payment_method
+        )
+
+        # 转换为响应格式
+        return {
+            "success": True,
+            "message": "充值订单创建成功",
+            "data": RechargeResponse(
+                order_id=recharge_order.order_id,
+                amount=str(recharge_order.amount),
+                payment_method=recharge_order.payment_method,
+                qr_code_url=recharge_order.qr_code_url,
+                payment_url=recharge_order.payment_url,
+                expires_at=recharge_order.expires_at
+            )
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404运营商不存在, 400金额错误)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"创建充值订单失败: {str(e)}"
             }
         )
 
@@ -1959,5 +2099,438 @@ async def get_consumption_statistics(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询消费统计失败: {str(e)}"
+            }
+        )
+
+
+# ========== 应用授权管理接口 (T097-T099) ==========
+
+@router.get(
+    "/me/applications",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询已授权应用",
+    description="""
+    查询当前登录运营商已授权的应用列表。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **响应数据**:
+    - applications: 已授权应用列表
+      - app_id: 应用ID
+      - app_code: 应用唯一标识符
+      - app_name: 应用名称
+      - description: 应用描述
+      - price_per_player: 单人价格
+      - min_players: 最小玩家数
+      - max_players: 最大玩家数
+      - authorized_at: 授权时间
+      - expires_at: 授权到期时间(null表示永久授权)
+
+    **注意事项**:
+    - 只返回活跃且未过期的授权
+    - 按授权时间降序排列(最新的在前)
+    """
+)
+async def get_authorized_applications(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """查询运营商已授权应用列表API (T097)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": AuthorizedApplicationListResponse对象
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取已授权应用列表
+    try:
+        applications = await operator_service.get_authorized_applications(
+            operator_id=operator_id
+        )
+
+        # 转换为响应格式
+        app_items = []
+        for app in applications:
+            app_items.append(AuthorizedApplicationItem(
+                app_id=app["app_id"],
+                app_code=app["app_code"],
+                app_name=app["app_name"],
+                description=app["description"],
+                price_per_player=app["price_per_player"],
+                min_players=app["min_players"],
+                max_players=app["max_players"],
+                authorized_at=app["authorized_at"],
+                expires_at=app["expires_at"],
+                is_active=True  # 服务层已筛选,均为活跃授权
+            ))
+
+        return {
+            "success": True,
+            "data": AuthorizedApplicationListResponse(
+                applications=app_items
+            )
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询已授权应用失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/me/applications/requests",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "description": "不能重复申请或已授权"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商或应用不存在"
+        },
+        422: {
+            "description": "参数验证失败(app_id格式不正确或reason长度不符合要求)"
+        }
+    },
+    summary="申请应用授权",
+    description="""
+    申请使用某个应用的授权,需要管理员审批。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **请求参数**:
+    - app_id: 应用ID(格式: app_<uuid>)
+    - reason: 申请理由(10-500字符,必填)
+
+    **业务规则**:
+    - 不能重复申请(同一应用只能有一条pending申请)
+    - 不能申请已授权的应用
+    - 应用必须存在且is_active=true
+
+    **响应数据**:
+    - request_id: 申请ID (格式: req_<uuid>)
+    - app_id: 应用ID
+    - app_name: 应用名称
+    - reason: 申请理由
+    - status: 审核状态 (pending)
+    - created_at: 申请时间
+
+    **注意事项**:
+    - 申请提交后需等待管理员审核
+    - 审核通过后自动创建授权关系
+    """
+)
+async def create_application_request(
+    request: ApplicationRequestCreate,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """申请应用授权API (T098)
+
+    Args:
+        request: 授权申请请求(app_id, reason)
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "授权申请已提交,待管理员审核",
+            "data": {
+                "request_id": "req_<uuid>",
+                "app_id": "app_<uuid>",
+                "app_name": "...",
+                "reason": "...",
+                "status": "pending",
+                "created_at": "2025-01-15T10:00:00Z"
+            }
+        }
+
+    Raises:
+        HTTPException 400: 不能重复申请或已授权
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商或应用不存在
+        HTTPException 422: 参数验证失败
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析app_id
+    try:
+        if request.app_id.startswith("app_"):
+            app_uuid = UUID(request.app_id[4:])
+        else:
+            app_uuid = UUID(request.app_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_APP_ID",
+                "message": f"无效的应用ID格式: {request.app_id}"
+            }
+        )
+
+    # 调用服务层创建授权申请
+    try:
+        app_request = await operator_service.create_application_request(
+            operator_id=operator_id,
+            application_id=app_uuid,
+            reason=request.reason
+        )
+
+        # 转换为响应格式
+        return {
+            "success": True,
+            "message": "授权申请已提交,待管理员审核",
+            "data": {
+                "request_id": f"req_{app_request.id}",
+                "app_id": f"app_{app_request.application_id}",
+                "app_name": app_request.application.app_name,
+                "reason": app_request.reason,
+                "status": app_request.status,
+                "created_at": app_request.created_at
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如400重复申请, 404运营商/应用不存在)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"提交授权申请失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/me/applications/requests",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "运营商不存在"
+        }
+    },
+    summary="查询授权申请列表",
+    description="""
+    查询当前登录运营商的应用授权申请记录(分页)。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **查询参数**:
+    - page: 页码(默认1,最小1)
+    - page_size: 每页数量(默认20,最小1,最大100)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页数量
+    - total: 总记录数
+    - items: 申请记录列表
+      - request_id: 申请ID
+      - app_id: 应用ID
+      - app_name: 应用名称
+      - reason: 申请理由
+      - status: 审核状态 (pending=待审核, approved=已通过, rejected=已拒绝)
+      - reject_reason: 拒绝原因(status=rejected时有值)
+      - reviewed_by: 审核人ID(管理员,可能为null)
+      - reviewed_at: 审核时间(可能为null)
+      - created_at: 申请时间
+
+    **注意事项**:
+    - 结果按申请时间降序排列(最新的在前)
+    - 包含所有状态的申请记录(pending/approved/rejected)
+    """
+)
+async def get_application_requests(
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+) -> dict:
+    """查询运营商授权申请列表API (T099)
+
+    Args:
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+        page: 页码
+        page_size: 每页数量
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": ApplicationRequestListResponse对象
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取授权申请列表
+    try:
+        requests_list, total = await operator_service.get_application_requests(
+            operator_id=operator_id,
+            page=page,
+            page_size=page_size
+        )
+
+        # 转换为响应格式
+        items = []
+        for req in requests_list:
+            items.append(ApplicationRequestItem(
+                request_id=f"req_{req.id}",
+                app_id=f"app_{req.application_id}",
+                app_code=req.application.app_code,
+                app_name=req.application.app_name,
+                reason=req.reason,
+                status=req.status,
+                reject_reason=req.reject_reason,
+                reviewed_by=f"admin_{req.reviewed_by}" if req.reviewed_by else None,
+                reviewed_at=req.reviewed_at,
+                created_at=req.created_at
+            ))
+
+        return {
+            "success": True,
+            "data": ApplicationRequestListResponse(
+                page=page,
+                page_size=page_size,
+                total=total,
+                items=items
+            )
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询授权申请列表失败: {str(e)}"
             }
         )

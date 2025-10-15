@@ -228,6 +228,20 @@ class OperatorAccount(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营商有多个充值订单
+    recharge_orders: Mapped[list["RechargeOrder"]] = relationship(
+        "RechargeOrder",
+        back_populates="operator",
+        lazy="selectin"
+    )
+
+    # 1:N - 一个运营商有多个应用授权申请
+    app_requests: Mapped[list["ApplicationRequest"]] = relationship(
+        "ApplicationRequest",
+        back_populates="operator",
+        lazy="selectin"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 余额非负

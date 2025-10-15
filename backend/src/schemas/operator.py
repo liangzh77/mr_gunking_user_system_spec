@@ -983,3 +983,287 @@ class SiteListResponse(BaseModel):
             ]
         }
     }
+
+
+# ========== 应用授权相关 Schema (T088-T089/T097-T099) ==========
+
+class AuthorizedApplicationItem(BaseModel):
+    """已授权应用项 (T089/T097)
+
+    运营商已获得授权的应用信息
+    """
+    app_id: str = Field(
+        ...,
+        description="应用ID(格式: app_<uuid>)"
+    )
+
+    app_code: str = Field(
+        ...,
+        description="应用唯一标识符"
+    )
+
+    app_name: str = Field(
+        ...,
+        description="应用名称"
+    )
+
+    description: Optional[str] = Field(
+        None,
+        description="应用描述"
+    )
+
+    price_per_player: str = Field(
+        ...,
+        description="当前单人价格(字符串格式)"
+    )
+
+    min_players: int = Field(
+        ...,
+        description="最小玩家数"
+    )
+
+    max_players: int = Field(
+        ...,
+        description="最大玩家数"
+    )
+
+    authorized_at: datetime = Field(
+        ...,
+        description="授权时间"
+    )
+
+    expires_at: Optional[datetime] = Field(
+        None,
+        description="授权到期时间(null表示永久授权)"
+    )
+
+    is_active: bool = Field(
+        ...,
+        description="授权状态"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "app_id": "app_space_adventure_001",
+                    "app_code": "space_adventure_v1",
+                    "app_name": "太空探险",
+                    "description": "VR太空探险游戏,支持2-8人协作",
+                    "price_per_player": "10.00",
+                    "min_players": 2,
+                    "max_players": 8,
+                    "authorized_at": "2025-01-01T10:00:00.000Z",
+                    "expires_at": None,
+                    "is_active": True
+                }
+            ]
+        }
+    }
+
+
+class AuthorizedApplicationListResponse(BaseModel):
+    """已授权应用列表响应 (T097)
+
+    契约定义: operator.yaml GET /operators/me/applications
+
+    返回运营商所有已授权的应用
+    """
+    applications: list[AuthorizedApplicationItem] = Field(
+        ...,
+        description="已授权应用列表"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "applications": [
+                        {
+                            "app_id": "app_space_adventure_001",
+                            "app_code": "space_adventure_v1",
+                            "app_name": "太空探险",
+                            "description": "VR太空探险游戏,支持2-8人协作",
+                            "price_per_player": "10.00",
+                            "min_players": 2,
+                            "max_players": 8,
+                            "authorized_at": "2025-01-01T10:00:00.000Z",
+                            "expires_at": None,
+                            "is_active": True
+                        },
+                        {
+                            "app_id": "app_star_war_001",
+                            "app_code": "star_war_v2",
+                            "app_name": "星际战争",
+                            "description": "多人对战VR射击游戏",
+                            "price_per_player": "12.00",
+                            "min_players": 4,
+                            "max_players": 10,
+                            "authorized_at": "2025-01-05T14:00:00.000Z",
+                            "expires_at": "2025-12-31T23:59:59.000Z",
+                            "is_active": True
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+
+class ApplicationRequestCreate(BaseModel):
+    """应用授权申请请求 (T088/T098)
+
+    契约定义: operator.yaml POST /operators/me/applications/requests
+
+    字段要求:
+    - app_id: 应用ID(格式: app_<uuid>)
+    - reason: 10-500字符,申请理由
+    """
+    app_id: str = Field(
+        ...,
+        min_length=4,
+        description="应用ID(格式: app_<uuid> 或纯UUID)",
+        examples=["app_space_adventure_001"]
+    )
+
+    reason: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="申请理由",
+        examples=["我们门店新增了VR设备，希望为用户提供太空探险游戏体验"]
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "app_id": "app_space_adventure_001",
+                    "reason": "我们门店新增了VR设备，希望为用户提供太空探险游戏体验"
+                }
+            ]
+        }
+    }
+
+
+class ApplicationRequestItem(BaseModel):
+    """应用授权申请记录项 (T088/T099)
+
+    运营商的应用授权申请记录
+    """
+    request_id: str = Field(
+        ...,
+        description="申请ID(格式: req_<uuid>)"
+    )
+
+    app_id: str = Field(
+        ...,
+        description="应用ID"
+    )
+
+    app_code: str = Field(
+        ...,
+        description="应用唯一标识符"
+    )
+
+    app_name: str = Field(
+        ...,
+        description="应用名称"
+    )
+
+    reason: str = Field(
+        ...,
+        description="申请理由"
+    )
+
+    status: str = Field(
+        ...,
+        description="审核状态: pending/approved/rejected"
+    )
+
+    reject_reason: Optional[str] = Field(
+        None,
+        description="拒绝原因(status=rejected时)"
+    )
+
+    reviewed_by: Optional[str] = Field(
+        None,
+        description="审核人ID(管理员)"
+    )
+
+    reviewed_at: Optional[datetime] = Field(
+        None,
+        description="审核时间"
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="申请时间"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "request_id": "req_20250115_001",
+                    "app_id": "app_space_adventure_001",
+                    "app_name": "太空探险",
+                    "reason": "我们门店新增了VR设备，希望为用户提供太空探险游戏体验",
+                    "status": "approved",
+                    "reject_reason": None,
+                    "reviewed_by": "admin_001",
+                    "reviewed_at": "2025-01-16T10:00:00.000Z",
+                    "created_at": "2025-01-15T15:00:00.000Z"
+                }
+            ]
+        }
+    }
+
+
+class ApplicationRequestListResponse(BaseModel):
+    """应用授权申请列表响应(分页) (T099)
+
+    契约定义: operator.yaml GET /operators/me/applications/requests
+
+    返回运营商的所有授权申请记录
+    """
+    page: int = Field(..., description="当前页码", ge=1)
+    page_size: int = Field(..., description="每页数量", ge=1, le=100)
+    total: int = Field(..., description="总记录数", ge=0)
+    items: list[ApplicationRequestItem] = Field(..., description="申请记录列表")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 2,
+                    "items": [
+                        {
+                            "request_id": "req_20250115_001",
+                            "app_id": "app_space_adventure_001",
+                            "app_name": "太空探险",
+                            "reason": "我们门店新增了VR设备，希望为用户提供太空探险游戏体验",
+                            "status": "approved",
+                            "reject_reason": None,
+                            "reviewed_by": "admin_001",
+                            "reviewed_at": "2025-01-16T10:00:00.000Z",
+                            "created_at": "2025-01-15T15:00:00.000Z"
+                        },
+                        {
+                            "request_id": "req_20250110_002",
+                            "app_id": "app_star_war_001",
+                            "app_name": "星际战争",
+                            "reason": "计划引入多人对战游戏丰富用户体验",
+                            "status": "pending",
+                            "reject_reason": None,
+                            "reviewed_by": None,
+                            "reviewed_at": None,
+                            "created_at": "2025-01-10T14:00:00.000Z"
+                        }
+                    ]
+                }
+            ]
+        }
+    }

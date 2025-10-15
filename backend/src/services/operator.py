@@ -1472,3 +1472,359 @@ class OperatorService:
             "chart_data": chart_data,
             "summary": summary
         }
+
+    async def create_recharge_order(
+        self,
+        operator_id: UUID,
+        amount: str,
+        payment_method: str
+    ):
+        """创建充值订单 (T071)
+
+        业务规则:
+        - 充值金额已由schema验证(10-10000元,最多2位小数)
+        - 生成唯一订单ID: ord_recharge_<timestamp>_<uuid>
+        - 订单有效期: 30分钟
+        - 返回支付二维码URL和支付页面URL(模拟)
+        - 订单状态初始为pending
+
+        Args:
+            operator_id: 运营商ID
+            amount: 充值金额(字符串格式)
+            payment_method: 支付方式 (wechat/alipay)
+
+        Returns:
+            充值订单对象 (包含order_id, qr_code_url, expires_at等)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.transaction import RechargeOrder
+        from decimal import Decimal
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 生成订单ID: ord_recharge_<timestamp>_<short_uuid>
+        import time
+        from uuid import uuid4
+        timestamp = int(time.time())
+        short_uuid = str(uuid4())[:8]  # 取前8位UUID
+        order_id = f"ord_recharge_{timestamp}_{short_uuid}"
+
+        # 3. 计算订单过期时间(30分钟后)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+        # 4. 生成支付二维码URL和支付页面URL(模拟)
+        # 实际环境中应调用支付平台API生成真实二维码
+        qr_code_url = f"https://payment.example.com/qr/{order_id}"
+        payment_url = f"https://payment.example.com/pay/{order_id}"
+
+        # 5. 创建充值订单记录
+        recharge_order = RechargeOrder(
+            order_id=order_id,
+            operator_id=operator_id,
+            amount=Decimal(amount),
+            payment_method=payment_method,
+            qr_code_url=qr_code_url,
+            payment_url=payment_url,
+            status="pending",
+            expires_at=expires_at
+        )
+
+        self.db.add(recharge_order)
+        await self.db.commit()
+        await self.db.refresh(recharge_order)
+
+        return recharge_order
+
+    async def get_authorized_applications(
+        self,
+        operator_id: UUID
+    ) -> list:
+        """查询运营商已授权的应用列表 (T097)
+
+        返回运营商当前有权使用的应用列表,包括应用详情和授权信息。
+
+        业务规则:
+        - 只返回is_active=true的授权
+        - 排除已过期的授权(expires_at < now)
+        - 联表查询Application获取应用详情
+
+        Args:
+            operator_id: 运营商ID
+
+        Returns:
+            list[dict]: 已授权应用列表,包含应用信息和授权元数据
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.authorization import OperatorAppAuthorization
+        from ..models.application import Application
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            OperatorAppAuthorization.operator_id == operator_id,
+            OperatorAppAuthorization.is_active == True
+        ]
+
+        # 排除已过期的授权
+        current_time = datetime.now(timezone.utc)
+        from sqlalchemy import or_
+        conditions.append(
+            or_(
+                OperatorAppAuthorization.expires_at.is_(None),  # 永久授权
+                OperatorAppAuthorization.expires_at > current_time  # 未过期
+            )
+        )
+
+        # 3. 联表查询授权和应用信息
+        stmt = (
+            select(OperatorAppAuthorization, Application)
+            .join(Application, OperatorAppAuthorization.application_id == Application.id)
+            .where(*conditions)
+            .order_by(OperatorAppAuthorization.authorized_at.desc())  # 按授权时间降序
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 4. 格式化返回数据
+        applications = []
+        for auth, app in rows:
+            applications.append({
+                "app_id": f"app_{app.id}",
+                "app_code": app.app_code,
+                "app_name": app.app_name,
+                "description": app.description,
+                "price_per_player": str(app.price_per_player),
+                "min_players": app.min_players,
+                "max_players": app.max_players,
+                "authorized_at": auth.authorized_at.isoformat(),
+                "expires_at": auth.expires_at.isoformat() if auth.expires_at else None,
+                "is_active": auth.is_active
+            })
+
+        return applications
+
+    async def create_application_request(
+        self,
+        operator_id: UUID,
+        application_id: UUID,
+        reason: str
+    ):
+        """申请应用授权 (T098)
+
+        运营商申请使用某个应用的授权,需要管理员审批。
+
+        业务规则:
+        - 不能重复申请(同一应用只能有一条pending申请)
+        - 不能申请已授权的应用
+        - 应用必须存在且is_active=true
+
+        Args:
+            operator_id: 运营商ID
+            application_id: 要申请的应用ID
+            reason: 申请理由
+
+        Returns:
+            ApplicationRequest: 新创建的授权申请记录
+
+        Raises:
+            HTTPException 400: 不能重复申请或已授权
+            HTTPException 404: 运营商或应用不存在
+        """
+        from ..models.app_request import ApplicationRequest
+        from ..models.application import Application
+        from ..models.authorization import OperatorAppAuthorization
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 验证应用存在且活跃
+        app_stmt = select(Application).where(
+            Application.id == application_id
+        )
+        app_result = await self.db.execute(app_stmt)
+        application = app_result.scalar_one_or_none()
+
+        if not application:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "APPLICATION_NOT_FOUND",
+                    "message": "应用不存在"
+                }
+            )
+
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "APPLICATION_INACTIVE",
+                    "message": "该应用已下架,无法申请授权"
+                }
+            )
+
+        # 3. 检查是否已有活跃授权
+        auth_stmt = select(OperatorAppAuthorization).where(
+            OperatorAppAuthorization.operator_id == operator_id,
+            OperatorAppAuthorization.application_id == application_id,
+            OperatorAppAuthorization.is_active == True
+        )
+        auth_result = await self.db.execute(auth_stmt)
+        existing_auth = auth_result.scalar_one_or_none()
+
+        if existing_auth:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "ALREADY_AUTHORIZED",
+                    "message": "您已拥有该应用的授权,无需重复申请"
+                }
+            )
+
+        # 4. 检查是否已有待审核的申请
+        request_stmt = select(ApplicationRequest).where(
+            ApplicationRequest.operator_id == operator_id,
+            ApplicationRequest.application_id == application_id,
+            ApplicationRequest.status == "pending"
+        )
+        request_result = await self.db.execute(request_stmt)
+        existing_request = request_result.scalar_one_or_none()
+
+        if existing_request:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "REQUEST_ALREADY_EXISTS",
+                    "message": "该应用已有待审核的申请,请勿重复提交"
+                }
+            )
+
+        # 5. 创建授权申请记录
+        app_request = ApplicationRequest(
+            operator_id=operator_id,
+            application_id=application_id,
+            reason=reason,
+            status="pending"
+        )
+
+        self.db.add(app_request)
+        await self.db.commit()
+        await self.db.refresh(app_request)
+
+        return app_request
+
+    async def get_application_requests(
+        self,
+        operator_id: UUID,
+        page: int = 1,
+        page_size: int = 20
+    ) -> tuple[list, int]:
+        """查询运营商的授权申请列表 (T099)
+
+        返回运营商所有的应用授权申请记录,包括pending/approved/rejected状态。
+
+        Args:
+            operator_id: 运营商ID
+            page: 页码(从1开始)
+            page_size: 每页数量
+
+        Returns:
+            tuple[list, int]: (申请记录列表, 总记录数)
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.app_request import ApplicationRequest
+        from ..models.application import Application
+        from sqlalchemy import func, desc
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            ApplicationRequest.operator_id == operator_id
+        ]
+
+        # 3. 查询总记录数
+        count_stmt = select(func.count(ApplicationRequest.id)).where(*conditions)
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # 4. 分页查询申请记录(联表查询application)
+        offset = (page - 1) * page_size
+        stmt = (
+            select(ApplicationRequest)
+            .where(*conditions)
+            .order_by(desc(ApplicationRequest.created_at))  # 按创建时间降序
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.db.execute(stmt)
+        requests = result.scalars().all()
+
+        return list(requests), total

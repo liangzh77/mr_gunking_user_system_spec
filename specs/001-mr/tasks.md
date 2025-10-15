@@ -33,7 +33,7 @@
 - [ ] T006 [P] 初始化前端Vue项目 in frontend/ (package.json, tsconfig.json, vite.config.ts)
 - [ ] T007 [P] 初始化Python SDK项目 in sdk/python/
 - [X] T008 [P] 创建项目README in README.md
-- [ ] T005a 生成OpenAPI契约规范 in specs/001-mr/contracts/openapi.yaml (基于data-model.md和spec.md的API需求，定义60+端点的请求/响应Schema、错误码、认证方式，使用datamodel-code-generator或手动编写，必须在Phase 3测试编写前完成)
+- [X] T005a 生成OpenAPI契约规范 in specs/001-mr/contracts/openapi.yaml (基于data-model.md和spec.md的API需求，定义60+端点的请求/响应Schema、错误码、认证方式，使用datamodel-code-generator或手动编写，必须在Phase 3测试编写前完成) ✅ 2025-10-15 (contracts/目录包含5个YAML文件，共60个API端点)
 
 **Checkpoint**: ✅ 项目结构就绪，Docker容器可以启动 (MVP核心完成，前端和SDK可延后)
 
@@ -151,22 +151,22 @@
 
 - [X] T050 [P] [US2] 契约测试：运营商注册接口 in backend/tests/contract/test_operator_register.py (POST /v1/auth/operators/register) ✅ 2025-10-14 (23个测试用例,按TDD原则全部失败)
 - [X] T051 [P] [US2] 契约测试：运营商登录接口 in backend/tests/contract/test_operator_login.py (POST /v1/auth/operators/login) ✅ 2025-10-14 (15个测试用例,按TDD原则全部失败)
-- [ ] T052 [P] [US2] 契约测试：充值接口 in backend/tests/contract/test_recharge.py (POST /v1/operators/me/recharge)
-- [ ] T053 [P] [US2] 集成测试：完整财务流程 in backend/tests/integration/test_finance_flow.py (充值 → 查看余额 → 申请退款)
-- [ ] T054 [P] [US2] 集成测试：支付回调失败回滚 in backend/tests/integration/test_payment_callback_failure.py
+- [X] T052 [P] [US2] 契约测试：充值接口 in backend/tests/contract/test_recharge.py (POST /v1/operators/me/recharge) ✅ 2025-10-15 (23个测试用例:成功场景/金额边界/格式验证/认证/响应格式)
+- [X] T053 [P] [US2] 集成测试：完整财务流程 in backend/tests/integration/test_finance_flow.py (充值 → 查看余额 → 申请退款) ✅ 2025-10-15 (10个测试场景:完整流程/多次充值/零余额/交易记录/回调幂等性)
+- [X] T054 [P] [US2] 集成测试：支付回调失败回滚 in backend/tests/integration/test_payment_callback_failure.py ✅ 2025-10-15 (12个测试场景:失败状态/签名验证/金额不匹配/重复回调/数据库回滚)
 
 ### 数据模型 (可并行)
 
 - [X] T055 [P] [US2] 创建RefundRecord模型 in backend/src/models/refund.py (退款记录表) ✅ 2025-10-14
-- [ ] T056 [P] [US2] 创建InvoiceRecord模型 in backend/src/models/invoice.py (发票记录表)
+- [X] T056 [P] [US2] 创建InvoiceRecord模型 in backend/src/models/invoice.py (发票记录表) ✅ 2025-10-15 (包含CHECK约束,审核状态/金额/税号验证)
 
 ### Pydantic Schemas (可并行)
 
 - [X] T057 [P] [US2] 创建运营商注册Schema in backend/src/schemas/operator.py (OperatorRegisterRequest, OperatorProfile) ✅ 2025-10-14
 - [X] T058 [P] [US2] 创建登录Schema in backend/src/schemas/auth.py (LoginRequest, LoginResponse) ✅ 2025-10-14
-- [ ] T059 [P] [US2] 创建充值Schema in backend/src/schemas/payment.py (RechargeRequest, RechargeResponse)
-- [ ] T060 [P] [US2] 创建退款Schema in backend/src/schemas/refund.py (RefundRequest, RefundResponse)
-- [ ] T061 [P] [US2] 创建发票Schema in backend/src/schemas/invoice.py (InvoiceRequest, InvoiceResponse)
+- [X] T059 [P] [US2] 创建充值Schema in backend/src/schemas/payment.py (RechargeRequest, RechargeResponse) ✅ 2025-10-15 (包含金额验证/支付方式枚举/回调请求响应)
+- [X] T060 [P] [US2] 创建退款Schema in backend/src/schemas/refund.py (RefundRequest, RefundResponse) ✅ 2025-10-15 (已确认存在)
+- [X] T061 [P] [US2] 创建发票Schema in backend/src/schemas/invoice.py (InvoiceRequest, InvoiceResponse) ✅ 2025-10-15 (已确认存在)
 
 ### 业务服务
 
@@ -182,15 +182,15 @@
 - [ ] T068 [P] [US2] 实现运营商登出API in backend/src/api/v1/auth.py::operator_logout (POST /v1/auth/operators/logout)
 - [X] T069 [P] [US2] 实现查询个人信息API in backend/src/api/v1/operators.py::get_profile (GET /v1/operators/me) ✅ 2025-10-14
 - [X] T070 [P] [US2] 实现更新个人信息API in backend/src/api/v1/operators.py::update_profile (PUT /v1/operators/me) ✅ 2025-10-14
-- [ ] T071 [P] [US2] 实现充值API in backend/src/api/v1/operators.py::recharge (POST /v1/operators/me/recharge)
+- [X] T071 [P] [US2] 实现充值API in backend/src/api/v1/operators.py::recharge (POST /v1/operators/me/recharge) ✅ 2025-10-15 (API endpoint + RechargeOrder模型 + service方法)
 - [X] T072 [P] [US2] 实现查询余额API in backend/src/api/v1/operators.py::get_balance (GET /v1/operators/me/balance) ✅ 2025-10-14
 - [X] T073 [P] [US2] 实现交易记录查询API in backend/src/api/v1/operators.py::get_transactions (GET /v1/operators/me/transactions) ✅ 2025-10-14
-- [ ] T074 [P] [US2] 实现退款申请API in backend/src/api/v1/operators.py::apply_refund (POST /v1/operators/me/refunds)
+- [X] T074 [P] [US2] 实现退款申请API in backend/src/api/v1/operators.py::apply_refund (POST /v1/operators/me/refunds) ✅ 2025-10-15 (10/10契约测试通过)
 - [X] T075 [P] [US2] 实现退款记录查询API in backend/src/api/v1/operators.py::get_refunds (GET /v1/operators/me/refunds) ✅ 2025-10-14 (8/8测试通过)
-- [ ] T076 [P] [US2] 实现发票申请API in backend/src/api/v1/operators.py::apply_invoice (POST /v1/operators/me/invoices)
-- [ ] T077 [P] [US2] 实现发票记录查询API in backend/src/api/v1/operators.py::get_invoices (GET /v1/operators/me/invoices)
-- [ ] T078 [US2] 实现支付回调处理接口 in backend/src/api/v1/webhooks.py (POST /v1/webhooks/payment/wechat, POST /v1/webhooks/payment/alipay)
-- [ ] T079 [US2] 注册运营商路由 in backend/src/main.py
+- [X] T076 [P] [US2] 实现发票申请API in backend/src/api/v1/operators.py::apply_invoice (POST /v1/operators/me/invoices) ✅ 2025-10-15 (14/14契约测试通过)
+- [X] T077 [P] [US2] 实现发票记录查询API in backend/src/api/v1/operators.py::get_invoices (GET /v1/operators/me/invoices) ✅ 2025-10-15 (9/9契约测试通过)
+- [X] T078 [US2] 实现支付回调处理接口 in backend/src/api/v1/webhooks.py (POST /v1/webhooks/payment/wechat, POST /v1/webhooks/payment/alipay) ✅ 2025-10-15 (幂等性保障+金额验证+事务完整性)
+- [X] T079 [US2] 注册运营商路由 in backend/src/main.py ✅ 2025-10-15 (已在main.py:184-185注册api_router,包含auth/operators/webhooks)
 
 ### 单元测试 (补充)
 
@@ -230,11 +230,11 @@
 
 ### API接口 (可并行)
 
-- [ ] T092 [P] [US3] 实现创建运营点API in backend/src/api/v1/operators.py::create_site (POST /v1/operators/me/sites)
-- [ ] T093 [P] [US3] 实现运营点列表API in backend/src/api/v1/operators.py::get_sites (GET /v1/operators/me/sites)
-- [ ] T094 [P] [US3] 实现运营点详情API in backend/src/api/v1/operators.py::get_site (GET /v1/operators/me/sites/{site_id})
-- [ ] T095 [P] [US3] 实现更新运营点API in backend/src/api/v1/operators.py::update_site (PUT /v1/operators/me/sites/{site_id})
-- [ ] T096 [P] [US3] 实现删除运营点API in backend/src/api/v1/operators.py::delete_site (DELETE /v1/operators/me/sites/{site_id})
+- [X] T092 [P] [US3] 实现创建运营点API in backend/src/api/v1/operators.py::create_site (POST /v1/operators/me/sites) ✅ 2025-10-15 (13/13契约测试通过)
+- [X] T093 [P] [US3] 实现运营点列表API in backend/src/api/v1/operators.py::get_sites (GET /v1/operators/me/sites) ✅ 2025-10-15 (8/8契约测试通过)
+- [X] T094 [P] [US3] 实现运营点详情API in backend/src/api/v1/operators.py::get_site (GET /v1/operators/me/sites/{site_id}) ✅ 2025-10-15 (已实现,通过列表测试验证)
+- [X] T095 [P] [US3] 实现更新运营点API in backend/src/api/v1/operators.py::update_site (PUT /v1/operators/me/sites/{site_id}) ✅ 2025-10-15 (12/12契约测试通过)
+- [X] T096 [P] [US3] 实现删除运营点API in backend/src/api/v1/operators.py::delete_site (DELETE /v1/operators/me/sites/{site_id}) ✅ 2025-10-15 (7/7契约测试通过,软删除)
 - [ ] T097 [P] [US3] 实现查询已授权应用API in backend/src/api/v1/operators.py::get_authorized_applications (GET /v1/operators/me/applications)
 - [ ] T098 [P] [US3] 实现申请应用授权API in backend/src/api/v1/operators.py::request_application (POST /v1/operators/me/applications/requests)
 - [ ] T099 [P] [US3] 实现查询授权申请列表API in backend/src/api/v1/operators.py::get_app_requests (GET /v1/operators/me/applications/requests)
@@ -273,11 +273,11 @@
 
 ### API接口 (可并行)
 
-- [ ] T110 [P] [US4] 实现使用记录查询API in backend/src/api/v1/operators.py::get_usage_records (GET /v1/operators/me/usage-records)
+- [X] T110 [P] [US4] 实现使用记录查询API in backend/src/api/v1/operators.py::get_usage_records (GET /v1/operators/me/usage-records) ✅ 2025-10-15 (11/11契约测试通过)
 - [ ] T111 [P] [US4] 实现使用记录详情API in backend/src/api/v1/operators.py::get_usage_record (GET /v1/operators/me/usage-records/{record_id})
-- [ ] T112 [P] [US4] 实现按运营点统计API in backend/src/api/v1/operators.py::get_statistics_by_site (GET /v1/operators/me/statistics/by-site)
-- [ ] T113 [P] [US4] 实现按应用统计API in backend/src/api/v1/operators.py::get_statistics_by_application (GET /v1/operators/me/statistics/by-application)
-- [ ] T114 [P] [US4] 实现按时间统计API in backend/src/api/v1/operators.py::get_statistics_by_time (GET /v1/operators/me/statistics/by-time)
+- [X] T112 [P] [US4] 实现按运营点统计API in backend/src/api/v1/operators.py::get_statistics_by_site (GET /v1/operators/me/statistics/by-site) ✅ 2025-10-15 (10/10契约测试通过)
+- [X] T113 [P] [US4] 实现按应用统计API in backend/src/api/v1/operators.py::get_statistics_by_application (GET /v1/operators/me/statistics/by-application) ✅ 2025-10-15 (11/11契约测试通过)
+- [X] T114 [P] [US4] 实现按时间统计API in backend/src/api/v1/operators.py::get_statistics_by_time (GET /v1/operators/me/statistics/by-time) ✅ 2025-10-15 (16/16契约测试通过)
 - [ ] T115 [P] [US4] 实现玩家数量分布统计API in backend/src/api/v1/operators.py::get_player_distribution (GET /v1/operators/me/statistics/player-distribution)
 - [ ] T116 [P] [US4] 实现导出使用记录API in backend/src/api/v1/operators.py::export_usage_records (GET /v1/operators/me/usage-records/export)
 - [ ] T117 [P] [US4] 实现导出统计报表API in backend/src/api/v1/operators.py::export_statistics (GET /v1/operators/me/statistics/export)
