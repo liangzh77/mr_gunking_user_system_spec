@@ -192,3 +192,156 @@ class TransactionRecord(Base):
             f"type={self.transaction_type}, "
             f"amount={self.amount})>"
         )
+
+
+class RechargeOrder(Base):
+    """充值订单表 (recharge_orders)
+
+    记录充值订单信息,包括支付状态和订单过期时间。
+    订单创建后通过支付回调更新状态,成功后创建TransactionRecord。
+    """
+
+    __tablename__ = "recharge_orders"
+
+    # ==================== 主键 ====================
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        comment="主键UUID"
+    )
+
+    # ==================== 订单信息 ====================
+    order_id: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        unique=True,
+        comment="订单ID(业务键): ord_recharge_<timestamp>_<uuid>"
+    )
+
+    operator_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+        comment="运营商ID"
+    )
+
+    amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(10, 2),
+        nullable=False,
+        comment="充值金额(10-10000元)"
+    )
+
+    payment_method: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        comment="支付方式: wechat/alipay"
+    )
+
+    # ==================== 支付信息 ====================
+    qr_code_url: Mapped[str] = mapped_column(
+        String(512),
+        nullable=False,
+        comment="支付二维码URL"
+    )
+
+    payment_url: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+        comment="支付页面URL(H5场景)"
+    )
+
+    transaction_id: Mapped[Optional[str]] = mapped_column(
+        String(128),
+        nullable=True,
+        comment="支付平台交易ID(回调后填充)"
+    )
+
+    # ==================== 订单状态 ====================
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="pending",
+        comment="订单状态: pending(待支付)/success(已支付)/failed(支付失败)/expired(已过期)"
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        comment="订单过期时间(创建后30分钟)"
+    )
+
+    paid_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="支付完成时间(回调后填充)"
+    )
+
+    # ==================== 错误信息(失败时) ====================
+    error_code: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="错误码(status=failed时)"
+    )
+
+    error_message: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+        comment="错误信息(status=failed时)"
+    )
+
+    # ==================== 审计字段 ====================
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="创建时间"
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+        comment="更新时间"
+    )
+
+    # ==================== 关系定义 ====================
+    operator: Mapped["OperatorAccount"] = relationship(
+        "OperatorAccount",
+        back_populates="recharge_orders",
+        lazy="selectin"
+    )
+
+    # ==================== 表级约束 ====================
+    __table_args__ = (
+        # CHECK约束: 金额范围10-10000元
+        CheckConstraint(
+            "amount >= 10.00 AND amount <= 10000.00",
+            name="chk_recharge_amount_range"
+        ),
+        # CHECK约束: 支付方式枚举
+        CheckConstraint(
+            "payment_method IN ('wechat', 'alipay')",
+            name="chk_payment_method"
+        ),
+        # CHECK约束: 订单状态枚举
+        CheckConstraint(
+            "status IN ('pending', 'success', 'failed', 'expired')",
+            name="chk_order_status"
+        ),
+        # 唯一索引: order_id业务键
+        Index("idx_order_id", "order_id", unique=True),
+        # 复合索引: 查询运营商订单(按时间降序)
+        Index("idx_recharge_operator", "operator_id", "created_at"),
+        # 普通索引: 按状态查询
+        Index("idx_recharge_status", "status"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<RechargeOrder(id={self.id}, "
+            f"order_id={self.order_id}, "
+            f"amount={self.amount}, "
+            f"status={self.status})>"
+        )

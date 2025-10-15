@@ -14,6 +14,7 @@ from fastapi import APIRouter
 from .admin_auth import router as admin_auth_router
 from .auth import router as auth_router
 from .operators import router as operators_router
+from .webhooks import router as webhooks_router
 
 # Create main API v1 router
 api_router = APIRouter()
@@ -22,5 +23,6 @@ api_router = APIRouter()
 api_router.include_router(admin_auth_router)
 api_router.include_router(auth_router)  # User Story 1: 游戏授权 & User Story 2: 运营商认证
 api_router.include_router(operators_router)  # User Story 2: 运营商个人信息管理
+api_router.include_router(webhooks_router)  # User Story 2: 支付回调webhooks (T078)
 
 __all__ = ["api_router"]
