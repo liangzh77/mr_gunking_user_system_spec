@@ -109,7 +109,7 @@ const registerForm = reactive<RegisterRequest>({
 const confirmPassword = ref('')
 
 // 自定义验证规则
-const validateUsername = (rule: any, value: any, callback: any) => {
+const validateUsername = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请输入用户名'))
   }
@@ -122,7 +122,7 @@ const validateUsername = (rule: any, value: any, callback: any) => {
   callback()
 }
 
-const validatePassword = (rule: any, value: any, callback: any) => {
+const validatePassword = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请输入密码'))
   }
@@ -135,7 +135,7 @@ const validatePassword = (rule: any, value: any, callback: any) => {
   callback()
 }
 
-const validateConfirmPassword = (rule: any, value: any, callback: any) => {
+const validateConfirmPassword = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请再次输入密码'))
   }
@@ -145,7 +145,7 @@ const validateConfirmPassword = (rule: any, value: any, callback: any) => {
   callback()
 }
 
-const validatePhone = (rule: any, value: any, callback: any) => {
+const validatePhone = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请输入手机号'))
   }

@@ -178,10 +178,6 @@ const handleUpdate = async () => {
   })
 }
 
-// 对话框打开时重置表单
-const handleDialogOpen = () => {
-  resetForm()
-}
 </script>
 
 <style scoped>
