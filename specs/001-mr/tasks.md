@@ -179,7 +179,7 @@
 
 - [X] T066 [P] [US2] 实现运营商注册API in backend/src/api/v1/auth.py::register_operator (POST /v1/auth/operators/register) ✅ 2025-10-14 (22/23测试通过,1个测试密码长度边界值问题)
 - [X] T067 [P] [US2] 实现运营商登录API in backend/src/api/v1/auth.py::operator_login (POST /v1/auth/operators/login) ✅ 2025-10-14 (14/15测试通过,1个测试依赖未实现的注销功能)
-- [ ] T068 [P] [US2] 实现运营商登出API in backend/src/api/v1/auth.py::operator_logout (POST /v1/auth/operators/logout)
+- [X] T068 [P] [US2] 实现运营商登出API in backend/src/api/v1/auth.py::operator_logout (POST /v1/auth/operators/logout) ✅ 2025-10-15 (7/7契约测试通过,API已实现auth.py:421-510)
 - [X] T069 [P] [US2] 实现查询个人信息API in backend/src/api/v1/operators.py::get_profile (GET /v1/operators/me) ✅ 2025-10-14
 - [X] T070 [P] [US2] 实现更新个人信息API in backend/src/api/v1/operators.py::update_profile (PUT /v1/operators/me) ✅ 2025-10-14
 - [X] T071 [P] [US2] 实现充值API in backend/src/api/v1/operators.py::recharge (POST /v1/operators/me/recharge) ✅ 2025-10-15 (API endpoint + RechargeOrder模型 + service方法)
