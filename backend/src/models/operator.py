@@ -169,21 +169,23 @@ class OperatorAccount(Base):
         comment="删除时间(软删除)"
     )
 
-    created_by: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("admin_accounts.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="创建者(管理员ID)"
-    )
+    # NOTE: created_by字段在数据库schema中不存在,已注释
+    # created_by: Mapped[Optional[UUID]] = mapped_column(
+    #     UUID(as_uuid=True),
+    #     ForeignKey("admin_accounts.id", ondelete="SET NULL"),
+    #     nullable=True,
+    #     comment="创建者(管理员ID)"
+    # )
 
     # ==================== 关系定义 ====================
-    # N:1 - 多个运营商由一个管理员创建
-    creator: Mapped[Optional["AdminAccount"]] = relationship(
-        "AdminAccount",
-        back_populates="created_operators",
-        lazy="selectin",
-        foreign_keys=[created_by]
-    )
+    # NOTE: creator关系已注释,因为created_by字段不存在
+    # # N:1 - 多个运营商由一个管理员创建
+    # creator: Mapped[Optional["AdminAccount"]] = relationship(
+    #     "AdminAccount",
+    #     back_populates="created_operators",
+    #     lazy="selectin",
+    #     foreign_keys=[created_by]
+    # )
     # 1:N - 一个运营商拥有多个运营点
     operation_sites: Mapped[list["OperationSite"]] = relationship(
         "OperationSite",
