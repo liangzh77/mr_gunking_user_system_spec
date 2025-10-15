@@ -1828,3 +1828,172 @@ class OperatorService:
         requests = result.scalars().all()
 
         return list(requests), total
+
+    async def get_usage_record(
+        self,
+        operator_id: UUID,
+        record_id: UUID
+    ):
+        """获取单条使用记录详情 (T111)
+
+        返回指定ID的使用记录详细信息,包括关联的运营点和应用信息。
+
+        Args:
+            operator_id: 运营商ID
+            record_id: 使用记录ID
+
+        Returns:
+            UsageRecord: 使用记录对象(含关联的site和application)
+
+        Raises:
+            HTTPException 404: 运营商或使用记录不存在
+            HTTPException 403: 无权访问该记录
+        """
+        from ..models.usage_record import UsageRecord
+        from ..models.site import OperationSite
+        from ..models.application import Application
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 查询使用记录(必须属于该运营商)
+        stmt = select(UsageRecord).where(
+            UsageRecord.id == record_id,
+            UsageRecord.operator_id == operator_id
+        )
+        result = await self.db.execute(stmt)
+        usage_record = result.scalar_one_or_none()
+
+        if not usage_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "USAGE_RECORD_NOT_FOUND",
+                    "message": "使用记录不存在或无权访问"
+                }
+            )
+
+        return usage_record
+
+    async def get_player_distribution_statistics(
+        self,
+        operator_id: UUID,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> dict:
+        """玩家数量分布统计 (T115)
+
+        统计不同玩家数量的游戏场次分布,用于分析运营商最常见的游戏规模。
+
+        返回数据:
+        - distribution: 各玩家数量的场次、占比、总消费
+        - total_sessions: 总场次
+        - most_common_player_count: 最常见的玩家数
+
+        Args:
+            operator_id: 运营商ID
+            start_time: 开始时间(可选)
+            end_time: 结束时间(可选)
+
+        Returns:
+            dict: {
+                "distribution": list[dict],
+                "total_sessions": int,
+                "most_common_player_count": int
+            }
+
+        Raises:
+            HTTPException 404: 运营商不存在
+        """
+        from ..models.usage_record import UsageRecord
+        from sqlalchemy import func
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 构建查询条件
+        conditions = [
+            UsageRecord.operator_id == operator_id
+        ]
+
+        # 时间范围筛选
+        if start_time:
+            conditions.append(UsageRecord.game_started_at >= start_time)
+        if end_time:
+            conditions.append(UsageRecord.game_started_at <= end_time)
+
+        # 3. 聚合查询: 按玩家数量分组统计
+        stmt = (
+            select(
+                UsageRecord.player_count,
+                func.count(UsageRecord.id).label('session_count'),
+                func.sum(UsageRecord.total_cost).label('total_cost')
+            )
+            .where(*conditions)
+            .group_by(UsageRecord.player_count)
+            .order_by(UsageRecord.player_count)  # 按玩家数升序
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 4. 计算总场次
+        total_sessions = sum(row.session_count for row in rows)
+
+        # 5. 格式化返回数据
+        distribution = []
+        most_common_count = 0
+        max_sessions = 0
+
+        for row in rows:
+            session_count = row.session_count or 0
+            total_cost = row.total_cost or 0
+
+            # 计算占比
+            percentage = round((session_count / total_sessions * 100), 1) if total_sessions > 0 else 0.0
+
+            # 找出最常见的玩家数
+            if session_count > max_sessions:
+                max_sessions = session_count
+                most_common_count = row.player_count
+
+            distribution.append({
+                "player_count": row.player_count,
+                "session_count": session_count,
+                "percentage": percentage,
+                "total_cost": f"{float(total_cost):.2f}"
+            })
+
+        return {
+            "distribution": distribution,
+            "total_sessions": total_sessions,
+            "most_common_player_count": most_common_count if total_sessions > 0 else 0
+        }

@@ -1400,6 +1400,115 @@ async def get_usage_records(
         )
 
 
+@router.get(
+    "/me/usage-records/{record_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="查询使用记录详情",
+    description="根据记录ID查询单条使用记录的详细信息"
+)
+async def get_usage_record(
+    record_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """查询使用记录详情API (T111)
+
+    Args:
+        record_id: 使用记录ID (格式: usage_<uuid>)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": UsageItem对象
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 使用记录不存在或无权访问
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析record_id
+    try:
+        if record_id.startswith("usage_"):
+            usage_uuid = UUID(record_id[6:])
+        else:
+            usage_uuid = UUID(record_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_RECORD_ID",
+                "message": f"无效的使用记录ID格式: {record_id}"
+            }
+        )
+
+    # 调用服务层获取使用记录详情
+    try:
+        usage_record = await operator_service.get_usage_record(
+            operator_id=operator_id,
+            record_id=usage_uuid
+        )
+
+        # 转换为响应格式
+        usage_item = UsageItem(
+            usage_id=f"usage_{usage_record.id}",
+            session_id=usage_record.session_id,
+            site_id=f"site_{usage_record.site_id}",
+            site_name=usage_record.site.name,
+            app_id=f"app_{usage_record.application_id}",
+            app_name=usage_record.application.app_name,
+            player_count=usage_record.player_count,
+            unit_price=str(usage_record.price_per_player),
+            total_cost=str(usage_record.total_cost),
+            game_duration=usage_record.game_duration_minutes * 60 if usage_record.game_duration_minutes else None,
+            created_at=usage_record.game_started_at
+        )
+
+        return {
+            "success": True,
+            "data": usage_item
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询使用记录详情失败: {str(e)}"
+            }
+        )
+
+
 # ========== 运营点管理接口 (T092-T096) ==========
 
 @router.post(
@@ -2101,6 +2210,348 @@ async def get_consumption_statistics(
                 "message": f"查询消费统计失败: {str(e)}"
             }
         )
+
+
+@router.get(
+    "/me/statistics/player-distribution",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="玩家数量分布统计",
+    description="统计不同玩家数量的游戏场次分布,用于分析最常见的游戏规模"
+)
+async def get_player_distribution(
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """玩家数量分布统计API (T115)
+
+    Args:
+        start_time: 开始时间(可选)
+        end_time: 结束时间(可选)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "distribution": [
+                    {
+                        "player_count": 4,
+                        "session_count": 25,
+                        "percentage": 25.0,
+                        "total_cost": "1000.00"
+                    }
+                ],
+                "total_sessions": 100,
+                "most_common_player_count": 4
+            }
+        }
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 调用服务层获取玩家数量分布统计
+    try:
+        statistics = await operator_service.get_player_distribution_statistics(
+            operator_id=operator_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+
+        return {
+            "success": True,
+            "data": statistics
+        }
+
+    except HTTPException:
+        # 重新抛出服务层异常(404)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询玩家分布统计失败: {str(e)}"
+            }
+        )
+
+
+# ========== 数据导出接口 (T116-T117) ==========
+
+@router.get(
+    "/me/usage-records/export",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="导出使用记录",
+    description="导出使用记录到Excel或CSV文件(模拟实现)"
+)
+async def export_usage_records(
+    format: str = Query("excel", description="导出格式: excel或csv"),
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    site_id: Optional[str] = Query(None, description="运营点ID筛选"),
+    app_id: Optional[str] = Query(None, description="应用ID筛选"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """导出使用记录API (T116 - 模拟实现)
+
+    Args:
+        format: 导出格式 (excel/csv)
+        start_time: 开始时间(可选)
+        end_time: 结束时间(可选)
+        site_id: 运营点ID筛选(可选)
+        app_id: 应用ID筛选(可选)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "export_id": "export_xxx",
+                "filename": "usage_records_20250115.xlsx",
+                "format": "excel",
+                "download_url": "https://storage.example.com/exports/xxx.xlsx",
+                "file_size": 102400,
+                "expires_at": "2025-01-15T12:30:00Z",
+                "created_at": "2025-01-15T12:00:00Z"
+            }
+        }
+
+    Raises:
+        HTTPException 400: 格式参数无效
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    from datetime import timedelta
+    import uuid
+
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 验证format参数
+    if format not in ["excel", "csv"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_FORMAT",
+                "message": "format参数必须是: excel 或 csv"
+            }
+        )
+
+    # 验证运营商存在
+    try:
+        await operator_service.get_profile(operator_id)
+    except HTTPException:
+        raise
+
+    # 模拟导出实现
+    export_id = f"export_{uuid.uuid4()}"
+    file_ext = "xlsx" if format == "excel" else "csv"
+    filename = f"usage_records_{datetime.now().strftime('%Y%m%d')}.{file_ext}"
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(minutes=30)
+
+    return {
+        "success": True,
+        "data": {
+            "export_id": export_id,
+            "filename": filename,
+            "format": format,
+            "download_url": f"https://storage.example.com/exports/{filename}",
+            "file_size": 102400,  # 模拟文件大小100KB
+            "expires_at": expires_at,
+            "created_at": created_at
+        }
+    }
+
+
+@router.get(
+    "/me/statistics/export",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="导出统计报表",
+    description="导出统计报表到Excel或CSV文件(模拟实现)"
+)
+async def export_statistics(
+    format: str = Query("excel", description="导出格式: excel或csv"),
+    report_type: str = Query(..., description="报表类型: site/application/consumption/player_distribution"),
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    dimension: Optional[str] = Query(None, description="时间维度(consumption报表): day/week/month"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """导出统计报表API (T117 - 模拟实现)
+
+    Args:
+        format: 导出格式 (excel/csv)
+        report_type: 报表类型 (site/application/consumption/player_distribution)
+        start_time: 开始时间(可选)
+        end_time: 结束时间(可选)
+        dimension: 时间维度(可选,仅consumption报表)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "data": {
+                "export_id": "export_xxx",
+                "filename": "statistics_by_site_20250115.xlsx",
+                "format": "excel",
+                "download_url": "https://storage.example.com/exports/xxx.xlsx",
+                "file_size": 51200,
+                "expires_at": "2025-01-15T12:30:00Z",
+                "created_at": "2025-01-15T12:00:00Z"
+            }
+        }
+
+    Raises:
+        HTTPException 400: 参数无效
+        HTTPException 401: 未认证或Token无效
+        HTTPException 404: 运营商不存在
+    """
+    from datetime import timedelta
+    import uuid
+
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 验证format参数
+    if format not in ["excel", "csv"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_FORMAT",
+                "message": "format参数必须是: excel 或 csv"
+            }
+        )
+
+    # 验证report_type参数
+    valid_report_types = ["site", "application", "consumption", "player_distribution"]
+    if report_type not in valid_report_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_REPORT_TYPE",
+                "message": f"report_type参数必须是: {', '.join(valid_report_types)}"
+            }
+        )
+
+    # 验证dimension参数(如果是consumption报表)
+    if report_type == "consumption" and dimension and dimension not in ["day", "week", "month"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_DIMENSION",
+                "message": "dimension参数必须是: day, week 或 month"
+            }
+        )
+
+    # 验证运营商存在
+    try:
+        await operator_service.get_profile(operator_id)
+    except HTTPException:
+        raise
+
+    # 模拟导出实现
+    export_id = f"export_{uuid.uuid4()}"
+    file_ext = "xlsx" if format == "excel" else "csv"
+    report_name_map = {
+        "site": "by_site",
+        "application": "by_application",
+        "consumption": "consumption",
+        "player_distribution": "player_distribution"
+    }
+    filename = f"statistics_{report_name_map[report_type]}_{datetime.now().strftime('%Y%m%d')}.{file_ext}"
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(minutes=30)
+
+    return {
+        "success": True,
+        "data": {
+            "export_id": export_id,
+            "filename": filename,
+            "format": format,
+            "download_url": f"https://storage.example.com/exports/{filename}",
+            "file_size": 51200,  # 模拟文件大小50KB
+            "expires_at": expires_at,
+            "created_at": created_at
+        }
+    }
 
 
 # ========== 应用授权管理接口 (T097-T099) ==========
