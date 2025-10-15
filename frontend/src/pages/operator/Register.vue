@@ -34,7 +34,7 @@
 
         <el-form-item label="确认密码" prop="confirmPassword">
           <el-input
-            v-model="confirmPassword"
+            v-model="registerForm.confirmPassword"
             type="password"
             placeholder="请再次输入密码"
             show-password
@@ -99,14 +99,14 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const formRef = ref<FormInstance>()
-const registerForm = reactive<RegisterRequest>({
+const registerForm = reactive<RegisterRequest & { confirmPassword: string }>({
   username: '',
   password: '',
   email: '',
   phone: '',
   company_name: '',
+  confirmPassword: '',
 })
-const confirmPassword = ref('')
 
 // 自定义验证规则
 const validateUsername = (_rule: any, value: any, callback: any) => {
@@ -173,7 +173,9 @@ const handleRegister = async () => {
     if (!valid) return
 
     try {
-      await authStore.register(registerForm)
+      // 提取注册所需字段,排除confirmPassword
+      const { confirmPassword: _, ...registerData } = registerForm
+      await authStore.register(registerData as RegisterRequest)
       ElMessage.success('注册成功,请登录')
       router.push('/operator/login')
     } catch (error) {
