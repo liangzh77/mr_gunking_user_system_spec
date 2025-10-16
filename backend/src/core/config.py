@@ -23,11 +23,22 @@ class Settings(BaseSettings):
 
     # ========== Database Configuration ==========
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://mr_admin:mr_secure_password_2024@localhost:5432/mr_game_ops",
-        description="PostgreSQL database connection URL (asyncpg driver)",
+        default="sqlite+aiosqlite:///./mr_game_ops.db",
+        description="Database connection URL (supports PostgreSQL with asyncpg or SQLite with aiosqlite)",
     )
     DATABASE_POOL_SIZE: int = Field(default=20, ge=1, le=100)
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)
+    DATABASE_ECHO: bool = Field(default=False, description="Enable SQL query logging")
+
+    # ========== Redis Configuration ==========
+    REDIS_URL: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL for caching and sessions",
+    )
+    REDIS_PASSWORD: str = Field(default="", description="Redis password (if required)")
+    REDIS_MAX_CONNECTIONS: int = Field(default=50, ge=1, le=500)
+    REDIS_SOCKET_TIMEOUT: int = Field(default=5, ge=1, le=60)
+    REDIS_SOCKET_CONNECT_TIMEOUT: int = Field(default=5, ge=1, le=60)
 
     # ========== Security Configuration ==========
     SECRET_KEY: str = Field(
@@ -62,16 +73,23 @@ class Settings(BaseSettings):
     )
 
     # ========== API Configuration ==========
-    API_V1_PREFIX: str = Field(default="/v1", description="API v1 prefix path")
+    API_V1_PREFIX: str = Field(default="/api/v1", description="API v1 prefix path")
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000,http://localhost:5173",
         description="Allowed CORS origins (comma-separated)",
     )
+    CORS_ALLOW_CREDENTIALS: bool = Field(default=True, description="Allow credentials in CORS")
     MAX_REQUEST_SIZE: int = Field(
         default=10 * 1024 * 1024,  # 10MB
         ge=1024,
         description="Maximum request body size in bytes",
     )
+
+    # ========== Server Configuration ==========
+    HOST: str = Field(default="0.0.0.0", description="Server host")
+    PORT: int = Field(default=8000, ge=1, le=65535, description="Server port")
+    WORKERS: int = Field(default=1, ge=1, le=32, description="Number of worker processes")
+    RELOAD: bool = Field(default=True, description="Enable auto-reload in development")
 
     # ========== Rate Limiting Configuration ==========
     RATE_LIMIT_PER_MINUTE: int = Field(
