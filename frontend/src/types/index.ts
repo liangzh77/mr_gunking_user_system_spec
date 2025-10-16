@@ -47,12 +47,18 @@ export interface RegisterRequest {
 }
 
 export interface LoginResponse {
-  access_token: string
-  token_type: string
-  expires_in: number
-  operator_id: string
-  username: string
-  customer_tier: string
+  success: boolean
+  data: {
+    access_token: string
+    token_type: string
+    expires_in: number
+    operator: {
+      operator_id: string
+      username: string
+      name: string
+      category: string
+    }
+  }
 }
 
 // 运营点相关类型

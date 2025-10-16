@@ -18,18 +18,21 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     try {
       const response = await http.post<LoginResponse>('/auth/operators/login', credentials)
-      const data = response.data
+      const loginResponse = response.data
 
-      // 保存token
-      accessToken.value = data.access_token
-      operatorId.value = data.operator_id
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('operator_id', data.operator_id)
+      // 提取嵌套的数据
+      const { access_token, operator } = loginResponse.data
+
+      // 保存token和operator_id
+      accessToken.value = access_token
+      operatorId.value = operator.operator_id
+      localStorage.setItem('access_token', access_token)
+      localStorage.setItem('operator_id', operator.operator_id)
 
       // 获取用户信息
       await fetchProfile()
 
-      return data
+      return loginResponse
     } finally {
       isLoading.value = false
     }
