@@ -18,7 +18,7 @@ MR游戏运营管理系统是一个专为游戏运营商设计的授权和计费
 ### 后端
 - **语言**: Python 3.11+
 - **框架**: FastAPI 0.104+
-- **数据库**: PostgreSQL 14+
+- **数据库**: SQLite (开发) / PostgreSQL 14+ (生产)
 - **ORM**: SQLAlchemy 2.0+ (Async)
 - **迁移工具**: Alembic
 - **数据验证**: Pydantic 2.0+
@@ -29,11 +29,12 @@ MR游戏运营管理系统是一个专为游戏运营商设计的授权和计费
 - **监控**: Prometheus Client
 
 ### 前端
-- **框架**: Vue 3
-- **语言**: TypeScript
+- **框架**: Vue 3 + TypeScript
 - **状态管理**: Pinia
 - **UI组件库**: Element Plus
-- **图表**: ECharts
+- **HTTP客户端**: Axios
+- **路由**: Vue Router
+- **日期处理**: Day.js
 - **构建工具**: Vite
 
 ### 开发工具
@@ -49,9 +50,8 @@ MR游戏运营管理系统是一个专为游戏运营商设计的授权和计费
 ### 前置要求
 
 - Python 3.11+
-- Docker & Docker Compose
-- Node.js 18+ (前端开发)
-- Poetry (可选，推荐)
+- Node.js 18+
+- Git
 
 ### 1. 克隆项目
 
@@ -60,76 +60,79 @@ git clone <repository-url>
 cd mr_gunking_user_system_spec
 ```
 
-### 2. 启动数据库 (Docker Compose)
+### 2. 后端设置
 
-```bash
-# 启动PostgreSQL数据库
-docker-compose up -d postgres
-
-# 查看数据库状态
-docker-compose ps
-```
-
-### 3. 配置环境变量
+#### 2.1 创建虚拟环境
 
 ```bash
 cd backend
-cp .env.example .env
+python -m venv .venv312
 
-# 编辑 .env 文件，填写必要的配置
-# 特别注意修改以下配置:
-# - SECRET_KEY (生产环境必须更改)
-# - JWT_SECRET_KEY (生产环境必须更改)
-# - ENCRYPTION_KEY (生产环境必须更改)
-# - DATABASE_URL (如果数据库配置不同)
+# Windows
+.venv312\Scripts\activate
+
+# Linux/Mac
+source .venv312/bin/activate
 ```
 
-### 4. 安装依赖
+#### 2.2 安装依赖
 
-#### 使用 Poetry (推荐)
 ```bash
-cd backend
-poetry install
-poetry shell
-```
-
-#### 使用 pip
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 5. 运行数据库迁移
+#### 2.3 初始化数据库
 
 ```bash
-cd backend
-
-# 初始化Alembic (如果首次运行)
+# 运行数据库迁移
 alembic upgrade head
 
-# 加载种子数据 (超级管理员、系统配置、示例应用)
-python scripts/seed_data.py
+# 初始化数据（创建管理员账户和测试应用）
+python init_data.py
 ```
 
-### 6. 启动后端服务
+执行成功后会看到：
+```
+管理员账户: admin / Admin123
+应用数据: 3个测试游戏应用已创建
+```
+
+#### 2.4 启动后端服务
 
 ```bash
-cd backend
-
-# 开发模式 (热重载)
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-
-# 或使用Docker Compose启动所有服务
-docker-compose up -d
+# 开发模式（热重载）
+python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### 7. 访问服务
+### 3. 前端设置
 
-- **API文档**: http://localhost:8000/docs (Swagger UI)
+#### 3.1 安装依赖
+
+```bash
+cd frontend
+npm install
+```
+
+#### 3.2 启动开发服务器
+
+```bash
+npm run dev
+```
+
+### 4. 访问系统
+
+- **前端应用**: http://localhost:5173/
+- **API文档**: http://localhost:8000/api/docs
 - **健康检查**: http://localhost:8000/health
-- **PgAdmin**: http://localhost:5050 (用户名: admin@mrgameops.com, 密码: admin_password)
+
+### 5. 默认账户
+
+**管理员账户**:
+- 用户名: `admin`
+- 密码: `Admin123`
+
+**运营商账户**:
+- 请通过前端注册页面自行注册：http://localhost:5173/operator/register
 
 ## 项目结构
 
@@ -241,22 +244,32 @@ alembic history
 
 ## 核心功能
 
-### MVP功能 (Phase 1-3)
+### 已完成功能 (95%)
 
-- [x] 项目初始化和基础设施
-- [x] 数据库模型和迁移
-- [ ] 游戏授权API (核心)
-  - 头显Server请求授权
-  - API Key验证
-  - 余额检查和扣费
-  - 幂等性保证 (会话ID)
-  - 并发控制 (行级锁)
-- [ ] 授权业务逻辑
-  - 应用授权验证
-  - 玩家数量范围验证
-  - 价格快照和费用计算
-  - 使用记录创建
-  - 交易记录创建
+**后端API** ✅
+- [x] 运营商认证（注册、登录、个人信息管理）
+- [x] 游戏授权API（实时计费、会话管理）
+- [x] 在线充值（支付订单创建、回调处理）
+- [x] 退款管理（申请、审批、退款）
+- [x] 发票管理（申请、审核、开具）
+- [x] 运营点管理（CRUD）
+- [x] 应用授权申请（申请、审批）
+- [x] 交易记录查询（筛选、分页）
+- [x] 使用记录查询（筛选、分页、导出）
+- [x] 统计分析（多维度、数据导出）
+- [x] 管理员后台（登录、审批管理）
+
+**前端页面** ✅
+- [x] Dashboard（账户概览、余额、快捷操作）
+- [x] 运营点管理（列表、创建、编辑、删除）
+- [x] 已授权应用（列表、申请记录）
+- [x] 在线充值（金额选择、支付展示）
+- [x] 使用记录查询（筛选、分页、导出、统计）
+- [x] 交易记录查询（筛选、分页、分类统计）
+- [x] 统计分析（4个维度、可视化、导出）
+- [x] 退款管理（申请列表、新建申请）
+- [x] 发票管理（申请列表、新建申请、下载）
+- [x] 个人信息管理（查看、编辑）
 
 ### 完整功能路线图
 
