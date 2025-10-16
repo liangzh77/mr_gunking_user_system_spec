@@ -12,6 +12,7 @@ User Story 2 - 运营商账户与财务管理:
 from fastapi import APIRouter
 
 from .admin_auth import router as admin_auth_router
+from .admin_operations import router as admin_operations_router
 from .auth import router as auth_router
 from .operators import router as operators_router
 from .webhooks import router as webhooks_router
@@ -21,6 +22,7 @@ api_router = APIRouter()
 
 # Include all v1 routers
 api_router.include_router(admin_auth_router)
+api_router.include_router(admin_operations_router)  # Admin business operations
 api_router.include_router(auth_router)  # User Story 1: 游戏授权 & User Story 2: 运营商认证
 api_router.include_router(operators_router)  # User Story 2: 运营商个人信息管理
 api_router.include_router(webhooks_router)  # User Story 2: 支付回调webhooks (T078)

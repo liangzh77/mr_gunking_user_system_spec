@@ -100,5 +100,29 @@ class AdminListResponse(BaseModel):
     total: int = Field(description="Total count")
 
 
+# ========== Application Authorization Request Management ==========
+
+
+class ApplicationRequestReviewRequest(BaseModel):
+    """Review application authorization request."""
+
+    action: str = Field(..., description="Review action: approve/reject")
+    reject_reason: str | None = Field(None, min_length=10, max_length=500, description="Reject reason (required if action=reject)")
+
+    class Config:
+        """Pydantic config."""
+        json_schema_extra = {
+            "examples": [
+                {
+                    "action": "approve"
+                },
+                {
+                    "action": "reject",
+                    "reject_reason": "该应用暂未对您的客户分类开放授权"
+                }
+            ]
+        }
+
+
 # Rebuild models to resolve forward references
 AdminLoginResponse.model_rebuild()
