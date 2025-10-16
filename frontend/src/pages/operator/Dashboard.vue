@@ -236,7 +236,7 @@ const loadData = async () => {
     ])
 
     balance.value = balanceData.balance
-    totalSpent.value = balanceData.total_spent
+    totalSpent.value = balanceData.total_spent || '0.00'
     sitesCount.value = sitesData.length
     recentTransactions.value = transactionsData.items
   } catch (error) {
