@@ -1580,7 +1580,7 @@ async def create_site(
             site_id=f"site_{site.id}",
             name=site.name,
             address=site.address,
-            description=site.description,
+            description=getattr(site, 'description', None),
             is_deleted=site.deleted_at is not None,
             created_at=site.created_at,
             updated_at=site.updated_at
@@ -1675,7 +1675,7 @@ async def get_sites(
                 site_id=f"site_{site.id}",
                 name=site.name,
                 address=site.address,
-                description=site.description,
+                description=getattr(site, 'description', None),
                 is_deleted=site.deleted_at is not None,
                 created_at=site.created_at,
                 updated_at=site.updated_at
@@ -1789,7 +1789,7 @@ async def update_site(
             site_id=f"site_{site.id}",
             name=site.name,
             address=site.address,
-            description=site.description,
+            description=getattr(site, 'description', None),
             is_deleted=site.deleted_at is not None,
             created_at=site.created_at,
             updated_at=site.updated_at

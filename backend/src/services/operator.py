@@ -951,8 +951,8 @@ class OperatorService:
         site = OperationSite(
             operator_id=operator_id,
             name=name,
-            address=address,
-            description=description
+            address=address
+            # NOTE: description字段在OperationSite模型中已注释，暂不使用
         )
 
         self.db.add(site)
@@ -1084,8 +1084,9 @@ class OperatorService:
             site.name = name
         if address is not None:
             site.address = address
-        if description is not None:
-            site.description = description
+        # NOTE: description字段在OperationSite模型中已注释，暂不使用
+        # if description is not None:
+        #     site.description = description
 
         await self.db.commit()
         await self.db.refresh(site)
