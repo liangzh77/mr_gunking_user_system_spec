@@ -73,6 +73,7 @@ services:
       REDIS_URL: redis://:dev_redis_password@redis:6379/0
       ENVIRONMENT: development
       DEBUG: "true"
+      ENCRYPTION_KEY: "12345678901234567890123456789012"
     depends_on:
       postgres:
         condition: service_healthy

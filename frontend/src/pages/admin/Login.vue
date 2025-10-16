@@ -7,10 +7,105 @@
           <p>管理员登录</p>
         </div>
       </template>
-      <el-result icon="info" title="管理员功能开发中" sub-title="该模块将在Phase 7实现" />
+
+      <el-form
+        ref="formRef"
+        :model="loginForm"
+        :rules="rules"
+        label-width="80px"
+        @submit.prevent="handleLogin"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="请输入管理员用户名"
+            prefix-icon="User"
+            clearable
+            autocomplete="username"
+          />
+        </el-form-item>
+
+        <el-form-item label="密码" prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            placeholder="请输入密码"
+            prefix-icon="Lock"
+            show-password
+            autocomplete="current-password"
+            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="adminAuthStore.isLoading"
+            style="width: 100%"
+            @click="handleLogin"
+          >
+            登录
+          </el-button>
+        </el-form-item>
+
+        <el-form-item>
+          <div class="footer-links">
+            <el-link type="info" href="/operator/login">切换到运营商登录</el-link>
+          </div>
+        </el-form-item>
+      </el-form>
     </el-card>
   </div>
 </template>
+
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useAdminAuthStore } from '@/stores/adminAuth'
+import type { AdminLoginRequest } from '@/types'
+
+const router = useRouter()
+const route = useRoute()
+const adminAuthStore = useAdminAuthStore()
+
+const formRef = ref<FormInstance>()
+const loginForm = reactive<AdminLoginRequest>({
+  username: '',
+  password: '',
+})
+
+const rules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 32, message: '用户名长度在3-32个字符', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 64, message: '密码长度在6-64个字符', trigger: 'blur' },
+  ],
+}
+
+const handleLogin = async () => {
+  if (!formRef.value) return
+
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      await adminAuthStore.login(loginForm)
+      ElMessage.success('登录成功')
+
+      // 跳转到原页面或管理后台首页
+      const redirect = route.query.redirect as string
+      router.push(redirect || '/admin/dashboard')
+    } catch (error) {
+      console.error('Login error:', error)
+      // 错误已在http拦截器中处理，这里不需要再显示
+    }
+  })
+}
+</script>
 
 <style scoped>
 .login-container {
@@ -38,6 +133,16 @@
 
 .card-header p {
   margin: 0;
+  font-size: 14px;
+  color: #909399;
+}
+
+.footer-links {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   color: #909399;
 }

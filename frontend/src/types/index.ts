@@ -235,3 +235,34 @@ export interface ApplicationRequest {
   created_at: string
   updated_at: string
 }
+
+// 管理员相关类型
+export interface AdminLoginRequest {
+  username: string
+  password: string
+}
+
+export interface AdminLoginResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+  user: {
+    id: string
+    username: string
+    full_name: string
+    role: 'super_admin' | 'admin' | 'finance'
+  }
+}
+
+export interface AdminProfile {
+  id: string
+  username: string
+  full_name: string
+  email?: string
+  phone?: string
+  role: 'super_admin' | 'admin' | 'finance'
+  permissions: string[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}

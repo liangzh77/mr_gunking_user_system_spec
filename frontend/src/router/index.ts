@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -83,7 +84,7 @@ const router = createRouter({
         },
       ],
     },
-    // ========== 管理员端路由 (预留) ==========
+    // ========== 管理员端路由 ==========
     {
       path: '/admin',
       children: [
@@ -91,7 +92,19 @@ const router = createRouter({
           path: 'login',
           name: 'AdminLogin',
           component: () => import('@/pages/admin/Login.vue'),
-          meta: { requiresAuth: false },
+          meta: { requiresAuth: false, requiresAdmin: false },
+        },
+        {
+          path: '',
+          component: () => import('@/pages/admin/Layout.vue'),
+          meta: { requiresAuth: true, requiresAdmin: true },
+          children: [
+            {
+              path: 'dashboard',
+              name: 'AdminDashboard',
+              component: () => import('@/pages/admin/Dashboard.vue'),
+            },
+          ],
         },
       ],
     },
@@ -119,18 +132,33 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
+  const adminAuthStore = useAdminAuthStore()
 
   // 需要认证的路由
   if (to.meta.requiresAuth) {
-    if (!authStore.isAuthenticated) {
-      // 未登录,重定向到登录页
-      next({ name: 'OperatorLogin', query: { redirect: to.fullPath } })
-    } else {
-      next()
+    // 管理员路由
+    if (to.meta.requiresAdmin) {
+      if (!adminAuthStore.isAuthenticated) {
+        // 管理员未登录,重定向到管理员登录页
+        next({ name: 'AdminLogin', query: { redirect: to.fullPath } })
+      } else {
+        next()
+      }
+    }
+    // 运营商路由
+    else {
+      if (!authStore.isAuthenticated) {
+        // 未登录,重定向到运营商登录页
+        next({ name: 'OperatorLogin', query: { redirect: to.fullPath } })
+      } else {
+        next()
+      }
     }
   } else {
-    // 已登录用户访问登录页,重定向到仪表盘
-    if (authStore.isAuthenticated && (to.name === 'OperatorLogin' || to.name === 'OperatorRegister')) {
+    // 已登录用户访问登录页,重定向到对应的仪表盘
+    if (adminAuthStore.isAuthenticated && to.name === 'AdminLogin') {
+      next({ name: 'AdminDashboard' })
+    } else if (authStore.isAuthenticated && (to.name === 'OperatorLogin' || to.name === 'OperatorRegister')) {
       next({ name: 'Dashboard' })
     } else {
       next()

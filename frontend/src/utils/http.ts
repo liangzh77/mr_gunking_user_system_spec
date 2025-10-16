@@ -14,8 +14,17 @@ const http: AxiosInstance = axios.create({
 // 请求拦截器
 http.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 添加JWT token
-    const token = localStorage.getItem('access_token')
+    // 添加JWT token - 根据请求路径选择token
+    let token: string | null = null
+
+    if (config.url?.startsWith('/admin')) {
+      // 管理员API使用admin token
+      token = localStorage.getItem('admin_access_token')
+    } else {
+      // 其他API使用运营商token
+      token = localStorage.getItem('access_token')
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }

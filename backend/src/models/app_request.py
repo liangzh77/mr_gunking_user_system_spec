@@ -34,7 +34,7 @@ class ApplicationRequest(Base):
     运营商申请应用授权的记录,需要管理员审批。
     """
 
-    __tablename__ = "application_requests"
+    __tablename__ = "application_authorization_requests"
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
@@ -59,7 +59,7 @@ class ApplicationRequest(Base):
         comment="申请的应用ID"
     )
 
-    reason: Mapped[str] = mapped_column(
+    request_reason: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         comment="申请理由"
@@ -93,11 +93,18 @@ class ApplicationRequest(Base):
     )
 
     # ==================== 审计字段 ====================
-    created_at: Mapped[datetime] = mapped_column(
+    requested_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=func.current_timestamp(),
         comment="申请时间"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="记录创建时间"
     )
 
     updated_at: Mapped[datetime] = mapped_column(
@@ -159,9 +166,9 @@ class ApplicationRequest(Base):
             "status"
         ),
         # 复合索引: 查询运营商的申请列表
-        Index("idx_request_operator", "operator_id", "created_at"),
+        Index("idx_request_operator", "operator_id", "requested_at"),
         # 复合索引: 管理员查看待审核申请
-        Index("idx_request_status", "status", "created_at"),
+        Index("idx_request_status", "status", "requested_at"),
         # 普通索引: 按应用查询申请
         Index("idx_request_application", "application_id"),
     )
