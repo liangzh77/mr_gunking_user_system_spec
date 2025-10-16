@@ -1,13 +1,13 @@
 """Admin account ORM model."""
 
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID as PyUUID, uuid4
 
-from sqlalchemy import Boolean, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID as PG_UUID
+from sqlalchemy import Boolean, String, Text, TIMESTAMP, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db.base import Base
+from ..db.types import GUID, JSON
 
 
 class AdminAccount(Base):
@@ -33,11 +33,10 @@ class AdminAccount(Base):
     __tablename__ = "admin_accounts"
 
     # Primary key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
-        server_default=func.uuid_generate_v4(),
     )
 
     # Authentication fields
@@ -55,7 +54,7 @@ class AdminAccount(Base):
     role: Mapped[str] = mapped_column(
         String(32), nullable=False, default="admin", index=True
     )
-    permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=list)
+    permissions: Mapped[dict] = mapped_column(JSON, nullable=False, default=list)
 
     # Status fields
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -67,8 +66,8 @@ class AdminAccount(Base):
     last_login_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Audit fields
-    created_by: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), nullable=True
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        GUID, nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
@@ -92,12 +91,13 @@ class AdminAccount(Base):
     )
 
     # 1:N - 一个管理员创建多个运营商账户
-    created_operators: Mapped[list["OperatorAccount"]] = relationship(
-        "OperatorAccount",
-        back_populates="creator",
-        lazy="selectin",
-        foreign_keys="OperatorAccount.created_by"
-    )
+    # NOTE: 已注释因为OperatorAccount.created_by字段不存在
+    # created_operators: Mapped[list["OperatorAccount"]] = relationship(
+    #     "OperatorAccount",
+    #     back_populates="creator",
+    #     lazy="selectin",
+    #     foreign_keys="OperatorAccount.created_by"
+    # )
 
     # 1:N - 一个管理员批准多个授权关系
     approved_authorizations: Mapped[list["OperatorAppAuthorization"]] = relationship(

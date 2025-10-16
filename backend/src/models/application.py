@@ -13,7 +13,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -26,7 +26,7 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -42,8 +42,8 @@ class Application(Base):
     __tablename__ = "applications"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -112,8 +112,8 @@ class Application(Base):
         comment="更新时间"
     )
 
-    created_by: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    created_by: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="创建者(管理员ID)"

@@ -14,7 +14,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -26,7 +26,7 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -42,8 +42,8 @@ class OperatorAccount(Base):
     __tablename__ = "operator_accounts"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -168,10 +168,10 @@ class OperatorAccount(Base):
         nullable=True,
         comment="删除时间(软删除)"
     )
-
+    # Force reload trigger
     # NOTE: created_by字段在数据库schema中不存在,已注释
-    # created_by: Mapped[Optional[UUID]] = mapped_column(
-    #     UUID(as_uuid=True),
+    # created_by: Mapped[Optional[PyUUID]] = mapped_column(
+    #     GUID,
     #     ForeignKey("admin_accounts.id", ondelete="SET NULL"),
     #     nullable=True,
     #     comment="创建者(管理员ID)"
@@ -231,18 +231,20 @@ class OperatorAccount(Base):
     )
 
     # 1:N - 一个运营商有多个充值订单
-    recharge_orders: Mapped[list["RechargeOrder"]] = relationship(
-        "RechargeOrder",
-        back_populates="operator",
-        lazy="selectin"
-    )
+    # NOTE: RechargeOrder表暂未创建,关系已注释
+    # recharge_orders: Mapped[list["RechargeOrder"]] = relationship(
+    #     "RechargeOrder",
+    #     back_populates="operator",
+    #     lazy="selectin"
+    # )
 
     # 1:N - 一个运营商有多个应用授权申请
-    app_requests: Mapped[list["ApplicationRequest"]] = relationship(
-        "ApplicationRequest",
-        back_populates="operator",
-        lazy="selectin"
-    )
+    # NOTE: ApplicationRequest表暂未创建,关系已注释
+    # app_requests: Mapped[list["ApplicationRequest"]] = relationship(
+    #     "ApplicationRequest",
+    #     back_populates="operator",
+    #     lazy="selectin"
+    # )
 
     # ==================== 表级约束 ====================
     __table_args__ = (

@@ -53,6 +53,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_db()
         logger.info("database_initialized", database_url=settings.DATABASE_URL)
 
+        # Create tables if using SQLite
+        if settings.DATABASE_URL.startswith("sqlite"):
+            from .db.session import create_tables
+            await create_tables()
+            logger.info("database_tables_created")
+
         # Application ready
         logger.info("application_ready")
 

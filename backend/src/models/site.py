@@ -12,7 +12,7 @@
 
 from datetime import datetime
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -22,7 +22,7 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -38,16 +38,16 @@ class OperationSite(Base):
     __tablename__ = "operation_sites"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
     )
 
     # ==================== 归属关系 ====================
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="所属运营商ID"
@@ -66,11 +66,12 @@ class OperationSite(Base):
         comment="详细地址"
     )
 
-    description: Mapped[Optional[str]] = mapped_column(
-        Text,
-        nullable=True,
-        comment="运营点描述"
-    )
+    # NOTE: description字段在数据库schema中不存在,已注释
+    # description: Mapped[Optional[str]] = mapped_column(
+    #     Text,
+    #     nullable=True,
+    #     comment="运营点描述"
+    # )
 
     contact_person: Mapped[Optional[str]] = mapped_column(
         String(64),

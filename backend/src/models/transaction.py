@@ -13,7 +13,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
@@ -24,7 +24,7 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -40,16 +40,16 @@ class TransactionRecord(Base):
     __tablename__ = "transaction_records"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
     )
 
     # ==================== 关联关系 ====================
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"
@@ -82,15 +82,15 @@ class TransactionRecord(Base):
     )
 
     # ==================== 关联记录 ====================
-    related_usage_id: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    related_usage_id: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         ForeignKey("usage_records.id", ondelete="SET NULL"),
         nullable=True,
         comment="关联使用记录ID(消费类型)"
     )
 
-    related_refund_id: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    related_refund_id: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         nullable=True,  # 先不设置FK,等refund_records表创建后再添加
         comment="关联退款记录ID(退款类型)"
     )
@@ -204,8 +204,8 @@ class RechargeOrder(Base):
     __tablename__ = "recharge_orders"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键UUID"
@@ -219,8 +219,8 @@ class RechargeOrder(Base):
         comment="订单ID(业务键): ord_recharge_<timestamp>_<uuid>"
     )
 
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"
@@ -307,11 +307,12 @@ class RechargeOrder(Base):
     )
 
     # ==================== 关系定义 ====================
-    operator: Mapped["OperatorAccount"] = relationship(
-        "OperatorAccount",
-        back_populates="recharge_orders",
-        lazy="selectin"
-    )
+    # NOTE: RechargeOrder表暂未创建,operator关系已注释
+    # operator: Mapped["OperatorAccount"] = relationship(
+    #     "OperatorAccount",
+    #     back_populates="recharge_orders",
+    #     lazy="selectin"
+    # )
 
     # ==================== 表级约束 ====================
     __table_args__ = (

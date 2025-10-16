@@ -12,7 +12,7 @@
 
 from datetime import datetime
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -22,7 +22,7 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -38,23 +38,23 @@ class OperatorAppAuthorization(Base):
     __tablename__ = "operator_app_authorizations"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
     )
 
     # ==================== 授权关系 ====================
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="CASCADE"),
         nullable=False,
         comment="运营商ID"
     )
 
-    application_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    application_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("applications.id", ondelete="RESTRICT"),
         nullable=False,
         comment="应用ID"
@@ -75,15 +75,15 @@ class OperatorAppAuthorization(Base):
     )
 
     # ==================== 审批信息 ====================
-    authorized_by: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    authorized_by: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="授权审批人(管理员ID)"
     )
 
-    application_request_id: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    application_request_id: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         nullable=True,  # 先不设置FK,等application_requests表创建后再添加
         comment="关联的申请记录ID(如通过申请授权)"
     )

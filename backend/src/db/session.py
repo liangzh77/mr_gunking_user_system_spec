@@ -76,15 +76,27 @@ def init_db() -> None:
 
     settings = get_settings()
 
-    # Create async engine with connection pooling
-    _engine = create_async_engine(
-        settings.DATABASE_URL,
-        echo=settings.DEBUG,  # Log SQL queries in debug mode
-        pool_size=settings.DATABASE_POOL_SIZE,
-        max_overflow=settings.DATABASE_MAX_OVERFLOW,
-        pool_pre_ping=True,  # Verify connections before using
-        pool_recycle=3600,  # Recycle connections after 1 hour
-    )
+    # Check if using SQLite
+    is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+    # Create async engine with appropriate settings
+    if is_sqlite:
+        # SQLite doesn't use connection pooling
+        _engine = create_async_engine(
+            settings.DATABASE_URL,
+            echo=settings.DEBUG,  # Log SQL queries in debug mode
+            connect_args={"check_same_thread": False},  # Allow multi-threading
+        )
+    else:
+        # PostgreSQL/MySQL with connection pooling
+        _engine = create_async_engine(
+            settings.DATABASE_URL,
+            echo=settings.DEBUG,  # Log SQL queries in debug mode
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_pre_ping=True,  # Verify connections before using
+            pool_recycle=3600,  # Recycle connections after 1 hour
+        )
 
     # Create session maker
     _async_session_maker = async_sessionmaker(
@@ -94,6 +106,19 @@ def init_db() -> None:
         autoflush=False,  # Manual flush control
         autocommit=False,  # Explicit transaction management
     )
+
+
+async def create_tables() -> None:
+    """Create all database tables.
+
+    This should be called after init_db() to create tables for SQLite.
+    For production with PostgreSQL, use Alembic migrations instead.
+    """
+    from .base import Base
+
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db() -> None:

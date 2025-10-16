@@ -11,7 +11,7 @@
 
 from datetime import datetime
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -37,23 +37,23 @@ class ApplicationRequest(Base):
     __tablename__ = "application_requests"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
     )
 
     # ==================== 申请信息 ====================
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="CASCADE"),
         nullable=False,
         comment="申请运营商ID"
     )
 
-    application_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    application_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("applications.id", ondelete="RESTRICT"),
         nullable=False,
         comment="申请的应用ID"
@@ -73,8 +73,8 @@ class ApplicationRequest(Base):
         comment="审核状态: pending/approved/rejected"
     )
 
-    reviewed_by: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    reviewed_by: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="审核人(管理员ID)"
@@ -110,11 +110,12 @@ class ApplicationRequest(Base):
 
     # ==================== 关系定义 ====================
     # N:1 - 多个申请属于一个运营商
-    operator: Mapped["OperatorAccount"] = relationship(
-        "OperatorAccount",
-        back_populates="app_requests",
-        lazy="selectin"
-    )
+    # NOTE: application_requests表暂未创建,operator关系已注释
+    # operator: Mapped["OperatorAccount"] = relationship(
+    #     "OperatorAccount",
+    #     back_populates="app_requests",
+    #     lazy="selectin"
+    # )
 
     # N:1 - 多个申请指向一个应用
     application: Mapped["Application"] = relationship(
@@ -148,12 +149,14 @@ class ApplicationRequest(Base):
             name="chk_review_info_required"
         ),
         # UNIQUE索引: 同一运营商对同一应用只能有一条待审核的申请
+        # Note: partial index with WHERE clause, PostgreSQL specific
+        # SQLite supports partial indexes but with different syntax
+        # For now, enforce uniqueness at application level
         Index(
-            "uq_operator_app_pending",
+            "idx_operator_app_pending",
             "operator_id",
             "application_id",
-            unique=True,
-            postgresql_where=(Text("status = 'pending'"))
+            "status"
         ),
         # 复合索引: 查询运营商的申请列表
         Index("idx_request_operator", "operator_id", "created_at"),

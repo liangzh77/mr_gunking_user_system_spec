@@ -13,7 +13,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import uuid4
+from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
@@ -24,7 +24,7 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from ..db.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -40,16 +40,16 @@ class RefundRecord(Base):
     __tablename__ = "refund_records"
 
     # ==================== 主键 ====================
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[PyUUID] = mapped_column(
+        GUID,
         primary_key=True,
         default=uuid4,
         comment="主键"
     )
 
     # ==================== 关联关系 ====================
-    operator_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    operator_id: Mapped[PyUUID] = mapped_column(
+        GUID,
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"
@@ -62,13 +62,13 @@ class RefundRecord(Base):
         comment="申请退款金额(申请时的账户余额)"
     )
 
-    actual_refund_amount: Mapped[Optional[Decimal]] = mapped_column(
+    actual_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(10, 2),
         nullable=True,
         comment="实际退款金额(审核时的账户余额,可能小于申请金额)"
     )
 
-    reason: Mapped[str] = mapped_column(
+    refund_reason: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         comment="退款原因(10-500字符)"
@@ -89,8 +89,8 @@ class RefundRecord(Base):
     )
 
     # ==================== 审核信息 ====================
-    reviewed_by: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
+    reviewed_by: Mapped[Optional[PyUUID]] = mapped_column(
+        GUID,
         # TODO: 添加ForeignKey当finance_accounts表创建后
         # ForeignKey("finance_accounts.id", ondelete="SET NULL"),
         nullable=True,
@@ -148,12 +148,12 @@ class RefundRecord(Base):
         ),
         # CHECK约束: 实际退款金额必须为正数(如果非空)
         CheckConstraint(
-            "actual_refund_amount IS NULL OR actual_refund_amount > 0",
+            "actual_amount IS NULL OR actual_amount > 0",
             name="chk_refund_actual_positive"
         ),
         # CHECK约束: 实际退款金额不能超过申请金额
         CheckConstraint(
-            "actual_refund_amount IS NULL OR actual_refund_amount <= requested_amount",
+            "actual_amount IS NULL OR actual_amount <= requested_amount",
             name="chk_refund_actual_lte_requested"
         ),
         # CHECK约束: 审核通过/拒绝时必须有审核人和审核时间
