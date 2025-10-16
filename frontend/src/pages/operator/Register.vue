@@ -18,7 +18,7 @@
         <el-form-item label="用户名" prop="username">
           <el-input
             v-model="registerForm.username"
-            placeholder="3-32个字符,支持字母数字下划线"
+            placeholder="3-20个字符,支持字母数字下划线"
             clearable
           />
         </el-form-item>
@@ -113,8 +113,8 @@ const validateUsername = (_rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('请输入用户名'))
   }
-  if (value.length < 3 || value.length > 32) {
-    return callback(new Error('用户名长度在3-32个字符'))
+  if (value.length < 3 || value.length > 20) {
+    return callback(new Error('用户名长度在3-20个字符'))
   }
   if (!/^[a-zA-Z0-9_]+$/.test(value)) {
     return callback(new Error('用户名只能包含字母、数字和下划线'))
