@@ -2823,7 +2823,7 @@ async def create_application_request(
                 "request_id": f"req_{app_request.id}",
                 "app_id": f"app_{app_request.application_id}",
                 "app_name": app_request.application.app_name,
-                "reason": app_request.reason,
+                "reason": app_request.request_reason,
                 "status": app_request.status,
                 "created_at": app_request.created_at
             }
@@ -2955,7 +2955,7 @@ async def get_application_requests(
                 app_id=f"app_{req.application_id}",
                 app_code=req.application.app_code,
                 app_name=req.application.app_name,
-                reason=req.reason,
+                reason=req.request_reason,
                 status=req.status,
                 reject_reason=req.reject_reason,
                 reviewed_by=f"admin_{req.reviewed_by}" if req.reviewed_by else None,
