@@ -130,6 +130,7 @@ stateDiagram-v2
 | operator_id | UUID | FK, NOT NULL | - | 所属运营商ID |
 | name | VARCHAR(128) | NOT NULL | - | 运营点名称 |
 | address | TEXT | NOT NULL | - | 详细地址 |
+| description | TEXT | NULL | NULL | 运营点描述 |
 | contact_person | VARCHAR(64) | NULL | NULL | 现场负责人 |
 | contact_phone | VARCHAR(32) | NULL | NULL | 现场联系电话 |
 | server_identifier | VARCHAR(128) | NULL | NULL | 头显Server设备标识符 |
@@ -163,6 +164,7 @@ stateDiagram-v2
   "operator_id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "北京朝阳门店",
   "address": "北京市朝阳区建国路88号SOHO现代城B座3层",
+  "description": "朝阳区旗舰店，面积300平米，配备8台头显设备",
   "contact_person": "张三",
   "contact_phone": "13900139000",
   "server_identifier": "HMD-SERVER-BJ-001",
