@@ -165,3 +165,178 @@ async def review_application_request(
         action=review_data.action,
         reject_reason=review_data.reject_reason
     )
+
+
+# ==================== Application Management APIs (T141, T143, T144) ====================
+
+@router.post(
+    "/applications",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Application",
+    description="Create a new application (admin only)",
+)
+async def create_application(
+    app_data: dict,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Create a new application.
+
+    Args:
+        app_data: Application creation data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Created application data
+    """
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    return await service.create_application(
+        admin_id=admin_id,
+        app_code=app_data["app_code"],
+        app_name=app_data["app_name"],
+        description=app_data.get("description"),
+        price_per_player=app_data["price_per_player"],
+        min_players=app_data["min_players"],
+        max_players=app_data["max_players"]
+    )
+
+
+@router.put(
+    "/applications/{app_id}/price",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Update Application Price",
+    description="Update application price per player",
+)
+async def update_application_price(
+    app_id: str,
+    price_data: dict,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Update application price.
+
+    Args:
+        app_id: Application ID
+        price_data: Price update data {"new_price": float}
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Updated application data
+    """
+    service = AdminService(db)
+    return await service.update_application_price(
+        app_id=app_id,
+        new_price=price_data["new_price"]
+    )
+
+
+@router.put(
+    "/applications/{app_id}/player-range",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Update Player Range",
+    description="Update application player range (min/max players)",
+)
+async def update_player_range(
+    app_id: str,
+    range_data: dict,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Update application player range.
+
+    Args:
+        app_id: Application ID
+        range_data: Range data {"min_players": int, "max_players": int}
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Updated application data
+    """
+    service = AdminService(db)
+    return await service.update_player_range(
+        app_id=app_id,
+        min_players=range_data["min_players"],
+        max_players=range_data["max_players"]
+    )
+
+
+# ==================== Authorization Management APIs (T145, T146) ====================
+
+@router.post(
+    "/operators/{operator_id}/applications",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="Authorize Application",
+    description="Authorize an application for an operator",
+)
+async def authorize_application(
+    operator_id: str,
+    auth_data: dict,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Authorize an application for an operator.
+
+    Args:
+        operator_id: Operator ID
+        auth_data: Authorization data {"application_id": str, "expires_at": Optional[str]}
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Authorization data
+    """
+    from datetime import datetime
+
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    expires_at = None
+    if auth_data.get("expires_at"):
+        expires_at = datetime.fromisoformat(auth_data["expires_at"])
+
+    return await service.authorize_application(
+        operator_id=operator_id,
+        application_id=auth_data["application_id"],
+        admin_id=admin_id,
+        expires_at=expires_at
+    )
+
+
+@router.delete(
+    "/operators/{operator_id}/applications/{app_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Revoke Authorization",
+    description="Revoke an application authorization for an operator",
+)
+async def revoke_authorization(
+    operator_id: str,
+    app_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Revoke an application authorization.
+
+    Args:
+        operator_id: Operator ID
+        app_id: Application ID
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Revoked authorization data
+    """
+    service = AdminService(db)
+    return await service.revoke_authorization(
+        operator_id=operator_id,
+        application_id=app_id
+    )

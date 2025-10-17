@@ -83,7 +83,7 @@ class AdminService:
                 app_id=str(req.application_id),
                 app_code=req.application.app_code if req.application else "unknown",
                 app_name=req.application.app_name if req.application else "Unknown",
-                reason=req.reason,
+                reason=req.request_reason,
                 status=req.status,
                 reject_reason=req.reject_reason,
                 reviewed_by=str(req.reviewed_by) if req.reviewed_by else None,
@@ -195,7 +195,7 @@ class AdminService:
             app_id=str(request.application_id),
             app_code=request.application.app_code if request.application else "unknown",
             app_name=request.application.app_name if request.application else "Unknown",
-            reason=request.reason,
+            reason=request.request_reason,
             status=request.status,
             reject_reason=request.reject_reason,
             reviewed_by=str(request.reviewed_by) if request.reviewed_by else None,
@@ -371,7 +371,7 @@ class AdminService:
                 "app_code": app.app_code,
                 "app_name": app.app_name,
                 "description": app.description,
-                "price_per_request": float(app.price_per_request),
+                "price_per_request": float(app.price_per_player),
                 "is_active": app.is_active,
                 "created_at": app.created_at,
                 "updated_at": app.updated_at,
@@ -384,4 +384,333 @@ class AdminService:
             "page_size": page_size,
             "total": total,
             "items": items
+        }
+
+    # ==================== Application Management (T132) ====================
+
+    async def create_application(
+        self,
+        admin_id: PyUUID,
+        app_code: str,
+        app_name: str,
+        description: Optional[str],
+        price_per_player: float,
+        min_players: int,
+        max_players: int
+    ) -> dict:
+        """Create a new application.
+
+        Args:
+            admin_id: Admin ID creating the application
+            app_code: Unique application code
+            app_name: Application name
+            description: Application description
+            price_per_player: Price per player
+            min_players: Minimum players
+            max_players: Maximum players
+
+        Returns:
+            dict: Created application data
+
+        Raises:
+            BadRequestException: If validation fails
+        """
+        from decimal import Decimal
+
+        # Check if app_code already exists
+        existing = await self.db.execute(
+            select(Application).where(Application.app_code == app_code)
+        )
+        if existing.scalar_one_or_none():
+            raise BadRequestException(f"Application code '{app_code}' already exists")
+
+        # Validate player range
+        if min_players < 1:
+            raise BadRequestException("Minimum players must be at least 1")
+        if max_players < min_players:
+            raise BadRequestException("Maximum players must be >= minimum players")
+        if max_players > 100:
+            raise BadRequestException("Maximum players cannot exceed 100")
+
+        # Validate price
+        if price_per_player <= 0:
+            raise BadRequestException("Price per player must be positive")
+
+        # Create application
+        app = Application(
+            app_code=app_code,
+            app_name=app_name,
+            description=description,
+            price_per_player=Decimal(str(price_per_player)),
+            min_players=min_players,
+            max_players=max_players,
+            is_active=True,
+            created_by=admin_id
+        )
+        self.db.add(app)
+        await self.db.commit()
+        await self.db.refresh(app)
+
+        return {
+            "id": str(app.id),
+            "app_code": app.app_code,
+            "app_name": app.app_name,
+            "description": app.description,
+            "price_per_player": float(app.price_per_player),
+            "min_players": app.min_players,
+            "max_players": app.max_players,
+            "is_active": app.is_active,
+            "created_at": app.created_at,
+            "updated_at": app.updated_at,
+        }
+
+    async def update_application_price(
+        self,
+        app_id: str,
+        new_price: float
+    ) -> dict:
+        """Update application price.
+
+        Args:
+            app_id: Application ID
+            new_price: New price per player
+
+        Returns:
+            dict: Updated application data
+
+        Raises:
+            NotFoundException: If application not found
+            BadRequestException: If validation fails
+        """
+        from decimal import Decimal
+
+        # Validate price
+        if new_price <= 0:
+            raise BadRequestException("Price must be positive")
+
+        # Find application
+        try:
+            app_uuid = PyUUID(app_id)
+        except ValueError:
+            raise BadRequestException("Invalid application ID format")
+
+        result = await self.db.execute(
+            select(Application).where(Application.id == app_uuid)
+        )
+        app = result.scalar_one_or_none()
+
+        if not app:
+            raise NotFoundException("Application not found")
+
+        # Update price
+        app.price_per_player = Decimal(str(new_price))
+        app.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(app)
+
+        return {
+            "id": str(app.id),
+            "app_code": app.app_code,
+            "app_name": app.app_name,
+            "price_per_player": float(app.price_per_player),
+            "updated_at": app.updated_at,
+        }
+
+    async def update_player_range(
+        self,
+        app_id: str,
+        min_players: int,
+        max_players: int
+    ) -> dict:
+        """Update application player range.
+
+        Args:
+            app_id: Application ID
+            min_players: New minimum players
+            max_players: New maximum players
+
+        Returns:
+            dict: Updated application data
+
+        Raises:
+            NotFoundException: If application not found
+            BadRequestException: If validation fails
+        """
+        # Validate player range
+        if min_players < 1:
+            raise BadRequestException("Minimum players must be at least 1")
+        if max_players < min_players:
+            raise BadRequestException("Maximum players must be >= minimum players")
+        if max_players > 100:
+            raise BadRequestException("Maximum players cannot exceed 100")
+
+        # Find application
+        try:
+            app_uuid = PyUUID(app_id)
+        except ValueError:
+            raise BadRequestException("Invalid application ID format")
+
+        result = await self.db.execute(
+            select(Application).where(Application.id == app_uuid)
+        )
+        app = result.scalar_one_or_none()
+
+        if not app:
+            raise NotFoundException("Application not found")
+
+        # Update player range
+        app.min_players = min_players
+        app.max_players = max_players
+        app.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(app)
+
+        return {
+            "id": str(app.id),
+            "app_code": app.app_code,
+            "app_name": app.app_name,
+            "min_players": app.min_players,
+            "max_players": app.max_players,
+            "updated_at": app.updated_at,
+        }
+
+    # ==================== Authorization Management (T133) ====================
+
+    async def authorize_application(
+        self,
+        operator_id: str,
+        application_id: str,
+        admin_id: PyUUID,
+        expires_at: Optional[datetime] = None
+    ) -> dict:
+        """Authorize an application for an operator.
+
+        Args:
+            operator_id: Operator ID
+            application_id: Application ID
+            admin_id: Admin ID performing the authorization
+            expires_at: Optional expiration datetime
+
+        Returns:
+            dict: Authorization data
+
+        Raises:
+            NotFoundException: If operator or application not found
+            BadRequestException: If authorization already exists
+        """
+        # Convert IDs to UUID
+        try:
+            op_uuid = PyUUID(operator_id)
+            app_uuid = PyUUID(application_id)
+        except ValueError:
+            raise BadRequestException("Invalid ID format")
+
+        # Check operator exists
+        op_result = await self.db.execute(
+            select(OperatorAccount).where(OperatorAccount.id == op_uuid)
+        )
+        operator = op_result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Check application exists
+        app_result = await self.db.execute(
+            select(Application).where(Application.id == app_uuid)
+        )
+        application = app_result.scalar_one_or_none()
+        if not application:
+            raise NotFoundException("Application not found")
+
+        # Check if authorization already exists
+        auth_result = await self.db.execute(
+            select(OperatorAppAuthorization).where(
+                and_(
+                    OperatorAppAuthorization.operator_id == op_uuid,
+                    OperatorAppAuthorization.application_id == app_uuid,
+                    OperatorAppAuthorization.is_active == True
+                )
+            )
+        )
+        existing_auth = auth_result.scalar_one_or_none()
+
+        if existing_auth:
+            raise BadRequestException("Authorization already exists for this operator-application pair")
+
+        # Create authorization
+        authorization = OperatorAppAuthorization(
+            operator_id=op_uuid,
+            application_id=app_uuid,
+            authorized_by=admin_id,
+            is_active=True,
+            authorized_at=datetime.now(timezone.utc),
+            expires_at=expires_at
+        )
+        self.db.add(authorization)
+        await self.db.commit()
+        await self.db.refresh(authorization)
+
+        return {
+            "id": str(authorization.id),
+            "operator_id": str(authorization.operator_id),
+            "application_id": str(authorization.application_id),
+            "authorized_at": authorization.authorized_at,
+            "expires_at": authorization.expires_at,
+            "is_active": authorization.is_active,
+        }
+
+    async def revoke_authorization(
+        self,
+        operator_id: str,
+        application_id: str
+    ) -> dict:
+        """Revoke an application authorization for an operator.
+
+        Args:
+            operator_id: Operator ID
+            application_id: Application ID
+
+        Returns:
+            dict: Revoked authorization data
+
+        Raises:
+            NotFoundException: If authorization not found
+            BadRequestException: If validation fails
+        """
+        # Convert IDs to UUID
+        try:
+            op_uuid = PyUUID(operator_id)
+            app_uuid = PyUUID(application_id)
+        except ValueError:
+            raise BadRequestException("Invalid ID format")
+
+        # Find active authorization
+        result = await self.db.execute(
+            select(OperatorAppAuthorization).where(
+                and_(
+                    OperatorAppAuthorization.operator_id == op_uuid,
+                    OperatorAppAuthorization.application_id == app_uuid,
+                    OperatorAppAuthorization.is_active == True
+                )
+            )
+        )
+        authorization = result.scalar_one_or_none()
+
+        if not authorization:
+            raise NotFoundException("Active authorization not found")
+
+        # Revoke authorization
+        authorization.is_active = False
+        authorization.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(authorization)
+
+        return {
+            "id": str(authorization.id),
+            "operator_id": str(authorization.operator_id),
+            "application_id": str(authorization.application_id),
+            "is_active": authorization.is_active,
+            "updated_at": authorization.updated_at,
         }
