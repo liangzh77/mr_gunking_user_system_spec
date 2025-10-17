@@ -37,7 +37,7 @@
             <span>应用管理</span>
           </template>
           <el-menu-item index="/admin/applications">
-            <el-icon><Apps /></el-icon>
+            <el-icon><Collection /></el-icon>
             <span>应用列表</span>
           </el-menu-item>
           <el-menu-item index="/admin/app-requests">
@@ -136,7 +136,26 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UserFilled } from '@element-plus/icons-vue'
+import {
+  UserFilled,
+  User,
+  Odometer,
+  OfficeBuilding,
+  Grid,
+  Collection,
+  Document,
+  Wallet,
+  List,
+  RefreshLeft,
+  Tickets,
+  DataAnalysis,
+  TrendCharts,
+  Money,
+  Setting,
+  ArrowDown,
+  Lock,
+  SwitchButton,
+} from '@element-plus/icons-vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const router = useRouter()
