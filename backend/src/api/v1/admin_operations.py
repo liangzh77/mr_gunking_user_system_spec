@@ -19,6 +19,81 @@ router = APIRouter(prefix="/admins", tags=["Admin Operations"])
 
 
 @router.get(
+    "/operators",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Get Operators List",
+    description="Get list of all operators with search and filter capabilities",
+)
+async def get_operators(
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    search: Optional[str] = Query(None, description="Search by username, full_name, email, or phone"),
+    status_filter: Optional[str] = Query(
+        None,
+        alias="status",
+        description="Filter by status: active/inactive/locked"
+    ),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> dict:
+    """Get operators list for admin.
+
+    Args:
+        token: Current admin token (for authentication)
+        db: Database session
+        search: Search keyword
+        status_filter: Optional status filter
+        page: Page number
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated list of operators
+    """
+    service = AdminService(db)
+    return await service.get_operators(
+        search=search,
+        status=status_filter,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.get(
+    "/applications",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Get Applications List",
+    description="Get list of all applications with search capability",
+)
+async def get_applications(
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    search: Optional[str] = Query(None, description="Search by app_code or app_name"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> dict:
+    """Get applications list for admin.
+
+    Args:
+        token: Current admin token (for authentication)
+        db: Database session
+        search: Search keyword
+        page: Page number
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated list of applications
+    """
+    service = AdminService(db)
+    return await service.get_applications(
+        search=search,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.get(
     "/applications/requests",
     response_model=ApplicationRequestListResponse,
     status_code=status.HTTP_200_OK,

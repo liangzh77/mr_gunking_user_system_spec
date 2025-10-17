@@ -104,6 +104,21 @@ const router = createRouter({
               name: 'AdminDashboard',
               component: () => import('@/pages/admin/Dashboard.vue'),
             },
+            {
+              path: 'operators',
+              name: 'AdminOperators',
+              component: () => import('@/pages/admin/Operators.vue'),
+            },
+            {
+              path: 'applications',
+              name: 'AdminApplications',
+              component: () => import('@/pages/admin/Applications.vue'),
+            },
+            {
+              path: 'app-requests',
+              name: 'AdminAppRequests',
+              component: () => import('@/pages/admin/AppRequests.vue'),
+            },
           ],
         },
       ],

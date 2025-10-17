@@ -14,6 +14,7 @@ from ..core import BadRequestException, NotFoundException
 from ..models.app_request import ApplicationRequest
 from ..models.authorization import OperatorAppAuthorization
 from ..models.application import Application
+from ..models.operator import OperatorAccount
 from ..schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
 
 
@@ -201,3 +202,186 @@ class AdminService:
             reviewed_at=request.reviewed_at,
             created_at=request.created_at
         )
+
+    async def get_operators(
+        self,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> dict:
+        """Get operators list for admin.
+
+        Args:
+            search: Search by username, full_name, email, or phone
+            status: Filter by status (active/inactive/locked)
+            page: Page number (starts from 1)
+            page_size: Items per page
+
+        Returns:
+            dict: Paginated list of operators
+        """
+        # Build query
+        query = select(OperatorAccount).where(OperatorAccount.deleted_at.is_(None))
+
+        # Add search filter if provided
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                (OperatorAccount.username.ilike(search_pattern)) |
+                (OperatorAccount.full_name.ilike(search_pattern)) |
+                (OperatorAccount.email.ilike(search_pattern)) |
+                (OperatorAccount.phone.ilike(search_pattern))
+            )
+
+        # Add status filter if provided
+        if status:
+            if status == "active":
+                query = query.where(
+                    and_(
+                        OperatorAccount.is_active == True,
+                        OperatorAccount.is_locked == False
+                    )
+                )
+            elif status == "inactive":
+                query = query.where(OperatorAccount.is_active == False)
+            elif status == "locked":
+                query = query.where(OperatorAccount.is_locked == True)
+
+        # Order by created_at desc (newest first)
+        query = query.order_by(desc(OperatorAccount.created_at))
+
+        # Get total count
+        count_query = select(OperatorAccount).where(OperatorAccount.deleted_at.is_(None))
+        if search:
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                (OperatorAccount.username.ilike(search_pattern)) |
+                (OperatorAccount.full_name.ilike(search_pattern)) |
+                (OperatorAccount.email.ilike(search_pattern)) |
+                (OperatorAccount.phone.ilike(search_pattern))
+            )
+        if status:
+            if status == "active":
+                count_query = count_query.where(
+                    and_(
+                        OperatorAccount.is_active == True,
+                        OperatorAccount.is_locked == False
+                    )
+                )
+            elif status == "inactive":
+                count_query = count_query.where(OperatorAccount.is_active == False)
+            elif status == "locked":
+                count_query = count_query.where(OperatorAccount.is_locked == True)
+
+        count_result = await self.db.execute(count_query)
+        total = len(count_result.scalars().all())
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        operators = result.scalars().all()
+
+        # Convert to response items
+        items = [
+            {
+                "id": str(op.id),
+                "username": op.username,
+                "full_name": op.full_name,
+                "email": op.email,
+                "phone": op.phone,
+                "balance": float(op.balance),
+                "customer_tier": op.customer_tier,
+                "is_active": op.is_active,
+                "is_locked": op.is_locked,
+                "locked_reason": op.locked_reason,
+                "locked_at": op.locked_at,
+                "last_login_at": op.last_login_at,
+                "last_login_ip": op.last_login_ip,
+                "created_at": op.created_at,
+                "updated_at": op.updated_at,
+            }
+            for op in operators
+        ]
+
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": items
+        }
+
+    async def get_applications(
+        self,
+        search: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> dict:
+        """Get applications list for admin.
+
+        Args:
+            search: Search by app_code or app_name
+            page: Page number (starts from 1)
+            page_size: Items per page
+
+        Returns:
+            dict: Paginated list of applications
+        """
+        # Build query
+        query = select(Application)
+
+        # Add search filter if provided
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                (Application.app_code.ilike(search_pattern)) |
+                (Application.app_name.ilike(search_pattern))
+            )
+
+        # Order by created_at desc (newest first)
+        query = query.order_by(desc(Application.created_at))
+
+        # Get total count
+        count_query = select(Application)
+        if search:
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                (Application.app_code.ilike(search_pattern)) |
+                (Application.app_name.ilike(search_pattern))
+            )
+
+        count_result = await self.db.execute(count_query)
+        total = len(count_result.scalars().all())
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        applications = result.scalars().all()
+
+        # Convert to response items
+        items = [
+            {
+                "id": str(app.id),
+                "app_code": app.app_code,
+                "app_name": app.app_name,
+                "description": app.description,
+                "price_per_request": float(app.price_per_request),
+                "is_active": app.is_active,
+                "created_at": app.created_at,
+                "updated_at": app.updated_at,
+            }
+            for app in applications
+        ]
+
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": items
+        }
