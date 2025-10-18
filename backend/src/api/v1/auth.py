@@ -17,7 +17,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator
@@ -506,5 +506,127 @@ async def logout_operator(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"登出失败: {str(e)}"
+            }
+        )
+
+
+# ==================== 财务人员登录 (T162) ====================
+
+
+@router.post(
+    "/finance/login",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "请求参数错误(缺少必填字段或字段为空)"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "认证失败(用户名或密码错误,或账号已禁用)"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="财务人员登录",
+    description="""
+    财务人员账户登录。
+
+    **请求参数**:
+    - username: 用户名(必填)
+    - password: 密码(必填)
+
+    **响应数据**:
+    - access_token: JWT Token (用于后续API认证)
+    - token_type: Token类型(Bearer)
+    - expires_in: Token有效期(秒,24小时=86400秒)
+    - finance: 财务人员基本信息
+        - finance_id: 财务人员ID
+        - username: 用户名
+        - full_name: 真实姓名
+        - role: 角色(specialist/manager/auditor)
+        - email: 邮箱地址
+
+    **使用JWT Token**:
+    在后续请求中,在Header中添加:
+    ```
+    Authorization: Bearer {access_token}
+    ```
+
+    **安全特性**:
+    - 密码使用bcrypt验证
+    - JWT Token有效期24小时
+    - 更新最近登录时间和IP
+    - 检查账户状态(是否禁用)
+    """
+)
+async def login_finance(
+    request_data: dict = Body(...),
+    http_request: Request = None,
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """财务人员登录API (T162)
+
+    处理财务人员登录请求,验证凭证并返回JWT Token。
+
+    Args:
+        request_data: 登录请求数据(包含username, password)
+        http_request: FastAPI Request对象(用于获取客户端IP)
+        db: 数据库会话
+
+    Returns:
+        dict: 登录成功响应(包含access_token和finance信息)
+
+    Raises:
+        HTTPException 400: 参数错误(缺少必填字段)
+        HTTPException 401: 认证失败(用户名或密码错误)
+        HTTPException 500: 服务器内部错误
+    """
+    from ...services.finance_service import FinanceService
+    from ...schemas.finance import FinanceLoginRequest
+
+    try:
+        # 解析请求
+        login_request = FinanceLoginRequest(**request_data)
+
+        # 获取客户端IP
+        client_ip = http_request.client.host if http_request.client else None
+
+        # 调用财务服务进行登录
+        finance_service = FinanceService(db)
+        response = await finance_service.login(
+            username=login_request.username,
+            password=login_request.password,
+            ip_address=client_ip
+        )
+
+        # 返回直接字段格式(符合contract tests期望)
+        return {
+            "access_token": response.access_token,
+            "token_type": response.token_type,
+            "expires_in": response.expires_in,
+            "finance": {
+                "finance_id": response.finance.finance_id,
+                "username": response.finance.username,
+                "full_name": response.finance.full_name,
+                "role": response.finance.role,
+                "email": response.finance.email
+            }
+        }
+
+    except HTTPException:
+        # 重新抛出业务逻辑异常
+        raise
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"登录失败: {str(e)}"
             }
         )

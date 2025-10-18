@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useFinanceAuthStore } from '@/stores/financeAuth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -119,11 +120,16 @@ const router = createRouter({
               name: 'AdminAppRequests',
               component: () => import('@/pages/admin/AppRequests.vue'),
             },
+            {
+              path: 'applications/create',
+              name: 'AdminCreateApplication',
+              component: () => import('@/pages/admin/CreateApplication.vue'),
+            },
           ],
         },
       ],
     },
-    // ========== 财务端路由 (预留) ==========
+    // ========== 财务端路由 ==========
     {
       path: '/finance',
       children: [
@@ -131,7 +137,34 @@ const router = createRouter({
           path: 'login',
           name: 'FinanceLogin',
           component: () => import('@/pages/finance/Login.vue'),
-          meta: { requiresAuth: false },
+          meta: { requiresAuth: false, requiresFinance: false },
+        },
+        {
+          path: '',
+          component: () => import('@/pages/finance/Layout.vue'),
+          meta: { requiresAuth: true, requiresFinance: true },
+          children: [
+            {
+              path: 'dashboard',
+              name: 'FinanceDashboard',
+              component: () => import('@/pages/finance/Dashboard.vue'),
+            },
+            {
+              path: 'refunds',
+              name: 'FinanceRefunds',
+              component: () => import('@/pages/finance/Refunds.vue'),
+            },
+            {
+              path: 'invoices',
+              name: 'FinanceInvoices',
+              component: () => import('@/pages/finance/Invoices.vue'),
+            },
+            {
+              path: 'reports',
+              name: 'FinanceReports',
+              component: () => import('@/pages/finance/Reports.vue'),
+            },
+          ],
         },
       ],
     },
@@ -148,6 +181,7 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   const adminAuthStore = useAdminAuthStore()
+  const financeAuthStore = useFinanceAuthStore()
 
   // 需要认证的路由
   if (to.meta.requiresAuth) {
@@ -156,6 +190,15 @@ router.beforeEach((to, _from, next) => {
       if (!adminAuthStore.isAuthenticated) {
         // 管理员未登录,重定向到管理员登录页
         next({ name: 'AdminLogin', query: { redirect: to.fullPath } })
+      } else {
+        next()
+      }
+    }
+    // 财务路由
+    else if (to.meta.requiresFinance) {
+      if (!financeAuthStore.isAuthenticated) {
+        // 财务人员未登录,重定向到财务登录页
+        next({ name: 'FinanceLogin', query: { redirect: to.fullPath } })
       } else {
         next()
       }
@@ -173,6 +216,8 @@ router.beforeEach((to, _from, next) => {
     // 已登录用户访问登录页,重定向到对应的仪表盘
     if (adminAuthStore.isAuthenticated && to.name === 'AdminLogin') {
       next({ name: 'AdminDashboard' })
+    } else if (financeAuthStore.isAuthenticated && to.name === 'FinanceLogin') {
+      next({ name: 'FinanceDashboard' })
     } else if (authStore.isAuthenticated && (to.name === 'OperatorLogin' || to.name === 'OperatorRegister')) {
       next({ name: 'Dashboard' })
     } else {

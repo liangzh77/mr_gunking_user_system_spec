@@ -1,0 +1,396 @@
+"""Finance refund review service (T170).
+
+This service handles refund application review operations by finance staff.
+"""
+
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Optional, List
+from uuid import UUID as PyUUID
+
+from sqlalchemy import select, and_, desc, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core import NotFoundException, BadRequestException
+from ..models.refund import RefundRecord
+from ..models.operator import OperatorAccount
+from ..models.transaction import TransactionRecord
+from ..schemas.finance import (
+    RefundItemFinance,
+    RefundListResponse,
+    RefundDetailsResponse,
+    RefundApproveResponse,
+    CustomerFinanceDetails
+)
+
+
+class FinanceRefundService:
+    """Finance refund review service."""
+
+    def __init__(self, db: AsyncSession):
+        """Initialize service with database session.
+
+        Args:
+            db: Async database session
+        """
+        self.db = db
+
+    async def get_refunds(
+        self,
+        status: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> RefundListResponse:
+        """Get refund applications list.
+
+        Args:
+            status: Filter by status (pending/approved/rejected/all)
+            page: Page number (starts from 1)
+            page_size: Items per page
+
+        Returns:
+            RefundListResponse: Paginated list of refund applications
+        """
+        # Build query
+        query = select(RefundRecord)
+
+        # Add status filter
+        if status and status != "all":
+            query = query.where(RefundRecord.status == status)
+
+        # Order by created_at desc (newest first)
+        query = query.order_by(desc(RefundRecord.created_at))
+
+        # Get total count
+        count_query = select(func.count()).select_from(RefundRecord)
+        if status and status != "all":
+            count_query = count_query.where(RefundRecord.status == status)
+
+        count_result = await self.db.execute(count_query)
+        total = count_result.scalar()
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        refunds = result.scalars().all()
+
+        # Convert to response items
+        items = []
+        for refund in refunds:
+            # Ensure operator relation is loaded
+            if not refund.operator:
+                await self.db.refresh(refund, ['operator'])
+
+            # Get current balance
+            operator = refund.operator
+            current_balance = str(operator.balance) if operator else "0.00"
+
+            items.append(RefundItemFinance(
+                refund_id=str(refund.id),
+                operator_id=str(refund.operator_id),
+                operator_name=operator.full_name if operator else "Unknown",
+                operator_category=operator.customer_tier if operator else None,
+                requested_amount=str(refund.requested_amount),
+                current_balance=current_balance,
+                actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
+                status=refund.status,
+                reason=refund.refund_reason,
+                reject_reason=refund.reject_reason,
+                reviewed_by=str(refund.reviewed_by) if refund.reviewed_by else None,
+                reviewed_at=refund.reviewed_at,
+                created_at=refund.created_at
+            ))
+
+        return RefundListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items
+        )
+
+    async def get_refund_details(
+        self,
+        refund_id: str
+    ) -> RefundDetailsResponse:
+        """Get detailed refund application info.
+
+        Args:
+            refund_id: Refund application ID
+
+        Returns:
+            RefundDetailsResponse: Detailed refund info with operator finance data
+
+        Raises:
+            NotFoundException: If refund not found
+            BadRequestException: If refund ID format invalid
+        """
+        # Convert to UUID
+        try:
+            refund_uuid = PyUUID(refund_id)
+        except ValueError:
+            raise BadRequestException("Invalid refund ID format")
+
+        # Find refund
+        result = await self.db.execute(
+            select(RefundRecord).where(RefundRecord.id == refund_uuid)
+        )
+        refund = result.scalar_one_or_none()
+
+        if not refund:
+            raise NotFoundException("Refund application not found")
+
+        # Ensure operator relation is loaded
+        if not refund.operator:
+            await self.db.refresh(refund, ['operator'])
+
+        operator = refund.operator
+
+        # Get operator finance details
+        operator_finance = await self._get_operator_finance_details(refund.operator_id)
+
+        # Build response
+        return RefundDetailsResponse(
+            refund_id=str(refund.id),
+            operator_id=str(refund.operator_id),
+            operator_name=operator.full_name if operator else "Unknown",
+            operator_category=operator.customer_tier if operator else None,
+            requested_amount=str(refund.requested_amount),
+            current_balance=str(operator.balance) if operator else "0.00",
+            actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
+            status=refund.status,
+            reason=refund.refund_reason,
+            reject_reason=refund.reject_reason,
+            reviewed_by=str(refund.reviewed_by) if refund.reviewed_by else None,
+            reviewed_at=refund.reviewed_at,
+            created_at=refund.created_at,
+            operator_finance=operator_finance
+        )
+
+    async def approve_refund(
+        self,
+        refund_id: str,
+        finance_id: PyUUID,
+        note: Optional[str] = None
+    ) -> RefundApproveResponse:
+        """Approve refund application.
+
+        Args:
+            refund_id: Refund application ID
+            finance_id: Finance staff ID performing the approval
+            note: Optional approval note
+
+        Returns:
+            RefundApproveResponse: Approval result with refund details
+
+        Raises:
+            NotFoundException: If refund not found
+            BadRequestException: If refund already reviewed or validation fails
+        """
+        # Convert to UUID
+        try:
+            refund_uuid = PyUUID(refund_id)
+        except ValueError:
+            raise BadRequestException("Invalid refund ID format")
+
+        # Find refund
+        result = await self.db.execute(
+            select(RefundRecord).where(RefundRecord.id == refund_uuid)
+        )
+        refund = result.scalar_one_or_none()
+
+        if not refund:
+            raise NotFoundException("Refund application not found")
+
+        # Check if already reviewed
+        if refund.status != "pending":
+            raise BadRequestException(f"Refund already {refund.status}")
+
+        # Ensure operator relation is loaded
+        if not refund.operator:
+            await self.db.refresh(refund, ['operator'])
+
+        operator = refund.operator
+
+        # Get current balance (actual refundable amount)
+        current_balance = operator.balance
+
+        # Check if there's balance to refund
+        if current_balance <= 0:
+            raise BadRequestException("No balance available for refund")
+
+        # Actual refund amount is the current balance (may be less than requested)
+        actual_refund_amount = current_balance
+
+        # Update refund record
+        refund.status = "approved"
+        refund.reviewed_by = finance_id
+        refund.reviewed_at = datetime.now(timezone.utc)
+        refund.actual_amount = actual_refund_amount
+
+        # Deduct balance from operator
+        operator.balance = Decimal("0.00")
+        balance_after = operator.balance
+
+        # Create transaction record
+        transaction = TransactionRecord(
+            operator_id=refund.operator_id,
+            transaction_type="refund",
+            amount=actual_refund_amount,
+            balance_after=balance_after,
+            description=f"退款审核通过: {note}" if note else "退款审核通过",
+            related_refund_id=refund.id
+        )
+        self.db.add(transaction)
+
+        # Commit changes
+        await self.db.commit()
+        await self.db.refresh(refund)
+
+        # Return response
+        return RefundApproveResponse(
+            refund_id=str(refund.id),
+            requested_amount=str(refund.requested_amount),
+            actual_refund_amount=str(actual_refund_amount),
+            balance_after=str(balance_after)
+        )
+
+    async def reject_refund(
+        self,
+        refund_id: str,
+        finance_id: PyUUID,
+        reason: str
+    ) -> None:
+        """Reject refund application.
+
+        Args:
+            refund_id: Refund application ID
+            finance_id: Finance staff ID performing the rejection
+            reason: Rejection reason (10-200 characters)
+
+        Raises:
+            NotFoundException: If refund not found
+            BadRequestException: If refund already reviewed or validation fails
+        """
+        # Validate reason length
+        if len(reason) < 10 or len(reason) > 200:
+            raise BadRequestException("Rejection reason must be between 10 and 200 characters")
+
+        # Convert to UUID
+        try:
+            refund_uuid = PyUUID(refund_id)
+        except ValueError:
+            raise BadRequestException("Invalid refund ID format")
+
+        # Find refund
+        result = await self.db.execute(
+            select(RefundRecord).where(RefundRecord.id == refund_uuid)
+        )
+        refund = result.scalar_one_or_none()
+
+        if not refund:
+            raise NotFoundException("Refund application not found")
+
+        # Check if already reviewed
+        if refund.status != "pending":
+            raise BadRequestException(f"Refund already {refund.status}")
+
+        # Update refund record
+        refund.status = "rejected"
+        refund.reviewed_by = finance_id
+        refund.reviewed_at = datetime.now(timezone.utc)
+        refund.reject_reason = reason
+
+        # Commit changes
+        await self.db.commit()
+
+    async def _get_operator_finance_details(
+        self,
+        operator_id: PyUUID
+    ) -> CustomerFinanceDetails:
+        """Get operator's detailed finance information (internal helper).
+
+        Args:
+            operator_id: Operator ID
+
+        Returns:
+            CustomerFinanceDetails: Operator finance details
+        """
+        # Find operator
+        result = await self.db.execute(
+            select(OperatorAccount).where(OperatorAccount.id == operator_id)
+        )
+        operator = result.scalar_one_or_none()
+
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Calculate total recharged (sum of recharge transactions)
+        recharge_result = await self.db.execute(
+            select(func.sum(TransactionRecord.amount)).where(
+                and_(
+                    TransactionRecord.operator_id == operator_id,
+                    TransactionRecord.transaction_type == "recharge"
+                )
+            )
+        )
+        total_recharged = recharge_result.scalar() or Decimal("0.00")
+
+        # Calculate total consumed (sum of consumption transactions)
+        consumption_result = await self.db.execute(
+            select(func.sum(TransactionRecord.amount)).where(
+                and_(
+                    TransactionRecord.operator_id == operator_id,
+                    TransactionRecord.transaction_type == "consumption"
+                )
+            )
+        )
+        total_consumed = consumption_result.scalar() or Decimal("0.00")
+
+        # Calculate total refunded (sum of refund transactions)
+        refund_result = await self.db.execute(
+            select(func.sum(TransactionRecord.amount)).where(
+                and_(
+                    TransactionRecord.operator_id == operator_id,
+                    TransactionRecord.transaction_type == "refund"
+                )
+            )
+        )
+        total_refunded = refund_result.scalar() or Decimal("0.00")
+
+        # Get total sessions count
+        # TODO: Implement when usage records are available
+        total_sessions = 0
+
+        # Get first transaction time
+        first_tx_result = await self.db.execute(
+            select(TransactionRecord.created_at)
+            .where(TransactionRecord.operator_id == operator_id)
+            .order_by(TransactionRecord.created_at.asc())
+            .limit(1)
+        )
+        first_transaction_at = first_tx_result.scalar()
+
+        # Get last transaction time
+        last_tx_result = await self.db.execute(
+            select(TransactionRecord.created_at)
+            .where(TransactionRecord.operator_id == operator_id)
+            .order_by(TransactionRecord.created_at.desc())
+            .limit(1)
+        )
+        last_transaction_at = last_tx_result.scalar()
+
+        return CustomerFinanceDetails(
+            operator_id=str(operator.id),
+            operator_name=operator.full_name,
+            category=operator.customer_tier,
+            current_balance=str(operator.balance),
+            total_recharged=str(total_recharged),
+            total_consumed=str(total_consumed),
+            total_refunded=str(total_refunded),
+            total_sessions=total_sessions,
+            first_transaction_at=first_transaction_at or datetime.now(timezone.utc),
+            last_transaction_at=last_transaction_at
+        )

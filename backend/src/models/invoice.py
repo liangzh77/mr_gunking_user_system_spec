@@ -145,10 +145,9 @@ class InvoiceRecord(Base):
     # ==================== 审核信息 ====================
     reviewed_by: Mapped[Optional[PyUUID]] = mapped_column(
         GUID,
-        # TODO: 添加ForeignKey当finance_accounts表创建后
-        # ForeignKey("finance_accounts.id", ondelete="SET NULL"),
+        ForeignKey("finance_accounts.id", ondelete="SET NULL"),
         nullable=True,
-        comment="审核人ID(财务人员,暂不设置FK)"
+        comment="审核人ID(财务人员)"
     )
 
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(
@@ -188,12 +187,13 @@ class InvoiceRecord(Base):
         lazy="selectin"
     )
 
-    # TODO: 添加reviewer relationship当finance_accounts表创建后
-    # reviewer: Mapped[Optional["FinanceAccount"]] = relationship(
-    #     "FinanceAccount",
-    #     foreign_keys=[reviewed_by],
-    #     lazy="selectin"
-    # )
+    # N:1 - 多条发票记录由一个财务人员审核
+    reviewer: Mapped[Optional["FinanceAccount"]] = relationship(
+        "FinanceAccount",
+        foreign_keys=[reviewed_by],
+        back_populates="reviewed_invoices",
+        lazy="selectin"
+    )
 
     # ==================== 表级约束 ====================
     __table_args__ = (
