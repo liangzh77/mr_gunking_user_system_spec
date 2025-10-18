@@ -79,15 +79,15 @@ class OperatorInfo(BaseModel):
 
     category: str = Field(
         ...,
-        description="客户分类: trial/normal/vip",
-        examples=["normal"]
+        description="客户分类: trial/standard/vip",
+        examples=["standard"]
     )
 
     @field_validator("category")
     @classmethod
     def validate_category_enum(cls, v: str) -> str:
         """验证客户分类枚举值"""
-        valid_categories = ["trial", "normal", "vip"]
+        valid_categories = ["trial", "standard", "vip"]
         if v not in valid_categories:
             raise ValueError(f"无效的客户分类: {v}, 必须是 {valid_categories} 之一")
         return v
