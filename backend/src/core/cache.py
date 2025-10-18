@@ -178,6 +178,33 @@ class RedisCache:
             logger.error(f"Redis DELETE_PATTERN error for pattern '{pattern}': {e}")
             return 0
 
+    async def get_by_pattern(self, pattern: str) -> list:
+        """Get all values matching a pattern.
+
+        Args:
+            pattern: Pattern to match (e.g., "blocked_ip:*")
+
+        Returns:
+            List of deserialized values
+        """
+        if not self._client:
+            return []
+
+        try:
+            values = []
+            async for key in self._client.scan_iter(match=pattern):
+                raw_value = await self._client.get(key)
+                if raw_value:
+                    try:
+                        values.append(json.loads(raw_value))
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to decode JSON for key '{key}'")
+            return values
+
+        except Exception as e:
+            logger.error(f"Redis GET_BY_PATTERN error for pattern '{pattern}': {e}")
+            return []
+
     async def exists(self, key: str) -> bool:
         """Check if key exists in cache.
 
