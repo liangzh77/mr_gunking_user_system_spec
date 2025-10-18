@@ -56,7 +56,6 @@ async def refund_test_data(test_db):
         customer_tier="trial",
         is_active=True,
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(operator_with_balance)
     await test_db.flush()
@@ -74,7 +73,6 @@ async def refund_test_data(test_db):
         customer_tier="trial",
         is_active=True,
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(operator_zero_balance)
     await test_db.commit()
@@ -106,7 +104,7 @@ class TestCreateRefundRequest:
         assert refund.operator_id == operator.id
         assert refund.requested_amount == Decimal("500.00")  # 等于当前余额
         assert refund.status == "pending"
-        assert refund.reason == "测试退款原因"
+        assert refund.refund_reason == "测试退款原因"
         assert refund.created_at is not None
 
     @pytest.mark.asyncio

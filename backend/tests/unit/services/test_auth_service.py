@@ -56,7 +56,6 @@ async def auth_test_data(test_db):
         customer_tier="standard",
         is_active=True,
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(active_operator)
     await test_db.flush()
@@ -74,7 +73,6 @@ async def auth_test_data(test_db):
         customer_tier="trial",
         is_active=False,  # 已注销
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(deactivated_operator)
     await test_db.flush()
@@ -94,7 +92,6 @@ async def auth_test_data(test_db):
         is_locked=True,  # 已锁定
         locked_at=datetime.utcnow(),
         locked_reason="测试锁定",
-        created_by=admin.id
     )
     test_db.add(locked_operator)
     await test_db.flush()
@@ -128,7 +125,6 @@ async def auth_test_data(test_db):
         min_players=2,
         max_players=8,
         is_active=True,
-        created_by=admin.id
     )
     test_db.add(active_app)
     await test_db.flush()
@@ -140,7 +136,6 @@ async def auth_test_data(test_db):
         min_players=3,
         max_players=6,
         is_active=False,  # 已下架
-        created_by=admin.id
     )
     test_db.add(inactive_app)
     await test_db.flush()

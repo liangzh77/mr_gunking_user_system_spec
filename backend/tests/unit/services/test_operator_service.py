@@ -69,7 +69,6 @@ async def operator_test_data(test_db, admin_account):
         customer_tier="trial",  # 使用schema和数据库都支持的值
         is_active=True,
         is_locked=False,
-        created_by=admin_account.id
     )
     test_db.add(operator)
     await test_db.commit()
@@ -89,7 +88,6 @@ async def operator_test_data(test_db, admin_account):
         is_active=True,
         is_locked=True,
         locked_reason="安全原因",
-        created_by=admin_account.id
     )
     test_db.add(locked_operator)
     await test_db.commit()
@@ -109,7 +107,6 @@ async def operator_test_data(test_db, admin_account):
         is_active=False,
         is_locked=False,
         deleted_at=datetime.now(timezone.utc),
-        created_by=admin_account.id
     )
     test_db.add(deactivated_operator)
     await test_db.commit()
@@ -690,7 +687,7 @@ class TestApplyRefund:
         assert refund.operator_id == operator.id
         assert refund.requested_amount == Decimal("500.00")
         assert refund.status == "pending"
-        assert refund.reason == "测试退款申请"
+        assert refund.refund_reason == "测试退款申请"
 
     @pytest.mark.asyncio
     async def test_apply_refund_with_zero_balance_raises_400(self, test_db, operator_test_data):

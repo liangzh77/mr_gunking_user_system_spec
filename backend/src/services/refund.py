@@ -96,7 +96,7 @@ class RefundService:
             operator_id=operator_id,
             requested_amount=operator.balance,  # 申请时的余额快照
             status="pending",  # 初始状态为待审核
-            reason=reason
+            refund_reason=reason
         )
 
         self.db.add(refund)

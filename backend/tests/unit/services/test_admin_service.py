@@ -85,7 +85,6 @@ async def test_applications(test_db, admin_account):
             min_players=2,
             max_players=8,
             is_active=True,
-            created_by=admin_account.id
         )
         test_db.add(app)
         apps.append(app)

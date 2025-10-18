@@ -57,7 +57,6 @@ async def billing_test_data(test_db):
         customer_tier="standard",
         is_active=True,
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(operator)
     await test_db.flush()
@@ -81,7 +80,6 @@ async def billing_test_data(test_db):
         min_players=2,
         max_players=8,
         is_active=True,
-        created_by=admin.id
     )
     test_db.add(application)
     await test_db.flush()
@@ -196,7 +194,6 @@ class TestCheckBalanceSufficiency:
             customer_tier="trial",
             is_active=True,
             is_locked=False,
-            created_by=admin.id
         )
         test_db.add(operator)
         await test_db.commit()
@@ -393,7 +390,6 @@ class TestCreateAuthorizationTransaction:
             customer_tier="standard",
             is_active=True,
             is_locked=False,
-            created_by=admin.id
         )
         test_db.add(operator)
         await test_db.flush()
@@ -415,7 +411,6 @@ class TestCreateAuthorizationTransaction:
             min_players=2,
             max_players=8,
             is_active=True,
-            created_by=admin.id
         )
         test_db.add(application)
         await test_db.commit()

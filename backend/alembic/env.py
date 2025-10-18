@@ -26,6 +26,20 @@ if config.config_file_name is not None:
 # NOTE: Import Base from your models module
 try:
     from src.db.base import Base  # type: ignore
+
+    # Import all models for Alembic discovery
+    from src.models.admin import AdminAccount  # noqa: F401
+    from src.models.operator import OperatorAccount  # noqa: F401
+    from src.models.application import Application  # noqa: F401
+    from src.models.site import OperationSite  # noqa: F401
+    from src.models.usage_record import UsageRecord  # noqa: F401
+    from src.models.transaction import TransactionRecord  # noqa: F401
+    from src.models.authorization import OperatorAppAuthorization  # noqa: F401
+    from src.models.refund import RefundRecord  # noqa: F401
+    from src.models.invoice import InvoiceRecord  # noqa: F401
+    from src.models.app_request import ApplicationRequest  # noqa: F401
+    from src.models.finance import FinanceAccount  # noqa: F401
+
     target_metadata = Base.metadata
 except ImportError:
     # If models not yet created, set to None

@@ -54,7 +54,6 @@ async def payment_test_data(test_db):
         customer_tier="trial",
         is_active=True,
         is_locked=False,
-        created_by=admin.id
     )
     test_db.add(operator)
     await test_db.commit()
