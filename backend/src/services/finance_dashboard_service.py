@@ -296,6 +296,13 @@ class FinanceDashboardService:
         total_result = await self.db.execute(total_consumption_query)
         total_consumption = total_result.scalar() or Decimal("0.00")
 
+        # Batch load operator details to avoid N+1 queries
+        operator_ids = [row.operator_id for row in consumption_data]
+        operators_result = await self.db.execute(
+            select(OperatorAccount).where(OperatorAccount.id.in_(operator_ids))
+        )
+        operators_map = {op.id: op for op in operators_result.scalars().all()}
+
         # Build customer list with operator details
         customers = []
         for rank, row in enumerate(consumption_data, start=1):
@@ -303,11 +310,8 @@ class FinanceDashboardService:
             customer_consumption = row.total_consumption or Decimal("0.00")
             total_sessions = row.total_sessions or 0
 
-            # Get operator details
-            operator_result = await self.db.execute(
-                select(OperatorAccount).where(OperatorAccount.id == operator_id)
-            )
-            operator = operator_result.scalar_one_or_none()
+            # Get operator from batch-loaded map
+            operator = operators_map.get(operator_id)
 
             if operator:
                 consumption_percentage = float((customer_consumption / total_consumption * 100)) if total_consumption > 0 else 0.0

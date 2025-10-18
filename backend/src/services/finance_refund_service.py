@@ -9,6 +9,7 @@ from typing import Optional, List
 from uuid import UUID as PyUUID
 
 from sqlalchemy import select, and_, desc, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import NotFoundException, BadRequestException
@@ -51,8 +52,8 @@ class FinanceRefundService:
         Returns:
             RefundListResponse: Paginated list of refund applications
         """
-        # Build query
-        query = select(RefundRecord)
+        # Build query with eager loading to avoid N+1 queries
+        query = select(RefundRecord).options(selectinload(RefundRecord.operator))
 
         # Add status filter
         if status and status != "all":
@@ -73,17 +74,14 @@ class FinanceRefundService:
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
 
-        # Execute query
+        # Execute query with operator relationship loaded
         result = await self.db.execute(query)
         refunds = result.scalars().all()
 
         # Convert to response items
         items = []
         for refund in refunds:
-            # Ensure operator relation is loaded
-            if not refund.operator:
-                await self.db.refresh(refund, ['operator'])
-
+            # Operator relation already loaded via selectinload
             # Get current balance
             operator = refund.operator
             current_balance = str(operator.balance) if operator else "0.00"

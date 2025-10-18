@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID as PyUUID
 
-from sqlalchemy import select, and_, desc
+from sqlalchemy import select, and_, desc, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import BadRequestException, NotFoundException
@@ -45,8 +46,8 @@ class AdminService:
         Returns:
             ApplicationRequestListResponse: Paginated list of requests
         """
-        # Build query
-        query = select(ApplicationRequest)
+        # Build query with eager loading to avoid N+1 queries
+        query = select(ApplicationRequest).options(selectinload(ApplicationRequest.application))
 
         # Add status filter if provided
         if status:
@@ -55,28 +56,26 @@ class AdminService:
         # Order by created_at desc (newest first)
         query = query.order_by(desc(ApplicationRequest.created_at))
 
-        # Get total count
-        count_result = await self.db.execute(
-            select(ApplicationRequest).where(
-                ApplicationRequest.status == status if status else True
-            )
-        )
-        total = len(count_result.scalars().all())
+        # Get total count using func.count() instead of loading all records
+        count_query = select(func.count(ApplicationRequest.id))
+        if status:
+            count_query = count_query.where(ApplicationRequest.status == status)
+
+        count_result = await self.db.execute(count_query)
+        total = count_result.scalar() or 0
 
         # Apply pagination
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
 
-        # Execute query
+        # Execute query with application relationship loaded
         result = await self.db.execute(query)
         requests = result.scalars().all()
 
         # Convert to response items
         items = []
         for req in requests:
-            # Ensure application is loaded
-            if not req.application:
-                await self.db.refresh(req, ['application'])
+            # Application relation already loaded via selectinload
 
             items.append(ApplicationRequestItem(
                 request_id=str(req.id),

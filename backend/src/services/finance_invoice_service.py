@@ -8,6 +8,7 @@ from typing import Optional
 from uuid import UUID as PyUUID
 
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import NotFoundException, BadRequestException
@@ -47,8 +48,8 @@ class FinanceInvoiceService:
         Returns:
             InvoiceListResponse: Paginated list of invoice applications
         """
-        # Build query
-        query = select(InvoiceRecord)
+        # Build query with eager loading to avoid N+1 queries
+        query = select(InvoiceRecord).options(selectinload(InvoiceRecord.operator))
 
         # Add status filter
         if status and status != "all":
@@ -69,17 +70,14 @@ class FinanceInvoiceService:
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
 
-        # Execute query
+        # Execute query with operator relationship loaded
         result = await self.db.execute(query)
         invoices = result.scalars().all()
 
         # Convert to response items
         items = []
         for invoice in invoices:
-            # Ensure operator relation is loaded
-            if not invoice.operator:
-                await self.db.refresh(invoice, ['operator'])
-
+            # Operator relation already loaded via selectinload
             operator = invoice.operator
 
             items.append(InvoiceItemFinance(
