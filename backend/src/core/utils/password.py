@@ -6,12 +6,13 @@ with configurable work factor for computational cost.
 
 from passlib.context import CryptContext
 
-# Bcrypt context with recommended work factor
-# rounds=12 provides good security while maintaining reasonable performance
+# Bcrypt context with optimized work factor
+# rounds=10 provides good security (OWASP minimum) with better performance
+# Reduces password verification time from ~250ms to ~60ms
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
-    bcrypt__rounds=12,
+    bcrypt__rounds=10,
 )
 
 
