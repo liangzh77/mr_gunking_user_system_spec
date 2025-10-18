@@ -25,6 +25,7 @@ from .admin import AdminAccount
 from .app_request import ApplicationRequest
 from .application import Application
 from .authorization import OperatorAppAuthorization
+from .finance import FinanceAccount
 from .invoice import InvoiceRecord
 from .operator import OperatorAccount
 from .refund import RefundRecord
@@ -43,4 +44,5 @@ __all__ = [
     "RefundRecord",
     "InvoiceRecord",
     "ApplicationRequest",
+    "FinanceAccount",
 ]
