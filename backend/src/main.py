@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .core import configure_logging, get_logger, get_settings
+from .core.cache import init_cache, close_cache
 from .core.metrics import prometheus  # Import to register metrics
 from .db import close_db, health_check, init_db
 from .middleware import register_exception_handlers
@@ -59,6 +60,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await create_tables()
             logger.info("database_tables_created")
 
+        # Initialize Redis cache
+        await init_cache()
+        logger.info("redis_cache_initialized", redis_url=settings.REDIS_URL)
+
         # Application ready
         logger.info("application_ready")
 
@@ -70,6 +75,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("application_shutdown_started")
+
+    try:
+        # Close Redis cache
+        await close_cache()
+        logger.info("redis_cache_closed")
+    except Exception as e:
+        logger.error("redis_cache_close_failed", error=str(e), exc_info=True)
 
     try:
         await close_db()

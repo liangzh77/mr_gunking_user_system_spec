@@ -1,5 +1,6 @@
 """Core module containing configuration, security, and utilities."""
 
+from .cache import RedisCache, get_cache, cache_result
 from .config import Settings, get_settings, settings
 from .exceptions import (
     AppException,
@@ -57,6 +58,10 @@ from .utils import (
 )
 
 __all__ = [
+    # Cache
+    "RedisCache",
+    "get_cache",
+    "cache_result",
     # Configuration
     "Settings",
     "get_settings",

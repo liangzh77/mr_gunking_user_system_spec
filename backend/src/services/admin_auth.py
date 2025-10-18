@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core import (
     UnauthorizedException,
     create_access_token,
+    get_cache,
     get_settings,
     get_token_subject,
     hash_password,
@@ -73,6 +74,10 @@ class AdminAuthService:
         await self.db.commit()
         await self.db.refresh(admin)
 
+        # Invalidate cached admin info (if exists) since we updated login time
+        cache = get_cache()
+        await cache.delete(f"admin:info:{admin.id}")
+
         # Generate access token
         token = create_access_token(
             subject=str(admin.id),
@@ -109,6 +114,19 @@ class AdminAuthService:
         if not admin_id:
             raise UnauthorizedException("Invalid token")
 
+        # Try to get from cache first
+        cache = get_cache()
+        cache_key = f"admin:info:{admin_id}"
+        cached_admin = await cache.get(cache_key)
+
+        if cached_admin:
+            # Reconstruct AdminAccount from cached data
+            admin = AdminAccount(**cached_admin)
+            if not admin.is_active:
+                raise UnauthorizedException("Account is inactive")
+            return admin
+
+        # Cache miss - query database
         result = await self.db.execute(
             select(AdminAccount).where(AdminAccount.id == admin_id)
         )
@@ -119,6 +137,20 @@ class AdminAuthService:
 
         if not admin.is_active:
             raise UnauthorizedException("Account is inactive")
+
+        # Cache admin info for 10 minutes
+        admin_dict = {
+            "id": str(admin.id),
+            "username": admin.username,
+            "full_name": admin.full_name,
+            "email": admin.email,
+            "phone": admin.phone,
+            "role": admin.role,
+            "permissions": admin.permissions,
+            "is_active": admin.is_active,
+            "password_hash": admin.password_hash,
+        }
+        await cache.set(cache_key, admin_dict, ttl=600)
 
         return admin
 
@@ -224,5 +256,9 @@ class AdminAuthService:
         admin.password_hash = hash_password(new_password)
         admin.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+        # Invalidate cached admin info since password changed
+        cache = get_cache()
+        await cache.delete(f"admin:info:{admin_id}")
 
         return True
