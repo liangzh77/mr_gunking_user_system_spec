@@ -4,6 +4,10 @@
       <template #header>
         <div class="card-header">
           <span>应用管理</span>
+          <el-button type="primary" @click="createApplication">
+            <el-icon><Plus /></el-icon>
+            创建应用
+          </el-button>
         </div>
       </template>
 
@@ -108,9 +112,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Plus } from '@element-plus/icons-vue'
 import http from '@/utils/http'
+
+const router = useRouter()
 
 interface Application {
   id: string
@@ -178,6 +185,11 @@ const handleRowClick = (row: Application) => {
 // 格式化日期
 const formatDate = (date: string) => {
   return new Date(date).toLocaleString('zh-CN')
+}
+
+// 创建应用
+const createApplication = () => {
+  router.push('/admin/applications/create')
 }
 
 onMounted(() => {
