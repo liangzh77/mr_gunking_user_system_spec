@@ -21,7 +21,7 @@ export default defineConfig({
   // 测试报告配置
   reporter: [
     ['list'],  // 控制台列表输出
-    ['html', { outputFolder: 'test-results/html', open: 'never' }],  // HTML报告
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],  // HTML报告
     ['json', { outputFile: 'test-results/results.json' }],  // JSON报告
   ],
 
@@ -53,12 +53,12 @@ export default defineConfig({
     },
   ],
 
-  // 开发服务器配置（可选）
-  // 如果需要Playwright自动启动dev server，取消注释
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:5173',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120000,
-  // },
+  // 开发服务器配置
+  // Playwright会自动启动和停止前端开发服务器
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
 })

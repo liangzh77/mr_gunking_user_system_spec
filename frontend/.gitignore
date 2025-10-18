@@ -27,3 +27,8 @@ coverage
 # Auto-generated
 src/auto-imports.d.ts
 src/components.d.ts
+
+# Playwright test results
+test-results/
+playwright-report/
+playwright/.cache/
