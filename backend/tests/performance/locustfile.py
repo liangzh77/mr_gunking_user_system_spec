@@ -75,7 +75,7 @@ class OperatorUser(HttpUser):
         }
 
         with self.client.post(
-            "/api/v1/operators/login",
+            "/v1/auth/operators/login",
             json=login_data,
             catch_response=True
         ) as response:
@@ -124,11 +124,11 @@ class OperatorUser(HttpUser):
         }
 
         with self.client.post(
-            "/api/v1/auth/authorize",
+            "/v1/auth/game/authorize",
             json=auth_data,
             headers=self.get_headers(),
             catch_response=True,
-            name="/api/v1/auth/authorize [核心]"
+            name="/v1/auth/authorize [核心]"
         ) as response:
             if response.status_code == 200:
                 # 检查响应时间
@@ -149,10 +149,10 @@ class OperatorUser(HttpUser):
             return
 
         with self.client.get(
-            f"/api/v1/operators/{self.operator_id}/balance",
+            f"/v1/operators/{self.operator_id}/balance",
             headers=self.get_headers(),
             catch_response=True,
-            name="/api/v1/operators/balance"
+            name="/v1/operators/balance"
         ) as response:
             if response.status_code == 200:
                 response.success()
@@ -166,11 +166,11 @@ class OperatorUser(HttpUser):
             return
 
         with self.client.get(
-            f"/api/v1/operators/{self.operator_id}/sites",
+            f"/v1/operators/{self.operator_id}/sites",
             headers=self.get_headers(),
             params={"page": 1, "page_size": 10},
             catch_response=True,
-            name="/api/v1/operators/sites"
+            name="/v1/operators/sites"
         ) as response:
             if response.status_code == 200:
                 response.success()
@@ -184,11 +184,11 @@ class OperatorUser(HttpUser):
             return
 
         with self.client.get(
-            f"/api/v1/operators/{self.operator_id}/transactions",
+            f"/v1/operators/{self.operator_id}/transactions",
             headers=self.get_headers(),
             params={"page": 1, "page_size": 20},
             catch_response=True,
-            name="/api/v1/operators/transactions"
+            name="/v1/operators/transactions"
         ) as response:
             if response.status_code == 200:
                 response.success()
@@ -202,10 +202,10 @@ class OperatorUser(HttpUser):
             return
 
         with self.client.get(
-            f"/api/v1/operators/{self.operator_id}/applications",
+            f"/v1/operators/{self.operator_id}/applications",
             headers=self.get_headers(),
             catch_response=True,
-            name="/api/v1/operators/applications"
+            name="/v1/operators/applications"
         ) as response:
             if response.status_code == 200:
                 response.success()
@@ -237,7 +237,7 @@ class AdminUser(HttpUser):
         }
 
         with self.client.post(
-            "/api/v1/admin/login",
+            "/v1/admin/login",
             json=login_data,
             catch_response=True
         ) as response:
@@ -262,11 +262,11 @@ class AdminUser(HttpUser):
             return
 
         with self.client.get(
-            "/api/v1/admin/operators",
+            "/v1/admin/operators",
             headers=self.get_headers(),
             params={"page": 1, "page_size": 20},
             catch_response=True,
-            name="/api/v1/admin/operators"
+            name="/v1/admin/operators"
         ) as response:
             if response.status_code == 200:
                 response.success()
@@ -280,11 +280,11 @@ class AdminUser(HttpUser):
             return
 
         with self.client.get(
-            "/api/v1/admin/applications",
+            "/v1/admin/applications",
             headers=self.get_headers(),
             params={"page": 1, "page_size": 20},
             catch_response=True,
-            name="/api/v1/admin/applications"
+            name="/v1/admin/applications"
         ) as response:
             if response.status_code == 200:
                 response.success()
