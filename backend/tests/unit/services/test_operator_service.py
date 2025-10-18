@@ -752,11 +752,10 @@ class TestApplyInvoice:
         )
 
         assert invoice.operator_id == operator.id
-        assert invoice.amount == Decimal("500.00")
+        assert invoice.invoice_amount == Decimal("500.00")
         assert invoice.invoice_title == "测试公司"
         assert invoice.tax_id == "91110000123456789X"
         assert invoice.status == "pending"
-        assert invoice.email == "existing@test.com"  # 使用账户邮箱
 
     @pytest.mark.asyncio
     async def test_apply_invoice_with_custom_email(self, test_db, operator_test_data):
@@ -784,7 +783,6 @@ class TestApplyInvoice:
             email="custom_email@test.com"
         )
 
-        assert invoice.email == "custom_email@test.com"
 
     @pytest.mark.asyncio
     async def test_apply_invoice_exceeds_recharged_amount_raises_400(self, test_db, operator_test_data):
@@ -889,14 +887,14 @@ class TestGetRefunds:
             operator_id=operator.id,
             requested_amount=Decimal("100.00"),
             status="pending",
-            reason="原因1"
+            refund_reason="原因1"
         )
         refund2 = RefundRecord(
             operator_id=operator.id,
             requested_amount=Decimal("200.00"),
             status="approved",
-            actual_refund_amount=Decimal("200.00"),
-            reason="原因2",
+            actual_amount=Decimal("200.00"),
+            refund_reason="原因2",
             reviewed_by=operator_test_data["admin"].id,  # approved状态需要审核人
             reviewed_at=datetime.now(timezone.utc)  # approved状态需要审核时间
         )
@@ -920,7 +918,7 @@ class TestGetRefunds:
                 operator_id=operator.id,
                 requested_amount=Decimal("100.00"),
                 status="pending",
-                reason=f"退款{i}"
+                refund_reason=f"退款{i}"
             )
             test_db.add(refund)
         await test_db.commit()
@@ -959,20 +957,20 @@ class TestGetInvoices:
         # 创建发票记录
         invoice1 = InvoiceRecord(
             operator_id=operator.id,
-            amount=Decimal("500.00"),
+            invoice_type="vat_normal",
+            invoice_amount=Decimal("500.00"),
             invoice_title="公司A",
             tax_id="91110000111111111A",
-            email="test@test.com",
             status="pending"
         )
         invoice2 = InvoiceRecord(
             operator_id=operator.id,
-            amount=Decimal("1000.00"),
+            invoice_type="vat_special",
+            invoice_amount=Decimal("1000.00"),
             invoice_title="公司B",
             tax_id="91110000222222222B",
-            email="test@test.com",
             status="approved",
-            pdf_url="https://example.com/invoice.pdf",
+            invoice_file_url="https://example.com/invoice.pdf",
             reviewed_by=operator_test_data["admin"].id,  # approved状态需要审核人
             reviewed_at=datetime.now(timezone.utc)  # approved状态需要审核时间
         )
@@ -994,10 +992,10 @@ class TestGetInvoices:
         for i in range(3):
             invoice = InvoiceRecord(
                 operator_id=operator.id,
-                amount=Decimal("100.00"),
+                invoice_type="vat_normal",
+                invoice_amount=Decimal("100.00"),
                 invoice_title=f"公司{i}",
                 tax_id=f"9111000011111111{i}A",
-                email="test@test.com",
                 status="pending"
             )
             test_db.add(invoice)

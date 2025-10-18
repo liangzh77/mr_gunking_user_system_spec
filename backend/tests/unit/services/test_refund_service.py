@@ -224,7 +224,7 @@ class TestApproveRefund:
 
         # 验证退款记录
         assert approved_refund.status == "approved"
-        assert approved_refund.actual_refund_amount == Decimal("500.00")
+        assert approved_refund.actual_amount == Decimal("500.00")
         assert approved_refund.reviewed_by == admin.id
         assert approved_refund.reviewed_at is not None
 
@@ -266,7 +266,7 @@ class TestApproveRefund:
             actual_refund_amount=Decimal("300.00")
         )
 
-        assert approved_refund.actual_refund_amount == Decimal("300.00")
+        assert approved_refund.actual_amount == Decimal("300.00")
 
         # 验证余额只扣减300元
         await test_db.refresh(operator)
@@ -416,7 +416,7 @@ class TestRejectRefund:
         assert rejected_refund.reject_reason == "余额过高,不予退款"
         assert rejected_refund.reviewed_by == admin.id
         assert rejected_refund.reviewed_at is not None
-        assert rejected_refund.actual_refund_amount is None
+        assert rejected_refund.actual_amount is None
 
         # 验证余额未变化
         await test_db.refresh(operator)

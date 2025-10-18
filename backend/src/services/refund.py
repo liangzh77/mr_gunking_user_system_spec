@@ -232,7 +232,7 @@ class RefundService:
         try:
             # 更新退款记录
             refund.status = "approved"
-            refund.actual_refund_amount = actual_refund_amount
+            refund.actual_amount = actual_refund_amount
             refund.reviewed_by = approved_by
             refund.reviewed_at = datetime.now(timezone.utc)
 

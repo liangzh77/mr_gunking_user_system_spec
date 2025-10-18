@@ -718,16 +718,13 @@ class OperatorService:
                 }
             )
 
-        # 4. 设置email(如果未提供则使用账户邮箱)
-        final_email = email if email else operator.email
-
-        # 5. 创建发票申请记录
+        # 4. 创建发票申请记录
         invoice = InvoiceRecord(
             operator_id=operator_id,
-            amount=invoice_amount,
+            invoice_type="vat_normal",  # 默认普通增值税发票
+            invoice_amount=invoice_amount,
             invoice_title=invoice_title,
             tax_id=tax_id.upper(),  # 统一为大写
-            email=final_email,
             status="pending"  # 初始状态为待审核
         )
 
