@@ -17,7 +17,7 @@ from .core import configure_logging, get_logger, get_settings
 from .core.cache import init_cache, close_cache
 from .core.metrics import prometheus  # Import to register metrics
 from .db import close_db, health_check, init_db
-from .middleware import register_exception_handlers
+from .middleware import register_exception_handlers, SecurityHeadersMiddleware
 from .schemas import HealthCheckResponse
 
 # Configure logging before app initialization
@@ -118,6 +118,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add security headers middleware
+    # Note: HTTPS redirect is handled by reverse proxy in production
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Register exception handlers
     register_exception_handlers(app)
