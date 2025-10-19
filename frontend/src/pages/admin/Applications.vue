@@ -155,7 +155,7 @@ const fetchApplications = async () => {
       params.search = searchKeyword.value
     }
 
-    const response = await http.get('/admin/admins/applications', { params })
+    const response = await http.get('/admins/applications', { params })
     applications.value = response.data.items
     pagination.total = response.data.total
   } catch (error) {

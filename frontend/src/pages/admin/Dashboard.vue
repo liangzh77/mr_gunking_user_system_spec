@@ -142,10 +142,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, onMounted } from 'vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const adminAuthStore = useAdminAuthStore()
+
+// 组件加载时获取管理员信息
+onMounted(() => {
+  adminAuthStore.fetchProfile()
+})
 
 // 统计数据（暂时使用固定值，后续可以从API获取）
 const stats = reactive({
