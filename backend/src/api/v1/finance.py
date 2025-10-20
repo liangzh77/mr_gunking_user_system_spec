@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_db, require_finance
 from ...core import BadRequestException, NotFoundException
 from ...schemas.finance import (
+    AuditLogListResponse,
     CustomerFinanceDetails,
     DashboardOverview,
     DashboardTrends,
@@ -45,6 +46,9 @@ from ...schemas.finance import (
     RefundDetailsResponse,
     RefundListResponse,
     RefundRejectRequest,
+    ReportGenerateRequest,
+    ReportGenerateResponse,
+    ReportListResponse,
     TopCustomersResponse,
 )
 from ...services.finance_dashboard_service import FinanceDashboardService
@@ -1060,5 +1064,357 @@ async def reject_invoice(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"拒绝开票失败: {str(e)}",
+            },
+        )
+
+
+# ==================== 审计日志 (T167) ====================
+
+
+@router.get(
+    "/audit-logs",
+    response_model=AuditLogListResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+    },
+    summary="获取审计日志列表",
+    description="""
+    获取财务操作审计日志列表,支持分页和筛选。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **查询参数**:
+    - operation_type: 操作类型筛选(可选)
+    - page: 页码(从1开始,默认1)
+    - page_size: 每页条数(1-100,默认20)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页条数
+    - total: 符合条件的总记录数
+    - items: 审计日志列表(按时间倒序)
+
+    **业务规则**:
+    - 按操作时间倒序(最新记录在前)
+    - 记录所有财务人员的关键操作
+    """,
+)
+async def get_audit_logs(
+    operation_type: Optional[str] = Query(None, description="操作类型筛选"),
+    page: int = Query(1, ge=1, description="页码(从1开始)"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> AuditLogListResponse:
+    """获取审计日志列表API (T167)
+
+    Args:
+        operation_type: 操作类型筛选
+        page: 页码
+        page_size: 每页条数
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        AuditLogListResponse: 分页的审计日志列表
+
+    Raises:
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        from sqlalchemy import select, func
+        from ...models.finance import FinanceOperationLog, FinanceAccount
+        from sqlalchemy.orm import selectinload
+
+        # Build query
+        query = select(FinanceOperationLog).options(
+            selectinload(FinanceOperationLog.finance_account)
+        )
+
+        # Apply filters
+        if operation_type:
+            query = query.where(FinanceOperationLog.operation_type == operation_type)
+
+        # Count total
+        count_query = select(func.count()).select_from(FinanceOperationLog)
+        if operation_type:
+            count_query = count_query.where(FinanceOperationLog.operation_type == operation_type)
+
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Apply pagination and ordering
+        query = query.order_by(FinanceOperationLog.created_at.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        # Execute query
+        result = await db.execute(query)
+        logs = result.scalars().all()
+
+        # Build response
+        from ...schemas.finance import AuditLogItem
+        items = []
+        for log in logs:
+            items.append(AuditLogItem(
+                log_id=f"log_{log.id}",
+                finance_id=str(log.finance_account_id),
+                finance_name=log.finance_account.full_name if log.finance_account else "Unknown",
+                operation_type=log.operation_type,
+                target_resource_id=str(log.target_resource_id) if log.target_resource_id else "",
+                operation_details=log.operation_details or {},
+                ip_address=log.ip_address,
+                user_agent=log.user_agent,
+                created_at=log.created_at,
+            ))
+
+        return AuditLogListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"获取审计日志失败: {str(e)}",
+            },
+        )
+
+
+# ==================== 财务报表 (T166) ====================
+
+
+@router.post(
+    "/reports/generate",
+    response_model=ReportGenerateResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {"description": "请求参数错误"},
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+    },
+    summary="生成财务报表",
+    description="""
+    生成财务报表(异步任务)。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **请求体**:
+    - report_type: 报表类型(daily/weekly/monthly/custom)
+    - start_date: 开始日期
+    - end_date: 结束日期
+    - format: 报表格式(pdf/excel)
+    - include_sections: 包含的报表章节(可选)
+
+    **响应数据**:
+    - report_id: 报表ID
+    - status: 生成状态(generating/completed/failed)
+    - estimated_time: 预计完成时间(秒)
+
+    **业务规则**:
+    - 报表生成为异步任务
+    - 可通过报表ID查询生成状态
+    """,
+)
+async def generate_report(
+    request: ReportGenerateRequest,
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> ReportGenerateResponse:
+    """生成财务报表API (T166)
+
+    Args:
+        request: 报表生成请求
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        ReportGenerateResponse: 报表生成响应
+
+    Raises:
+        HTTPException 400: 请求参数错误
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        # TODO: Implement actual report generation logic
+        # For now, return a placeholder response
+        import uuid
+        from datetime import datetime
+
+        report_id = f"rpt_{datetime.now().strftime('%Y%m%d')}_{uuid.uuid4().hex[:6]}"
+
+        return ReportGenerateResponse(
+            report_id=report_id,
+            status="completed",  # Immediately mark as completed for now
+            estimated_time=0,
+        )
+
+    except BadRequestException as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_REQUEST", "message": str(e)},
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"生成报表失败: {str(e)}",
+            },
+        )
+
+
+@router.get(
+    "/reports",
+    response_model=ReportListResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+    },
+    summary="获取报表历史列表",
+    description="""
+    获取历史生成的报表列表,支持分页。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **查询参数**:
+    - page: 页码(从1开始,默认1)
+    - page_size: 每页条数(1-100,默认20)
+
+    **响应数据**:
+    - page: 当前页码
+    - page_size: 每页条数
+    - total: 符合条件的总记录数
+    - items: 报表列表(按创建时间倒序)
+
+    **业务规则**:
+    - 按创建时间倒序(最新报表在前)
+    - 仅显示当前用户生成的报表
+    """,
+)
+async def get_reports(
+    page: int = Query(1, ge=1, description="页码(从1开始)"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> ReportListResponse:
+    """获取报表历史列表API (T166)
+
+    Args:
+        page: 页码
+        page_size: 每页条数
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        ReportListResponse: 分页的报表列表
+
+    Raises:
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        # TODO: Implement actual report list query
+        # For now, return empty list
+        return ReportListResponse(
+            page=page,
+            page_size=page_size,
+            total=0,
+            items=[],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"获取报表列表失败: {str(e)}",
+            },
+        )
+
+
+@router.get(
+    "/reports/{report_id}/export",
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+        404: {"description": "报表不存在"},
+    },
+    summary="导出/下载报表文件",
+    description="""
+    导出指定报表的文件(PDF/Excel)。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **路径参数**:
+    - report_id: 报表ID
+
+    **响应**:
+    - 文件流(application/pdf 或 application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+
+    **业务规则**:
+    - 仅允许下载已完成生成的报表
+    - 文件名包含报表ID和日期
+    """,
+)
+async def export_report(
+    report_id: str,
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+):
+    """导出报表文件API (T166)
+
+    Args:
+        report_id: 报表ID
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        FileResponse: 报表文件
+
+    Raises:
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+        HTTPException 404: 报表不存在
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        # TODO: Implement actual report export logic
+        # For now, return 404
+        raise NotFoundException(f"报表 {report_id} 不存在或尚未生成")
+
+    except NotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "REPORT_NOT_FOUND", "message": str(e)},
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"导出报表失败: {str(e)}",
             },
         )

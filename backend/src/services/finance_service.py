@@ -72,19 +72,19 @@ class FinanceService:
         await self.db.commit()
         await self.db.refresh(finance)
 
-        # Generate JWT token (placeholder - should use actual JWT service)
-        from ..core.utils.jwt import create_access_token
-
-        # Token payload
-        token_data = {
-            "sub": str(finance.id),
-            "username": finance.username,
-            "role": finance.role,
-            "type": "finance"
-        }
+        # Generate JWT token
+        from ..core.security.jwt import create_access_token
 
         # Create access token (expires in 24 hours)
-        access_token = create_access_token(token_data, expires_delta=timedelta(hours=24))
+        access_token = create_access_token(
+            subject=str(finance.id),
+            user_type="finance",
+            expires_delta=timedelta(hours=24),
+            additional_claims={
+                "username": finance.username,
+                "role": finance.role
+            }
+        )
 
         # Build response
         return FinanceLoginResponse(
