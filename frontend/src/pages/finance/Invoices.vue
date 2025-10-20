@@ -218,7 +218,7 @@ const rejecting = ref(false)
 const fetchInvoices = async () => {
   loading.value = true
   try {
-    const response = await http.get('/v1/finance/invoices', {
+    const response = await http.get('/finance/invoices', {
       params: queryParams,
     })
     invoices.value = response.data.items || []
@@ -245,7 +245,7 @@ const handleApprove = async (invoice: any) => {
       type: 'success',
     })
 
-    await http.post(`/v1/finance/invoices/${invoice.invoice_id}/approve`)
+    await http.post(`/finance/invoices/${invoice.invoice_id}/approve`)
     ElMessage.success('发票已批准')
     fetchInvoices()
   } catch (error: any) {
@@ -270,7 +270,7 @@ const confirmReject = async () => {
     await rejectFormRef.value.validate()
     rejecting.value = true
 
-    await http.post(`/v1/finance/invoices/${currentInvoice.value.invoice_id}/reject`, {
+    await http.post(`/finance/invoices/${currentInvoice.value.invoice_id}/reject`, {
       reject_reason: rejectForm.reject_reason,
     })
 

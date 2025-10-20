@@ -3,8 +3,10 @@ import { ElMessage } from 'element-plus'
 import router from '@/router'
 
 // 创建axios实例
+// 统一使用 /api/v1，通过Vite代理转发到后端
+// 无论是localhost还是FRP环境，都使用相对路径，避免CORS问题
 const http: AxiosInstance = axios.create({
-  baseURL: '/v1',
+  baseURL: '/api/v1',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -20,6 +22,9 @@ http.interceptors.request.use(
     if (config.url?.startsWith('/admin')) {
       // 管理员API使用admin token
       token = localStorage.getItem('admin_access_token')
+    } else if (config.url?.startsWith('/finance')) {
+      // 财务API使用finance token
+      token = localStorage.getItem('finance_access_token')
     } else {
       // 其他API使用运营商token
       token = localStorage.getItem('access_token')

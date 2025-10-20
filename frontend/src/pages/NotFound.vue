@@ -7,12 +7,22 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 
 const goHome = () => {
-  router.push('/operator/dashboard')
+  // 根据当前路径前缀判断应返回哪个首页
+  const path = route.path
+
+  if (path.startsWith('/admin')) {
+    router.push('/admin/dashboard')
+  } else if (path.startsWith('/finance')) {
+    router.push('/finance/dashboard')
+  } else {
+    router.push('/operator/dashboard')
+  }
 }
 </script>
 

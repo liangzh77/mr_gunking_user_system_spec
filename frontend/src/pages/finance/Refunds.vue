@@ -182,7 +182,7 @@ const rejecting = ref(false)
 const fetchRefunds = async () => {
   loading.value = true
   try {
-    const response = await http.get('/v1/finance/refunds', {
+    const response = await http.get('/finance/refunds', {
       params: queryParams,
     })
     refunds.value = response.data.items || []
@@ -209,7 +209,7 @@ const handleApprove = async (refund: any) => {
       type: 'success',
     })
 
-    await http.post(`/v1/finance/refunds/${refund.refund_id}/approve`)
+    await http.post(`/finance/refunds/${refund.refund_id}/approve`)
     ElMessage.success('退款已批准')
     fetchRefunds()
   } catch (error: any) {
@@ -234,7 +234,7 @@ const confirmReject = async () => {
     await rejectFormRef.value.validate()
     rejecting.value = true
 
-    await http.post(`/v1/finance/refunds/${currentRefund.value.refund_id}/reject`, {
+    await http.post(`/finance/refunds/${currentRefund.value.refund_id}/reject`, {
       reject_reason: rejectForm.reject_reason,
     })
 

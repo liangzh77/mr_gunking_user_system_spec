@@ -8,39 +8,34 @@
         </div>
       </template>
 
-      <el-form
-        ref="formRef"
-        :model="loginForm"
-        :rules="rules"
-        label-width="80px"
-        @submit.prevent="handleLogin"
-      >
-        <el-form-item label="用户名" prop="username">
+      <el-form ref="formRef" :model="loginForm" :rules="rules" @keyup.enter="handleLogin">
+        <el-form-item prop="username">
           <el-input
             v-model="loginForm.username"
             placeholder="请输入用户名"
             prefix-icon="User"
-            clearable
+            size="large"
           />
         </el-form-item>
 
-        <el-form-item label="密码" prop="password">
+        <el-form-item prop="password">
           <el-input
             v-model="loginForm.password"
             type="password"
             placeholder="请输入密码"
             prefix-icon="Lock"
+            size="large"
             show-password
-            @keyup.enter="handleLogin"
           />
         </el-form-item>
 
         <el-form-item>
           <el-button
             type="primary"
+            size="large"
             :loading="authStore.isLoading"
-            style="width: 100%"
             @click="handleLogin"
+            class="login-button"
           >
             登录
           </el-button>
@@ -53,6 +48,15 @@
           </div>
         </el-form-item>
       </el-form>
+
+      <div class="login-footer">
+        <el-divider />
+        <div class="other-logins">
+          <router-link to="/admin/login" class="link">管理员登录</router-link>
+          <el-divider direction="vertical" />
+          <router-link to="/finance/login" class="link">财务登录</router-link>
+        </div>
+      </div>
     </el-card>
   </div>
 </template>
@@ -139,6 +143,10 @@ const goToRegister = () => {
   color: #909399;
 }
 
+.login-button {
+  width: 100%;
+}
+
 .footer-links {
   width: 100%;
   display: flex;
@@ -147,5 +155,26 @@ const goToRegister = () => {
   gap: 8px;
   font-size: 14px;
   color: #909399;
+}
+
+.login-footer {
+  margin-top: 10px;
+}
+
+.other-logins {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.link {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.link:hover {
+  text-decoration: underline;
 }
 </style>

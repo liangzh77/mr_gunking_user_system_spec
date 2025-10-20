@@ -81,6 +81,16 @@ const router = createRouter({
               name: 'Statistics',
               component: () => import('@/pages/operator/Statistics.vue'),
             },
+            {
+              path: 'app-requests',
+              name: 'OperatorAppRequests',
+              component: () => import('@/pages/operator/AppRequests.vue'),
+            },
+            {
+              path: 'messages',
+              name: 'Messages',
+              component: () => import('@/pages/operator/Messages.vue'),
+            },
           ],
         },
       ],
@@ -163,6 +173,11 @@ const router = createRouter({
               path: 'reports',
               name: 'FinanceReports',
               component: () => import('@/pages/finance/Reports.vue'),
+            },
+            {
+              path: 'audit-logs',
+              name: 'FinanceAuditLogs',
+              component: () => import('@/pages/finance/AuditLogs.vue'),
             },
           ],
         },

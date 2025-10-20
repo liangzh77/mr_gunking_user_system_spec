@@ -204,7 +204,7 @@ const pendingInvoices = ref(0)
 // 获取仪表盘数据
 const fetchDashboard = async () => {
   try {
-    const response = await http.get('/v1/finance/dashboard')
+    const response = await http.get('/finance/dashboard')
     dashboard.value = response.data
   } catch (error: any) {
     ElMessage.error('获取财务概览失败')
@@ -214,7 +214,7 @@ const fetchDashboard = async () => {
 // 获取Top客户
 const fetchTopCustomers = async () => {
   try {
-    const response = await http.get('/v1/finance/top-customers', {
+    const response = await http.get('/finance/top-customers', {
       params: { limit: 10 }
     })
     topCustomers.value = response.data.customers || []

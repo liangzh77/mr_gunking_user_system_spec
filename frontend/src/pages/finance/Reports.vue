@@ -243,7 +243,7 @@ const generateReport = async () => {
       params.end_date = formatDate(reportForm.end_date)
     }
 
-    await http.post('/v1/finance/reports/generate', params)
+    await http.post('/finance/reports/generate', params)
     ElMessage.success('报表生成成功')
     fetchReports()
   } catch (error: any) {
@@ -256,7 +256,7 @@ const generateReport = async () => {
 // 快速报表
 const quickReport = async (period: string) => {
   try {
-    await http.post('/v1/finance/reports/generate', {
+    await http.post('/finance/reports/generate', {
       report_type: 'quick',
       period: period,
       export_format: 'pdf',
@@ -279,7 +279,7 @@ const resetForm = () => {
 const fetchReports = async () => {
   loading.value = true
   try {
-    const response = await http.get('/v1/finance/reports', {
+    const response = await http.get('/finance/reports', {
       params: queryParams,
     })
     reports.value = response.data.items || []
@@ -294,7 +294,7 @@ const fetchReports = async () => {
 // 下载报表
 const downloadReport = async (report: any) => {
   try {
-    const response = await http.get(`/v1/finance/reports/${report.report_id}/export`, {
+    const response = await http.get(`/finance/reports/${report.report_id}/export`, {
       responseType: 'blob',
     })
 
