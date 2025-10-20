@@ -23,6 +23,8 @@ from ..schemas.finance import (
     RefundApproveResponse,
     CustomerFinanceDetails
 )
+from .audit_log_service import AuditLogService
+from .message_service import MessageService
 
 
 class FinanceRefundService:
@@ -233,15 +235,38 @@ class FinanceRefundService:
         balance_after = operator.balance
 
         # Create transaction record
+        # Note: amount should be negative for refund (balance decreases)
         transaction = TransactionRecord(
             operator_id=refund.operator_id,
             transaction_type="refund",
-            amount=actual_refund_amount,
+            amount=-actual_refund_amount,  # Negative because balance decreases
+            balance_before=current_balance,
             balance_after=balance_after,
             description=f"退款审核通过: {note}" if note else "退款审核通过",
             related_refund_id=refund.id
         )
         self.db.add(transaction)
+
+        # Record audit log
+        audit_service = AuditLogService(self.db)
+        await audit_service.log_refund_approve(
+            finance_id=finance_id,
+            refund_id=refund.id,
+            operator_id=operator.id,
+            operator_name=operator.username,
+            refund_amount=str(actual_refund_amount),
+            note=note
+        )
+
+        # Send notification to operator
+        message_service = MessageService(self.db)
+        await message_service.create_refund_approved_notification(
+            operator_id=operator.id,
+            refund_id=refund.id,
+            refund_amount=str(refund.requested_amount),
+            actual_amount=str(actual_refund_amount),
+            note=note
+        )
 
         # Commit changes
         await self.db.commit()
@@ -295,11 +320,37 @@ class FinanceRefundService:
         if refund.status != "pending":
             raise BadRequestException(f"Refund already {refund.status}")
 
+        # Ensure operator relation is loaded
+        if not refund.operator:
+            await self.db.refresh(refund, ['operator'])
+
+        operator = refund.operator
+
         # Update refund record
         refund.status = "rejected"
         refund.reviewed_by = finance_id
         refund.reviewed_at = datetime.now(timezone.utc)
         refund.reject_reason = reason
+
+        # Record audit log
+        audit_service = AuditLogService(self.db)
+        await audit_service.log_refund_reject(
+            finance_id=finance_id,
+            refund_id=refund.id,
+            operator_id=operator.id,
+            operator_name=operator.username,
+            refund_amount=str(refund.requested_amount),
+            reject_reason=reason
+        )
+
+        # Send notification to operator
+        message_service = MessageService(self.db)
+        await message_service.create_refund_rejected_notification(
+            operator_id=operator.id,
+            refund_id=refund.id,
+            refund_amount=str(refund.requested_amount),
+            reject_reason=reason
+        )
 
         # Commit changes
         await self.db.commit()

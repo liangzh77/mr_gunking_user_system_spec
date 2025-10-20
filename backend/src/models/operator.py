@@ -230,6 +230,14 @@ class OperatorAccount(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营商有多条消息通知
+    messages: Mapped[list["OperatorMessage"]] = relationship(
+        "OperatorMessage",
+        back_populates="operator",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
     # 1:N - 一个运营商有多个充值订单
     # NOTE: RechargeOrder表暂未创建,关系已注释
     # recharge_orders: Mapped[list["RechargeOrder"]] = relationship(

@@ -19,6 +19,8 @@ from ..schemas.finance import (
     InvoiceListResponse,
     InvoiceApproveResponse
 )
+from .audit_log_service import AuditLogService
+from .message_service import MessageService
 
 
 class FinanceInvoiceService:
@@ -158,6 +160,35 @@ class FinanceInvoiceService:
         pdf_url = f"https://api.example.com/invoices/{invoice_id}.pdf"
         invoice.invoice_file_url = pdf_url
 
+        # Ensure operator relation is loaded
+        if not invoice.operator:
+            await self.db.refresh(invoice, ['operator'])
+
+        operator = invoice.operator
+
+        # Record audit log
+        audit_service = AuditLogService(self.db)
+        await audit_service.log_invoice_approve(
+            finance_id=finance_id,
+            invoice_id=invoice.id,
+            operator_id=operator.id,
+            operator_name=operator.username,
+            invoice_amount=str(invoice.invoice_amount),
+            invoice_number=invoice_number,
+            note=note
+        )
+
+        # Send notification to operator
+        message_service = MessageService(self.db)
+        await message_service.create_invoice_approved_notification(
+            operator_id=operator.id,
+            invoice_id=invoice.id,
+            invoice_amount=str(invoice.invoice_amount),
+            invoice_number=invoice_number,
+            pdf_url=pdf_url,
+            note=note
+        )
+
         # Commit changes
         await self.db.commit()
         await self.db.refresh(invoice)
@@ -214,11 +245,37 @@ class FinanceInvoiceService:
         if invoice.status != "pending":
             raise BadRequestException(f"Invoice already {invoice.status}")
 
+        # Ensure operator relation is loaded
+        if not invoice.operator:
+            await self.db.refresh(invoice, ['operator'])
+
+        operator = invoice.operator
+
         # Update invoice record
         invoice.status = "rejected"
         invoice.reviewed_by = finance_id
         invoice.reviewed_at = datetime.now(timezone.utc)
         invoice.reject_reason = reason
+
+        # Record audit log
+        audit_service = AuditLogService(self.db)
+        await audit_service.log_invoice_reject(
+            finance_id=finance_id,
+            invoice_id=invoice.id,
+            operator_id=operator.id,
+            operator_name=operator.username,
+            invoice_amount=str(invoice.invoice_amount),
+            reject_reason=reason
+        )
+
+        # Send notification to operator
+        message_service = MessageService(self.db)
+        await message_service.create_invoice_rejected_notification(
+            operator_id=operator.id,
+            invoice_id=invoice.id,
+            invoice_amount=str(invoice.invoice_amount),
+            reject_reason=reason
+        )
 
         # Commit changes
         await self.db.commit()
