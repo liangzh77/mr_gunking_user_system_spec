@@ -178,7 +178,7 @@ const fetchRequests = async () => {
       params.status = statusFilter.value
     }
 
-    const response = await http.get('/admin/admins/applications/requests', { params })
+    const response = await http.get('/admins/applications/requests', { params })
     requests.value = response.data.items
     pagination.total = response.data.total
   } catch (error) {
@@ -234,7 +234,7 @@ const handleReview = async (row: AppRequest, action: 'approve' | 'reject') => {
       reject_reason: rejectReason || undefined,
     }
 
-    await http.post(`/admin/admins/applications/requests/${row.request_id}/review`, payload)
+    await http.post(`/admins/applications/requests/${row.request_id}/review`, payload)
 
     ElMessage.success(action === 'approve' ? '申请已通过' : '申请已拒绝')
 

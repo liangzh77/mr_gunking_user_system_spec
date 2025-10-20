@@ -228,7 +228,7 @@ const fetchOperators = async () => {
       params.status = searchForm.status
     }
 
-    const response = await http.get('/admin/admins/operators', { params })
+    const response = await http.get('/admins/operators', { params })
     operators.value = response.data.items
     pagination.total = response.data.total
   } catch (error) {

@@ -5,6 +5,7 @@ This service handles admin login, logout, token management, and user info retrie
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -121,6 +122,18 @@ class AdminAuthService:
 
         if cached_admin:
             # Reconstruct AdminAccount from cached data
+            # Convert serialized fields back to their proper types
+            if cached_admin.get("id"):
+                cached_admin["id"] = UUID(cached_admin["id"])
+            if cached_admin.get("created_at"):
+                cached_admin["created_at"] = datetime.fromisoformat(cached_admin["created_at"])
+            if cached_admin.get("updated_at"):
+                cached_admin["updated_at"] = datetime.fromisoformat(cached_admin["updated_at"])
+            if cached_admin.get("last_login_at"):
+                cached_admin["last_login_at"] = datetime.fromisoformat(cached_admin["last_login_at"])
+            if cached_admin.get("created_by"):
+                cached_admin["created_by"] = UUID(cached_admin["created_by"])
+
             admin = AdminAccount(**cached_admin)
             if not admin.is_active:
                 raise UnauthorizedException("Account is inactive")
@@ -149,6 +162,11 @@ class AdminAuthService:
             "permissions": admin.permissions,
             "is_active": admin.is_active,
             "password_hash": admin.password_hash,
+            "created_at": admin.created_at.isoformat() if admin.created_at else None,
+            "updated_at": admin.updated_at.isoformat() if admin.updated_at else None,
+            "last_login_at": admin.last_login_at.isoformat() if admin.last_login_at else None,
+            "last_login_ip": admin.last_login_ip,
+            "created_by": str(admin.created_by) if admin.created_by else None,
         }
         await cache.set(cache_key, admin_dict, ttl=600)
 
