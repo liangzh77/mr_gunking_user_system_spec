@@ -53,31 +53,44 @@ http.interceptors.response.use(
 
       switch (status) {
         case 401:
-          // 未授权，清除token并跳转到登录页
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('operator_id')
-          router.push('/operator/login')
-          ElMessage.error(data?.detail?.message || '未授权，请重新登录')
+          // 未授权，清除token并根据当前路径跳转到对应登录页
+          const currentPath = router.currentRoute.value.path
+
+          if (currentPath.startsWith('/admin')) {
+            localStorage.removeItem('admin_access_token')
+            localStorage.removeItem('admin_user')
+            router.push('/admin/login')
+          } else if (currentPath.startsWith('/finance')) {
+            localStorage.removeItem('finance_access_token')
+            localStorage.removeItem('finance_user')
+            router.push('/finance/login')
+          } else {
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('operator_id')
+            router.push('/operator/login')
+          }
+
+          ElMessage.error(data?.message || data?.error?.message || '未授权，请重新登录')
           break
 
         case 403:
-          ElMessage.error(data?.detail?.message || '无权访问此资源')
+          ElMessage.error(data?.message || data?.error?.message || '无权访问此资源')
           break
 
         case 404:
-          ElMessage.error(data?.detail?.message || '请求的资源不存在')
+          ElMessage.error(data?.message || data?.error?.message || '请求的资源不存在')
           break
 
         case 422:
           // 验证错误
-          const validationErrors = data?.detail
+          const validationErrors = data?.detail || data?.details
           if (Array.isArray(validationErrors)) {
             const errorMessages = validationErrors
               .map((err: any) => `${err.loc?.join('.')} : ${err.msg}`)
               .join('; ')
             ElMessage.error(`验证错误: ${errorMessages}`)
-          } else if (validationErrors?.message) {
-            ElMessage.error(validationErrors.message)
+          } else if (data?.message) {
+            ElMessage.error(data.message)
           } else {
             ElMessage.error('请求参数验证失败')
           }
@@ -88,11 +101,11 @@ http.interceptors.response.use(
           break
 
         case 500:
-          ElMessage.error(data?.detail?.message || '服务器内部错误')
+          ElMessage.error(data?.message || data?.error?.message || '服务器内部错误')
           break
 
         default:
-          ElMessage.error(data?.detail?.message || `请求失败 (${status})`)
+          ElMessage.error(data?.message || data?.error?.message || `请求失败 (${status})`)
       }
     } else if (error.request) {
       // 请求已发送但未收到响应

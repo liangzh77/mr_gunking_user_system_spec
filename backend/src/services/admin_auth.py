@@ -59,15 +59,15 @@ class AdminAuthService:
         admin = result.scalar_one_or_none()
 
         if not admin:
-            raise UnauthorizedException("Invalid username or password")
+            raise UnauthorizedException("用户名或密码错误")
 
         # Verify password
         if not verify_password(password, admin.password_hash):
-            raise UnauthorizedException("Invalid username or password")
+            raise UnauthorizedException("用户名或密码错误")
 
         # Check if account is active
         if not admin.is_active:
-            raise UnauthorizedException("Account is inactive")
+            raise UnauthorizedException("账号已被停用，请联系管理员")
 
         # Update last login info
         admin.last_login_at = datetime.now(timezone.utc)

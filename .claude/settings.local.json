@@ -66,7 +66,8 @@
       "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_operator_logout.py -v --no-cov --tb=short)",
       "Bash(timeout 30 PYTHONPATH=. .venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)",
       "Bash(C:/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)",
-      "Bash(/c/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)"
+      "Bash(/c/liangz77/python_projects/github_projects/mr_gunking_user_system_spec/.venv312/Scripts/pytest.exe backend/tests/contract/test_invoice_apply.py backend/tests/contract/test_invoice_list.py -v --no-cov --tb=short)",
+      "mcp__playwright__browser_navigate"
     ],
     "deny": [],
     "ask": []

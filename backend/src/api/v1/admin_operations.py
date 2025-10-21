@@ -340,3 +340,81 @@ async def revoke_authorization(
         operator_id=operator_id,
         application_id=app_id
     )
+
+
+# ==================== Dashboard Statistics API ====================
+
+@router.get(
+    "/dashboard/stats",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Get Dashboard Statistics",
+    description="Get dashboard statistics for admin panel",
+)
+async def get_dashboard_stats(
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Get dashboard statistics.
+
+    Args:
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Dashboard statistics including counts and revenue
+    """
+    from sqlalchemy import select, func
+    from datetime import datetime, timedelta
+    from ...models.operator import OperatorAccount
+    from ...models.application import Application
+    from ...models.app_request import ApplicationRequest
+    from ...models.transaction import TransactionRecord
+
+    # Get operators count
+    operators_result = await db.execute(
+        select(func.count(OperatorAccount.id)).where(
+            OperatorAccount.deleted_at.is_(None)
+        )
+    )
+    operators_count = operators_result.scalar() or 0
+
+    # Get applications count
+    apps_result = await db.execute(
+        select(func.count(Application.id)).where(
+            Application.is_active == True
+        )
+    )
+    applications_count = apps_result.scalar() or 0
+
+    # Get pending requests count
+    pending_result = await db.execute(
+        select(func.count(ApplicationRequest.id)).where(
+            ApplicationRequest.status == "pending"
+        )
+    )
+    pending_requests_count = pending_result.scalar() or 0
+
+    # Get today's transactions count and revenue
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    transactions_result = await db.execute(
+        select(
+            func.count(TransactionRecord.id),
+            func.coalesce(func.sum(TransactionRecord.amount), 0)
+        ).where(
+            TransactionRecord.created_at >= today_start,
+            TransactionRecord.transaction_type == "consumption"
+        )
+    )
+    row = transactions_result.first()
+    today_transactions_count = row[0] if row else 0
+    today_revenue = str(row[1]) if row else "0.00"
+
+    return {
+        "operators_count": operators_count,
+        "applications_count": applications_count,
+        "pending_requests_count": pending_requests_count,
+        "today_transactions_count": today_transactions_count,
+        "today_revenue": today_revenue,
+    }
