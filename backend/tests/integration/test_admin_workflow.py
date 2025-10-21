@@ -40,7 +40,7 @@ async def test_data(test_db):
         email="workflow_admin@test.com",
         phone="13800138000",
         role="super_admin",
-        permissions={},
+        permissions=[],
         is_active=True
     )
     test_db.add(admin)

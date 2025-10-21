@@ -78,6 +78,7 @@ async def create_test_transactions(test_db, create_test_operator):
         operator_id=operator.id,
         transaction_type="recharge",
         amount=Decimal("500.00"),
+        balance_before=Decimal("1000.00"),
         balance_after=Decimal("1500.00"),
         description="微信支付充值",
         created_at=today
@@ -88,7 +89,8 @@ async def create_test_transactions(test_db, create_test_operator):
         id=uuid4(),
         operator_id=operator.id,
         transaction_type="consumption",
-        amount=Decimal("200.00"),
+        amount=Decimal("-200.00"),
+        balance_before=Decimal("1500.00"),
         balance_after=Decimal("1300.00"),
         description="游戏扣费",
         created_at=today
@@ -101,6 +103,7 @@ async def create_test_transactions(test_db, create_test_operator):
         operator_id=operator.id,
         transaction_type="recharge",
         amount=Decimal("300.00"),
+        balance_before=Decimal("500.00"),
         balance_after=Decimal("800.00"),
         description="支付宝充值",
         created_at=yesterday

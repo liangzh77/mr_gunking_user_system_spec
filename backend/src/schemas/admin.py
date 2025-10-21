@@ -41,7 +41,7 @@ class AdminUserInfo(UUIDMixin, TimestampMixin):
     email: EmailStr = Field(description="Email address")
     phone: str = Field(description="Phone number")
     role: str = Field(description="Admin role")
-    permissions: list = Field(default_factory=list, description="Permission list")
+    permissions: list[str] = Field(default_factory=list, description="Permission list")
     is_active: bool = Field(description="Account active status")
     last_login_at: datetime | None = Field(default=None, description="Last login time")
     last_login_ip: str | None = Field(default=None, description="Last login IP")

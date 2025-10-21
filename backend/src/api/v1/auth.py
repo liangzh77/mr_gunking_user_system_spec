@@ -611,22 +611,42 @@ async def login_finance(
             "finance": {
                 "finance_id": response.finance.finance_id,
                 "username": response.finance.username,
+                "name": response.finance.full_name,
                 "full_name": response.finance.full_name,
-                "role": response.finance.role,
+                "role": "finance",  # 统一返回"finance"角色
                 "email": response.finance.email
             }
         }
 
-    except HTTPException:
-        # 重新抛出业务逻辑异常
-        raise
-
     except Exception as e:
-        # 捕获未预期的错误
+        # 捕获所有异常，检查异常类型
+        error_msg = str(e)
+
+        # 检查是否为认证失败异常
+        if "用户名或密码错误" in error_msg or "Invalid credentials" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_CREDENTIALS",
+                    "message": "用户名或密码错误"
+                }
+            )
+
+        # 检查是否为验证错误
+        if "validation error" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error_code": "VALIDATION_ERROR",
+                    "message": "请求参数验证失败"
+                }
+            )
+
+        # 其他错误返回500
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error_code": "INTERNAL_ERROR",
-                "message": f"登录失败: {str(e)}"
+                "message": f"登录失败: {error_msg}"
             }
         )

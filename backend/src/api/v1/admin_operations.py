@@ -10,12 +10,52 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
 from ...schemas.admin import ApplicationRequestReviewRequest
+from ...schemas.admin_operator import CreateOperatorRequest, OperatorDetailResponse
 from ...schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
 from ...schemas.common import MessageResponse
+from ...schemas.site import SiteCreateRequest, SiteUpdateRequest, SiteListResponse, SiteItem
 from ...services.admin_service import AdminService
 from ...core import get_token_subject
 
 router = APIRouter(prefix="/admins", tags=["Admin Operations"])
+
+
+@router.post(
+    "/operators",
+    response_model=OperatorDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Operator",
+    description="Create a new operator account (admin only)",
+)
+async def create_operator(
+    operator_data: CreateOperatorRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> OperatorDetailResponse:
+    """Create a new operator account.
+
+    Args:
+        operator_data: Operator creation data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        OperatorDetailResponse: Created operator data
+    """
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    operator_dict = await service.create_operator(
+        admin_id=admin_id,
+        username=operator_data.username,
+        password=operator_data.password,
+        full_name=operator_data.full_name,
+        email=operator_data.email,
+        phone=operator_data.phone,
+        customer_tier=operator_data.customer_tier
+    )
+
+    return OperatorDetailResponse.model_validate(operator_dict)
 
 
 @router.get(
@@ -418,3 +458,143 @@ async def get_dashboard_stats(
         "today_transactions_count": today_transactions_count,
         "today_revenue": today_revenue,
     }
+
+
+# ==================== 运营点管理API ====================
+
+
+@router.get(
+    "/sites",
+    response_model=SiteListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="获取运营点列表",
+    description="获取所有运营点列表，支持分页和搜索",
+)
+async def get_sites(
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    search: Optional[str] = Query(None, description="搜索运营点名称或地址"),
+    operator_id: Optional[str] = Query(None, description="按运营商ID筛选"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+) -> SiteListResponse:
+    """获取运营点列表
+
+    Args:
+        token: 当前管理员token
+        db: 数据库会话
+        search: 搜索关键词
+        operator_id: 运营商ID筛选
+        page: 页码
+        page_size: 每页条数
+
+    Returns:
+        SiteListResponse: 分页的运营点列表
+    """
+    service = AdminService(db)
+    return await service.get_sites(
+        search=search,
+        operator_id=operator_id,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.post(
+    "/sites",
+    response_model=SiteItem,
+    status_code=status.HTTP_201_CREATED,
+    summary="创建运营点",
+    description="创建新的运营点",
+)
+async def create_site(
+    site_data: SiteCreateRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> SiteItem:
+    """创建运营点
+
+    Args:
+        site_data: 运营点创建数据
+        token: 当前管理员token
+        db: 数据库会话
+
+    Returns:
+        SiteItem: 创建的运营点
+    """
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    return await service.create_site(
+        admin_id=admin_id,
+        name=site_data.name,
+        address=site_data.address,
+        description=site_data.description,
+        operator_id=site_data.operator_id,
+        contact_person=site_data.contact_person,
+        contact_phone=site_data.contact_phone,
+        server_identifier=site_data.server_identifier
+    )
+
+
+@router.put(
+    "/sites/{site_id}",
+    response_model=SiteItem,
+    status_code=status.HTTP_200_OK,
+    summary="更新运营点",
+    description="更新运营点信息",
+)
+async def update_site(
+    site_id: str,
+    site_data: SiteUpdateRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> SiteItem:
+    """更新运营点
+
+    Args:
+        site_id: 运营点ID
+        site_data: 运营点更新数据
+        token: 当前管理员token
+        db: 数据库会话
+
+    Returns:
+        SiteItem: 更新后的运营点
+    """
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    return await service.update_site(
+        site_id=site_id,
+        admin_id=admin_id,
+        **site_data.model_dump(exclude_unset=True)
+    )
+
+
+@router.delete(
+    "/sites/{site_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="删除运营点",
+    description="删除运营点（软删除）",
+)
+async def delete_site(
+    site_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> MessageResponse:
+    """删除运营点
+
+    Args:
+        site_id: 运营点ID
+        token: 当前管理员token
+        db: 数据库会话
+
+    Returns:
+        MessageResponse: 删除结果消息
+    """
+    admin_id = get_token_subject(token)
+    service = AdminService(db)
+
+    await service.delete_site(site_id=site_id, admin_id=admin_id)
+    return MessageResponse(message="运营点删除成功")

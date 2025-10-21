@@ -121,6 +121,11 @@ const router = createRouter({
               component: () => import('@/pages/admin/Operators.vue'),
             },
             {
+              path: 'operator-sites',
+              name: 'AdminOperatorSites',
+              component: () => import('@/pages/admin/OperatorSites.vue'),
+            },
+            {
               path: 'applications',
               name: 'AdminApplications',
               component: () => import('@/pages/admin/Applications.vue'),
@@ -134,6 +139,11 @@ const router = createRouter({
               path: 'applications/create',
               name: 'AdminCreateApplication',
               component: () => import('@/pages/admin/CreateApplication.vue'),
+            },
+            {
+              path: 'transactions',
+              name: 'AdminTransactions',
+              component: () => import('@/pages/admin/Transactions.vue'),
             },
           ],
         },

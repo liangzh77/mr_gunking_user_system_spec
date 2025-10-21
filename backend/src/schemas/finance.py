@@ -1249,6 +1249,94 @@ class ReportListResponse(BaseModel):
     }
 
 
+# ========== 手动充值相关 Schema ==========
+
+class RechargeRequest(BaseModel):
+    """手动充值请求
+
+    财务人员为运营商手动充值
+    """
+    operator_id: str = Field(
+        ...,
+        description="运营商ID",
+        examples=["op_12345"]
+    )
+
+    amount: float = Field(
+        ...,
+        gt=0,
+        description="充值金额（必须大于0）",
+        examples=[1000.00]
+    )
+
+    description: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="充值备注（可选）",
+        examples=["线下银行转账充值"]
+    )
+
+    payment_proof: Optional[str] = Field(
+        None,
+        description="付款凭证文件路径（可选）",
+        examples=["uploads/payment_proofs/20250115_123456.jpg"]
+    )
+
+
+class RechargeResponse(BaseModel):
+    """手动充值响应
+
+    充值操作结果
+    """
+    transaction_id: str = Field(
+        ...,
+        description="交易记录ID",
+        examples=["txn_20250115_001"]
+    )
+
+    operator_id: str = Field(
+        ...,
+        description="运营商ID",
+        examples=["op_12345"]
+    )
+
+    operator_name: str = Field(
+        ...,
+        description="运营商名称",
+        examples=["北京星空娱乐有限公司"]
+    )
+
+    amount: str = Field(
+        ...,
+        description="充值金额",
+        examples=["1000.00"]
+    )
+
+    balance_before: str = Field(
+        ...,
+        description="充值前余额",
+        examples=["500.00"]
+    )
+
+    balance_after: str = Field(
+        ...,
+        description="充值后余额",
+        examples=["1500.00"]
+    )
+
+    description: Optional[str] = Field(
+        None,
+        description="充值备注",
+        examples=["线下银行转账充值"]
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="充值时间",
+        examples=["2025-01-15T19:00:00.000Z"]
+    )
+
+
 # ========== T167: 审计日志相关 Schema ==========
 
 class AuditLogItem(BaseModel):

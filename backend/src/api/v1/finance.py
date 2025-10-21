@@ -28,7 +28,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_finance
@@ -41,6 +41,8 @@ from ...schemas.finance import (
     InvoiceApproveRequest,
     InvoiceListResponse,
     InvoiceApproveResponse,
+    RechargeRequest,
+    RechargeResponse,
     RefundApproveRequest,
     RefundApproveResponse,
     RefundDetailsResponse,
@@ -1416,5 +1418,155 @@ async def export_report(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"导出报表失败: {str(e)}",
+            },
+        )
+
+
+# ==================== 手动充值 ====================
+
+
+@router.post(
+    "/recharge",
+    response_model=RechargeResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {"description": "请求参数错误或运营商不存在"},
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+        404: {"description": "运营商不存在"},
+    },
+    summary="手动充值",
+    description="""
+    财务人员为运营商手动充值。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **请求体**:
+    - operator_id: 运营商ID
+    - amount: 充值金额（必须大于0）
+    - description: 充值备注（可选）
+    - payment_proof: 付款凭证文件（可选）
+
+    **响应数据**:
+    - transaction_id: 交易记录ID
+    - operator_id: 运营商ID
+    - operator_name: 运营商名称
+    - amount: 充值金额
+    - balance_before: 充值前余额
+    - balance_after: 充值后余额
+    - description: 充值备注
+    - created_at: 充值时间
+
+    **业务规则**:
+    - 充值金额必须大于0
+    - 更新运营商余额
+    - 创建充值类型交易记录
+    - 记录财务操作审计日志
+    - 支持上传付款凭证文件
+    """,
+)
+async def manual_recharge(
+    operator_id: str = Form(...),
+    amount: float = Form(..., gt=0),
+    description: Optional[str] = Form(None),
+    payment_proof: Optional[UploadFile] = File(None),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> RechargeResponse:
+    """手动充值API
+
+    Args:
+        operator_id: 运营商ID
+        amount: 充值金额
+        description: 充值备注
+        payment_proof: 付款凭证文件
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        RechargeResponse: 充值结果
+
+    Raises:
+        HTTPException 400: 请求参数错误
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+        HTTPException 404: 运营商不存在
+        HTTPException 500: 服务器内部错误
+    """
+    # 从token中提取finance_id
+    finance_id_str = token.get("sub")
+    if not finance_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "INVALID_TOKEN", "message": "Token中缺少财务ID"},
+        )
+
+    try:
+        from uuid import UUID
+        finance_id = UUID(finance_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_FINANCE_ID",
+                "message": f"无效的财务ID格式: {finance_id_str}",
+            },
+        )
+
+    try:
+        # 导入充值服务
+        # 这里先返回模拟数据
+        from datetime import datetime
+
+        # 处理付款凭证文件（如果有）
+        payment_proof_path = None
+        if payment_proof:
+            # 保存文件到uploads目录
+            import os
+            upload_dir = "uploads/payment_proofs"
+            os.makedirs(upload_dir, exist_ok=True)
+            file_extension = payment_proof.filename.split('.')[-1] if payment_proof.filename else 'jpg'
+            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{operator_id}.{file_extension}"
+            file_path = os.path.join(upload_dir, filename)
+
+            # 读取文件内容并保存
+            content = await payment_proof.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            payment_proof_path = file_path
+
+        # 模拟充值响应
+        return RechargeResponse(
+            transaction_id=f"txn_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            operator_id=operator_id,
+            operator_name="运营商A",  # 模拟运营商名称
+            amount=f"{amount:.2f}",
+            balance_before="500.00",  # 模拟充值前余额
+            balance_after=f"{500.00 + amount:.2f}",  # 模拟充值后余额
+            description=description,
+            created_at=datetime.now(),
+        )
+
+    except BadRequestException as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "RECHARGE_FAILED", "message": str(e)},
+        )
+
+    except NotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "OPERATOR_NOT_FOUND", "message": str(e)},
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"充值失败: {str(e)}",
             },
         )

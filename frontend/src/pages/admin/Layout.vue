@@ -6,6 +6,7 @@
       </div>
       <el-menu
         :default-active="activeMenu"
+        :default-openeds="openedMenus"
         router
         background-color="#304156"
         text-color="#bfcbd9"
@@ -164,6 +165,9 @@ const adminAuthStore = useAdminAuthStore()
 
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
+
+// 默认展开的菜单项
+const openedMenus = computed(() => ['operators', 'applications', 'finance', 'data'])
 
 // 面包屑
 const breadcrumbMap: Record<string, string> = {

@@ -35,7 +35,7 @@ async def create_superadmin(test_db):
         email="superadmin@test.com",
         phone="13800138000",
         role="super_admin",
-        permissions={}  # 必须是字典而不是列表
+        permissions=[]  # 必须是列表而不是字典
     )
     test_db.add(admin)
     await test_db.commit()

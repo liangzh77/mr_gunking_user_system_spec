@@ -713,3 +713,394 @@ class AdminService:
             "is_active": authorization.is_active,
             "updated_at": authorization.updated_at,
         }
+
+    # ==================== 运营点管理 ====================
+
+    async def get_sites(
+        self,
+        search: Optional[str] = None,
+        operator_id: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20
+    ) -> dict:
+        """获取运营点列表
+
+        Args:
+            search: 搜索关键词（运营点名称或地址）
+            operator_id: 运营商ID筛选
+            page: 页码
+            page_size: 每页条数
+
+        Returns:
+            dict: 分页的运营点列表
+        """
+        from ..models.site import OperationSite
+        from ..schemas.site import SiteListResponse, SiteItem
+
+        # Build query with eager loading
+        query = select(OperationSite).options(
+            selectinload(OperationSite.operator)
+        ).where(OperationSite.deleted_at.is_(None))
+
+        # Add search filter if provided
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                (OperationSite.name.ilike(search_pattern)) |
+                (OperationSite.address.ilike(search_pattern))
+            )
+
+        # Add operator filter if provided
+        if operator_id:
+            try:
+                op_uuid = PyUUID(operator_id)
+                query = query.where(OperationSite.operator_id == op_uuid)
+            except ValueError:
+                raise BadRequestException("Invalid operator ID format")
+
+        # Order by created_at desc (newest first)
+        query = query.order_by(desc(OperationSite.created_at))
+
+        # Get total count
+        count_query = select(func.count(OperationSite.id)).where(
+            OperationSite.deleted_at.is_(None)
+        )
+        if search:
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                (OperationSite.name.ilike(search_pattern)) |
+                (OperationSite.address.ilike(search_pattern))
+            )
+        if operator_id:
+            try:
+                op_uuid = PyUUID(operator_id)
+                count_query = count_query.where(OperationSite.operator_id == op_uuid)
+            except ValueError:
+                raise BadRequestException("Invalid operator ID format")
+
+        count_result = await self.db.execute(count_query)
+        total = count_result.scalar() or 0
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        sites = result.scalars().all()
+
+        # Convert to response items
+        items = []
+        for site in sites:
+            items.append(SiteItem(
+                site_id=site.id,
+                name=site.name,
+                address=site.address,
+                description=site.description,
+                operator_id=site.operator_id,
+                operator_name=site.operator.full_name if site.operator else "Unknown",
+                contact_person=site.contact_person,
+                contact_phone=site.contact_phone,
+                server_identifier=site.server_identifier,
+                is_active=site.is_active,
+                created_at=site.created_at,
+                updated_at=site.updated_at,
+            ))
+
+        return SiteListResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=items
+        )
+
+    async def create_site(
+        self,
+        admin_id: PyUUID,
+        name: str,
+        address: str,
+        description: Optional[str],
+        operator_id: PyUUID,
+        contact_person: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        server_identifier: Optional[str] = None
+    ) -> dict:
+        """创建运营点
+
+        Args:
+            admin_id: 管理员ID
+            name: 运营点名称
+            address: 运营点地址
+            description: 运营点描述
+            operator_id: 运营商ID
+            contact_person: 现场负责人
+            contact_phone: 现场联系电话
+            server_identifier: 头显Server设备标识符
+
+        Returns:
+            dict: 创建的运营点数据
+
+        Raises:
+            NotFoundException: 如果运营商不存在
+            BadRequestException: 如果验证失败
+        """
+        from ..models.site import OperationSite
+
+        # Check if operator exists
+        op_result = await self.db.execute(
+            select(OperatorAccount).where(OperatorAccount.id == operator_id)
+        )
+        operator = op_result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Create site
+        site = OperationSite(
+            name=name,
+            address=address,
+            description=description,
+            operator_id=operator_id,
+            contact_person=contact_person,
+            contact_phone=contact_phone,
+            server_identifier=server_identifier,
+            is_active=True
+        )
+        self.db.add(site)
+        await self.db.commit()
+        await self.db.refresh(site)
+
+        # Load operator relation
+        await self.db.refresh(site, ['operator'])
+
+        return {
+            "site_id": site.id,
+            "name": site.name,
+            "address": site.address,
+            "description": site.description,
+            "operator_id": site.operator_id,
+            "operator_name": site.operator.full_name if site.operator else "Unknown",
+            "contact_person": site.contact_person,
+            "contact_phone": site.contact_phone,
+            "server_identifier": site.server_identifier,
+            "is_active": site.is_active,
+            "created_at": site.created_at,
+            "updated_at": site.updated_at,
+        }
+
+    async def update_site(
+        self,
+        site_id: str,
+        admin_id: PyUUID,
+        **update_data
+    ) -> dict:
+        """更新运营点
+
+        Args:
+            site_id: 运营点ID
+            admin_id: 管理员ID
+            **update_data: 更新数据
+
+        Returns:
+            dict: 更新后的运营点数据
+
+        Raises:
+            NotFoundException: 如果运营点不存在
+            BadRequestException: 如果验证失败
+        """
+        from ..models.site import OperationSite
+
+        # Find site
+        try:
+            site_uuid = PyUUID(site_id)
+        except ValueError:
+            raise BadRequestException("Invalid site ID format")
+
+        result = await self.db.execute(
+            select(OperationSite).options(
+                selectinload(OperationSite.operator)
+            ).where(
+                and_(
+                    OperationSite.id == site_uuid,
+                    OperationSite.deleted_at.is_(None)
+                )
+            )
+        )
+        site = result.scalar_one_or_none()
+
+        if not site:
+            raise NotFoundException("Site not found")
+
+        # Update fields
+        for field, value in update_data.items():
+            if value is not None and hasattr(site, field):
+                setattr(site, field, value)
+
+        site.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(site)
+
+        return {
+            "site_id": site.id,
+            "name": site.name,
+            "address": site.address,
+            "description": site.description,
+            "operator_id": site.operator_id,
+            "operator_name": site.operator.full_name if site.operator else "Unknown",
+            "contact_person": site.contact_person,
+            "contact_phone": site.contact_phone,
+            "server_identifier": site.server_identifier,
+            "is_active": site.is_active,
+            "created_at": site.created_at,
+            "updated_at": site.updated_at,
+        }
+
+    async def delete_site(
+        self,
+        site_id: str,
+        admin_id: PyUUID
+    ) -> None:
+        """删除运营点（软删除）
+
+        Args:
+            site_id: 运营点ID
+            admin_id: 管理员ID
+
+        Raises:
+            NotFoundException: 如果运营点不存在
+            BadRequestException: 如果验证失败
+        """
+        from ..models.site import OperationSite
+
+        # Find site
+        try:
+            site_uuid = PyUUID(site_id)
+        except ValueError:
+            raise BadRequestException("Invalid site ID format")
+
+        result = await self.db.execute(
+            select(OperationSite).where(
+                and_(
+                    OperationSite.id == site_uuid,
+                    OperationSite.deleted_at.is_(None)
+                )
+            )
+        )
+        site = result.scalar_one_or_none()
+
+        if not site:
+            raise NotFoundException("Site not found")
+
+        # Soft delete
+        site.deleted_at = datetime.now(timezone.utc)
+        site.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+
+    async def create_operator(
+        self,
+        admin_id: PyUUID,
+        username: str,
+        password: str,
+        full_name: str,
+        email: str,
+        phone: str,
+        customer_tier: str = "standard"
+    ) -> dict:
+        """Create a new operator account.
+
+        Args:
+            admin_id: Admin ID creating the operator
+            username: Operator username (must be unique)
+            password: Operator password
+            full_name: Operator full name
+            email: Operator email
+            phone: Operator phone
+            customer_tier: Customer tier (vip/standard/trial)
+
+        Returns:
+            dict: Created operator data
+
+        Raises:
+            BadRequestException: If validation fails
+        """
+        from ..core.utils.password import hash_password
+        import secrets
+        import string
+
+        def _generate_api_key() -> str:
+            """Generate a secure random API key."""
+            alphabet = string.ascii_letters + string.digits
+            return ''.join(secrets.choice(alphabet) for _ in range(64))
+
+        # Validate customer tier
+        if customer_tier not in ["vip", "standard", "trial"]:
+            raise BadRequestException("Invalid customer tier. Must be 'vip', 'standard', or 'trial'")
+
+        # Check for existing username
+        existing_result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.username == username,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        if existing_result.scalar_one_or_none():
+            raise BadRequestException(f"Username '{username}' already exists")
+
+        # Check for existing email
+        existing_email_result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.email == email,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        if existing_email_result.scalar_one_or_none():
+            raise BadRequestException(f"Email '{email}' already exists")
+
+        # Generate password hash and API key
+        password_hash = hash_password(password)
+        api_key = _generate_api_key()
+        api_key_hash = hash_password(api_key)  # Use hash_password for API key hash
+
+        # Create operator account
+        operator = OperatorAccount(
+            username=username,
+            password_hash=password_hash,
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            customer_tier=customer_tier,
+            api_key=api_key,
+            api_key_hash=api_key_hash,
+            balance=0.00,
+            is_active=True,
+            is_locked=False
+        )
+
+        self.db.add(operator)
+        await self.db.commit()
+        await self.db.refresh(operator)
+
+        # Return operator data (excluding password hash and API key hash)
+        return {
+            "id": str(operator.id),
+            "username": operator.username,
+            "full_name": operator.full_name,
+            "email": operator.email,
+            "phone": operator.phone,
+            "customer_tier": operator.customer_tier,
+            "balance": float(operator.balance),
+            "is_active": operator.is_active,
+            "is_locked": operator.is_locked,
+            "locked_reason": operator.locked_reason,
+            "locked_at": operator.locked_at,
+            "last_login_at": operator.last_login_at,
+            "last_login_ip": operator.last_login_ip,
+            "api_key": operator.api_key,  # Return the actual API key for display
+            "created_at": operator.created_at,
+            "updated_at": operator.updated_at
+        }

@@ -118,7 +118,7 @@ const formData = reactive<ApplicationFormData>({
   description: '',
   price_per_player: 1.0,
   min_players: 1,
-  max_players: 4,
+  max_players: 20,
 })
 
 // 应用代码验证规则
@@ -187,7 +187,7 @@ const handleSubmit = async () => {
     try {
       loading.value = true
 
-      await http.post('/admin/admins/applications', {
+      await http.post('/admins/applications', {
         app_code: formData.app_code,
         app_name: formData.app_name,
         description: formData.description || undefined,
@@ -219,7 +219,7 @@ const handleReset = () => {
   formData.description = ''
   formData.price_per_player = 1.0
   formData.min_players = 1
-  formData.max_players = 4
+  formData.max_players = 20
 }
 
 // 返回应用列表
