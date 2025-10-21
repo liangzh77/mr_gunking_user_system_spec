@@ -2,13 +2,13 @@
   <div class="dashboard">
     <el-row :gutter="20">
       <el-col :span="6">
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon" style="background-color: #409eff">
             <el-icon :size="32"><UserFilled /></el-icon>
           </div>
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
-            <div class="stat-value">--</div>
+            <div class="stat-value">{{ stats.operatorsCount }}</div>
           </div>
         </el-card>
       </el-col>
@@ -26,25 +26,25 @@
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon" style="background-color: #e6a23c">
             <el-icon :size="32"><List /></el-icon>
           </div>
           <div class="stat-content">
             <div class="stat-label">今日交易</div>
-            <div class="stat-value">--</div>
+            <div class="stat-value">{{ stats.todayTransactions }}</div>
           </div>
         </el-card>
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon" style="background-color: #f56c6c">
             <el-icon :size="32"><Money /></el-icon>
           </div>
           <div class="stat-content">
             <div class="stat-label">今日收入</div>
-            <div class="stat-value">--</div>
+            <div class="stat-value">¥{{ stats.todayRevenue }}</div>
           </div>
         </el-card>
       </el-col>
@@ -59,17 +59,17 @@
             </div>
           </template>
           <div class="pending-items">
-            <div class="pending-item">
+            <div class="pending-item" @click="$router.push('/admin/app-requests')">
               <el-icon :size="20" color="#e6a23c"><Document /></el-icon>
               <span>待审核授权申请</span>
-              <el-badge :value="0" class="badge" />
+              <el-badge :value="stats.pendingRequests" :hidden="stats.pendingRequests === 0" class="badge" />
             </div>
-            <div class="pending-item">
+            <div class="pending-item" @click="$router.push('/admin/refunds')">
               <el-icon :size="20" color="#f56c6c"><RefreshLeft /></el-icon>
               <span>待处理退款</span>
               <el-badge :value="0" class="badge" />
             </div>
-            <div class="pending-item">
+            <div class="pending-item" @click="$router.push('/admin/invoices')">
               <el-icon :size="20" color="#409eff"><Tickets /></el-icon>
               <span>待审核发票</span>
               <el-badge :value="0" class="badge" />
@@ -142,22 +142,61 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, onMounted } from 'vue'
+import { computed, reactive, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useAdminStore } from '@/stores/admin'
 
 const adminAuthStore = useAdminAuthStore()
+const adminStore = useAdminStore()
 
-// 组件加载时获取管理员信息
-onMounted(() => {
-  adminAuthStore.fetchProfile()
-})
+const loading = ref(false)
 
-// 统计数据（暂时使用固定值，后续可以从API获取）
+// 统计数据
 const stats = reactive({
   operatorsCount: 0,
-  applicationsCount: 3, // 初始化时创建了3个应用
+  applicationsCount: 0,
   todayTransactions: 0,
-  todayRevenue: 0,
+  todayRevenue: '0.00',
+  pendingRequests: 0,
+})
+
+// 加载统计数据
+const loadDashboardStats = async () => {
+  loading.value = true
+  try {
+    // 并行加载运营商、应用、待审核申请数据
+    const [operatorsData, applicationsData, requestsData] = await Promise.all([
+      adminStore.getOperators({ page: 1, page_size: 1 }),
+      adminStore.getApplications({ page: 1, page_size: 1 }),
+      adminStore.getApplicationRequests({ status: 'pending', page: 1, page_size: 1 }),
+    ])
+
+    stats.operatorsCount = operatorsData.total
+    stats.applicationsCount = applicationsData.total
+    stats.pendingRequests = requestsData.total
+
+    // 尝试加载Dashboard统计API（如果后端已实现）
+    try {
+      const dashboardStats = await adminStore.getDashboardStats()
+      stats.todayTransactions = dashboardStats.today_transactions_count
+      stats.todayRevenue = dashboardStats.today_revenue
+    } catch (err) {
+      // Dashboard统计API未实现或失败，使用默认值
+      console.log('Dashboard stats API not available, using default values')
+    }
+  } catch (error) {
+    console.error('Load dashboard stats error:', error)
+    ElMessage.error('加载统计数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 组件加载时获取数据
+onMounted(async () => {
+  await adminAuthStore.fetchProfile()
+  await loadDashboardStats()
 })
 
 // 角色标签

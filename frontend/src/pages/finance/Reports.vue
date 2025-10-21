@@ -228,16 +228,33 @@ const generateReport = async () => {
   try {
     let params: any = {
       report_type: reportForm.report_type,
-      export_format: reportForm.export_format,
+      format: reportForm.export_format,  // Backend expects 'format', not 'export_format'
     }
 
     // 根据不同类型添加不同参数
     if (reportForm.report_type === 'daily') {
-      params.report_date = formatDate(reportForm.report_date)
+      const dateStr = formatDate(reportForm.report_date)
+      params.start_date = dateStr
+      params.end_date = dateStr
     } else if (reportForm.report_type === 'weekly') {
-      params.report_week = formatDate(reportForm.report_week)
+      // For weekly, calculate start and end of the week
+      const selectedDate = new Date(reportForm.report_week)
+      const dayOfWeek = selectedDate.getDay()
+      const startOfWeek = new Date(selectedDate)
+      startOfWeek.setDate(selectedDate.getDate() - dayOfWeek)
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      params.start_date = formatDate(startOfWeek)
+      params.end_date = formatDate(endOfWeek)
     } else if (reportForm.report_type === 'monthly') {
-      params.report_month = formatMonth(reportForm.report_month)
+      // For monthly, calculate start and end of the month
+      const selectedDate = new Date(reportForm.report_month)
+      const year = selectedDate.getFullYear()
+      const month = selectedDate.getMonth()
+      const startOfMonth = new Date(year, month, 1)
+      const endOfMonth = new Date(year, month + 1, 0)
+      params.start_date = formatDate(startOfMonth)
+      params.end_date = formatDate(endOfMonth)
     } else if (reportForm.report_type === 'custom') {
       params.start_date = formatDate(reportForm.start_date)
       params.end_date = formatDate(reportForm.end_date)

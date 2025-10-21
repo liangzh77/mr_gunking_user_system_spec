@@ -39,7 +39,7 @@ export const useFinanceAuthStore = defineStore('financeAuth', () => {
   async function login(credentials: FinanceLoginRequest): Promise<FinanceLoginResponse> {
     isLoading.value = true
     try {
-      const response = await http.post<FinanceLoginResponse>('/v1/auth/finance/login', credentials)
+      const response = await http.post<FinanceLoginResponse>('/auth/finance/login', credentials)
       const loginResponse = response.data
 
       // 提取数据
