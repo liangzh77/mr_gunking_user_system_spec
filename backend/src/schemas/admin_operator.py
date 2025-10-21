@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from uuid import UUID
+import re
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from .common import TimestampMixin, UUIDMixin
 
@@ -17,6 +18,59 @@ class CreateOperatorRequest(BaseModel):
     email: EmailStr = Field(..., description="运营商邮箱地址")
     phone: str = Field(..., min_length=11, max_length=32, description="运营商联系电话")
     customer_tier: str = Field(default="standard", description="客户分类：vip/standard/trial")
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        """验证密码复杂度"""
+        if len(v) < 8:
+            raise ValueError('密码长度不能少于8位')
+
+        # 检查是否包含大写字母
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('密码必须包含至少一个大写字母')
+
+        # 检查是否包含小写字母
+        if not re.search(r'[a-z]', v):
+            raise ValueError('密码必须包含至少一个小写字母')
+
+        # 检查是否包含数字
+        if not re.search(r'\d', v):
+            raise ValueError('密码必须包含至少一个数字')
+
+        # 检查是否包含特殊字符
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('密码必须包含至少一个特殊字符')
+
+        # 检查是否包含常见的弱密码模式
+        weak_patterns = [
+            r'password', r'123456', r'admin', r'qwerty',
+            r'abc123', r'111111', r'000000'
+        ]
+        pattern_lower = v.lower()
+        for pattern in weak_patterns:
+            if pattern in pattern_lower:
+                raise ValueError('密码不能使用常见的弱密码模式')
+
+        return v
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        """验证手机号格式"""
+        # 中国大陆手机号格式验证
+        if not re.match(r'^1[3-9]\d{9}$', v):
+            raise ValueError('手机号格式不正确，请输入有效的中国大陆手机号')
+        return v
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
+        """验证用户名格式"""
+        # 只允许字母、数字、下划线
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('用户名只能包含字母、数字和下划线')
+        return v
 
 
 class OperatorDetailResponse(UUIDMixin, TimestampMixin):

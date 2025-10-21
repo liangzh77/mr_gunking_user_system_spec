@@ -15,6 +15,7 @@ from ...schemas.operator import ApplicationRequestItem, ApplicationRequestListRe
 from ...schemas.common import MessageResponse
 from ...schemas.site import SiteCreateRequest, SiteUpdateRequest, SiteListResponse, SiteItem
 from ...services.admin_service import AdminService
+from ...services.admin_permissions import AdminPermissionChecker
 from ...core import get_token_subject
 
 router = APIRouter(prefix="/admins", tags=["Admin Operations"])
@@ -43,6 +44,12 @@ async def create_operator(
         OperatorDetailResponse: Created operator data
     """
     admin_id = get_token_subject(token)
+
+    # 权限检查：需要创建运营商权限
+    await AdminPermissionChecker.require_permission(
+        db, admin_id, "operator:create"
+    )
+
     service = AdminService(db)
 
     operator_dict = await service.create_operator(

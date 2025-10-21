@@ -181,18 +181,18 @@ const loadSites = async () => {
     sites.value = [
       {
         site_id: '1',
-        name: '测试运营点1',
+        site_name: '测试运营点1',
         address: '北京市朝阳区xxx',
-        description: '这是一个测试运营点',
-        operator_name: '张三',
+        contact_person: '张三',
+        contact_phone: '13800138001',
         created_at: new Date().toISOString(),
       },
       {
         site_id: '2',
-        name: '测试运营点2',
+        site_name: '测试运营点2',
         address: '上海市浦东新区xxx',
-        description: '这是另一个测试运营点',
-        operator_name: '李四',
+        contact_person: '李四',
+        contact_phone: '13800138002',
         created_at: new Date().toISOString(),
       },
     ]
@@ -212,12 +212,14 @@ const loadOperators = async () => {
     // 临时模拟数据
     operators.value = [
       {
+        id: '1',
         operator_id: '1',
         full_name: '张三',
         username: 'zhangsan',
         email: 'zhangsan@example.com',
       },
       {
+        id: '2',
         operator_id: '2',
         full_name: '李四',
         username: 'lisi',

@@ -59,12 +59,14 @@ async def superadmin_token(create_superadmin):
 
 async def create_operator_payload(**overrides):
     """生成创建运营商的请求payload"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
     default_payload = {
-        "username": "test_operator",
+        "username": f"test_operator_{unique_id}",
         "password": "Operator@123",
         "full_name": "测试运营商",
-        "email": "operator@test.com",
-        "phone": "13900139000",
+        "email": f"operator_{unique_id}@test.com",
+        "phone": f"1390013{unique_id[:4]}",
         "customer_tier": "standard"
     }
     default_payload.update(overrides)

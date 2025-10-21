@@ -1,6 +1,12 @@
 """Core module containing configuration, security, and utilities."""
 
 from .cache import RedisCache, get_cache, cache_result
+from .cache.enhanced_cache import (
+    get_multi_cache,
+    get_cache_warmer,
+    MultiLevelCache,
+    CacheOptimizer
+)
 from .config import Settings, get_settings, settings
 from .exceptions import (
     AppException,
@@ -65,6 +71,10 @@ __all__ = [
     "RedisCache",
     "get_cache",
     "cache_result",
+    "get_multi_cache",
+    "get_cache_warmer",
+    "MultiLevelCache",
+    "CacheOptimizer",
     # Configuration
     "Settings",
     "get_settings",

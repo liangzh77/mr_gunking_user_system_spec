@@ -266,3 +266,41 @@ export interface AdminProfile {
   created_at: string
   updated_at: string
 }
+
+// 运营点类型
+export interface Site {
+  site_id: string
+  operator_id: string
+  site_name: string
+  address: string
+  contact_person: string
+  contact_phone: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 运营商详细信息类型
+export interface Operator {
+  id: string
+  operator_id: string
+  username: string
+  full_name: string
+  email: string
+  phone: string
+  customer_tier: 'trial' | 'standard' | 'premium' | 'vip'
+  balance: string
+  total_spent: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 运营点创建请求类型
+export interface SiteCreateRequest {
+  site_name: string
+  contact_person: string
+  contact_phone: string
+  address: string
+  description?: string
+}

@@ -194,7 +194,7 @@ class FinanceDashboardService:
         # Generate chart data for all days in month
         chart_data = []
         current_date = target_date
-        while current_date < next_month.date():
+        while current_date < next_month:
             day_data = daily_map.get(current_date, {
                 "recharge": Decimal("0.00"),
                 "consumption": Decimal("0.00"),
@@ -207,7 +207,7 @@ class FinanceDashboardService:
             net_income = recharge - refund
 
             chart_data.append(DailyTrendItem(
-                trend_date=current_date,
+                date=current_date,  # 使用alias字段名
                 recharge=str(recharge),
                 consumption=str(consumption),
                 refund=str(refund),

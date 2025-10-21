@@ -175,9 +175,10 @@ const handleCreate = () => {
 const handleEdit = (site: Site) => {
   editingSite.value = site
   formData.value = {
-    name: site.name,
+    site_name: site.site_name,
+    contact_person: site.contact_person,
+    contact_phone: site.contact_phone,
     address: site.address,
-    description: site.description || '',
   }
   dialogVisible.value = true
 }
@@ -186,7 +187,7 @@ const handleEdit = (site: Site) => {
 const handleDelete = async (site: Site) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除运营点"${site.name}"吗？此操作不可撤销。`,
+      `确定要删除运营点"${site.site_name}"吗？此操作不可撤销。`,
       '确认删除',
       {
         confirmButtonText: '确定',
