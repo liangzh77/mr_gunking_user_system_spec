@@ -287,18 +287,23 @@ jobs:
     - name: 检出代码
       uses: actions/checkout@v4
 
+    - name: 配置SSH密钥
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+    - name: 赋予部署脚本执行权限
+      run: chmod +x .github/workflows/deploy.sh
+
     - name: 部署到 Staging
       run: |
-        echo "部署到 Staging 环境..."
-        # 这里添加实际的部署脚本
-        # 例如：
-        # - SSH 到服务器
-        # - 拉取最新镜像
-        # - 重启服务
-      env:
-        STAGING_HOST: ${{ secrets.STAGING_HOST }}
-        STAGING_USER: ${{ secrets.STAGING_USER }}
-        STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        bash .github/workflows/deploy.sh \
+          ${{ secrets.STAGING_HOST }} \
+          ${{ secrets.STAGING_USER }} \
+          staging \
+          develop
 
   # ==================== 部署到 Production（可选）====================
   deploy-production:
@@ -312,15 +317,34 @@ jobs:
     - name: 检出代码
       uses: actions/checkout@v4
 
+    - name: 配置SSH密钥
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts
+
+    - name: 赋予部署脚本执行权限
+      run: chmod +x .github/workflows/deploy.sh
+
     - name: 部署到生产环境
       run: |
-        echo "部署到生产环境..."
-        # 这里添加实际的部署脚本
-        # 建议使用金丝雀部署或蓝绿部署
-      env:
-        PROD_HOST: ${{ secrets.PROD_HOST }}
-        PROD_USER: ${{ secrets.PROD_USER }}
-        PROD_KEY: ${{ secrets.PROD_SSH_KEY }}
+        bash .github/workflows/deploy.sh \
+          ${{ secrets.PROD_HOST }} \
+          ${{ secrets.PROD_USER }} \
+          production \
+          main
+
+    - name: 部署结果通知
+      if: always()
+      run: |
+        if [ $? -eq 0 ]; then
+          echo "✅ 生产环境部署成功!"
+          echo "访问地址: https://${{ secrets.PROD_HOST }}"
+        else
+          echo "❌ 生产环境部署失败!"
+          echo "请查看日志并考虑回滚"
+        fi
 
   # ==================== 通知 ====================
   notify:
