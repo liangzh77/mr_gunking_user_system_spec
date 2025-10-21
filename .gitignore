@@ -114,3 +114,14 @@ build/
 # Docker volumes (local data)
 postgres_data/
 pgdata/
+
+# Test reports
+*TEST_REPORT.md
+*_test_report.md
+playwright_e2e_test_report.md
+FRONTEND_TEST_REPORT.md
+.playwright-mcp/
+
+# Local settings
+.claude/settings.local.json
+backend/.env.development
