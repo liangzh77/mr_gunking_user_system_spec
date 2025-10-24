@@ -125,3 +125,24 @@ FRONTEND_TEST_REPORT.md
 # Local settings
 .claude/settings.local.json
 backend/.env.development
+
+# Temporary test files
+backend/simple_*.py
+backend/check_*.py
+backend/test_*.py
+backend/*_test_*.txt
+backend/*_test_*.json
+
+# Deployment sensitive files
+deploy/.env.prod
+deploy/21088616_*/
+
+# Data directories
+data/
+database/
+
+# Temp files
+log.txt
+tmp.py
+*.json.test
+test_*.json
