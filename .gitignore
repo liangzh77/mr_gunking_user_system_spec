@@ -140,6 +140,10 @@ deploy/21088616_*/
 # Data directories
 data/
 database/
+monitoring/
+redis/
+reports/
+backups/
 
 # Temp files
 log.txt
