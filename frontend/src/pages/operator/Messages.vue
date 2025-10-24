@@ -52,7 +52,7 @@
         <el-table-column width="60" align="center">
           <template #default="{ row }">
             <el-icon v-if="!row.is_read" :size="12" color="#f56c6c">
-              <CircleFilled />
+              <SuccessFilled />
             </el-icon>
           </template>
         </el-table-column>
@@ -154,7 +154,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CircleFilled } from '@element-plus/icons-vue'
+import { SuccessFilled } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 
 interface Message {
