@@ -180,31 +180,31 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # PostgreSQL 自动备份服务 (可选)
-  postgres-backup:
-    image: prodrigestivill/postgres-backup-local:14-alpine
-    container_name: mr_game_ops_backup
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${POSTGRES_DB:-mr_game_ops}
-      POSTGRES_USER: ${POSTGRES_USER:-mr_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_PASSWORD}
-      SCHEDULE: "@daily"  # 每天凌晨2点备份
-      BACKUP_KEEP_DAYS: 30
-      BACKUP_KEEP_WEEKS: 8
-      BACKUP_KEEP_MONTHS: 6
-    volumes:
-      - ./backups:/backups
-    depends_on:
-      - postgres
-    networks:
-      - mr_network_prod
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+  # PostgreSQL 自动备份服务 (可选，暂时禁用以避免网络问题)
+  # postgres-backup:
+  #   image: prodrigestivill/postgres-backup-local:14-alpine
+  #   container_name: mr_game_ops_backup
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_DB: ${POSTGRES_DB:-mr_game_ops}
+  #     POSTGRES_USER: ${POSTGRES_USER:-mr_admin}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_PASSWORD}
+  #     SCHEDULE: "@daily"  # 每天凌晨2点备份
+  #     BACKUP_KEEP_DAYS: 30
+  #     BACKUP_KEEP_WEEKS: 8
+  #     BACKUP_KEEP_MONTHS: 6
+  #   volumes:
+  #     - ./backups:/backups
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - mr_network_prod
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
 
 volumes:
   postgres_data_prod:
