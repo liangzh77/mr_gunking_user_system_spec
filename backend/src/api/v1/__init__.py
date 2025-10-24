@@ -17,7 +17,7 @@ from .auth import router as auth_router
 from .finance import router as finance_router
 from .messages import router as messages_router
 from .operators import router as operators_router
-from .performance import router as performance_router
+# from .performance import router as performance_router  # 临时禁用
 from .webhooks import router as webhooks_router
 
 # Create main API v1 router
@@ -30,7 +30,7 @@ api_router.include_router(auth_router)  # User Story 1: 游戏授权 & User Stor
 api_router.include_router(finance_router)  # User Story 6: 财务后台业务 (T175-T186)
 api_router.include_router(messages_router)  # 运营商消息通知 (T188+)
 api_router.include_router(operators_router)  # User Story 2: 运营商个人信息管理
-api_router.include_router(performance_router)  # 性能优化和监控
+# api_router.include_router(performance_router)  # 性能优化和监控 (临时禁用)
 api_router.include_router(webhooks_router)  # User Story 2: 支付回调webhooks (T078)
 
 __all__ = ["api_router"]

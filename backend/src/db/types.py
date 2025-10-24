@@ -7,7 +7,7 @@ import json
 from uuid import UUID as PyUUID
 
 from sqlalchemy import String, Text, TypeDecorator
-from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSON as PG_JSON, UUID as PG_UUID
 
 
 class GUID(TypeDecorator):
@@ -23,7 +23,7 @@ class GUID(TypeDecorator):
     def load_dialect_impl(self, dialect):
         """Load the appropriate type for the dialect."""
         if dialect.name == 'postgresql':
-            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+            return dialect.type_descriptor(PG_UUID())
         else:
             return dialect.type_descriptor(String(36))
 
@@ -53,7 +53,7 @@ class GUID(TypeDecorator):
 class JSON(TypeDecorator):
     """Platform-independent JSON type.
 
-    Uses PostgreSQL's JSONB when available, otherwise uses
+    Uses PostgreSQL's JSON when available, otherwise uses
     TEXT storing as JSON strings.
     """
 
@@ -63,7 +63,7 @@ class JSON(TypeDecorator):
     def load_dialect_impl(self, dialect):
         """Load the appropriate type for the dialect."""
         if dialect.name == 'postgresql':
-            return dialect.type_descriptor(PG_JSONB())
+            return dialect.type_descriptor(PG_JSON())
         else:
             return dialect.type_descriptor(Text())
 

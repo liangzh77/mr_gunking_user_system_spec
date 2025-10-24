@@ -16,12 +16,13 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from .core import configure_logging, get_logger, get_settings
 from .core.cache import init_cache, close_cache
 from .core.metrics import prometheus  # Import to register metrics
-from .core.monitoring import initialize_monitoring_system, get_monitoring_status
-from .core.performance import initialize_performance_system, get_performance_status
+# from .core.monitoring import initialize_monitoring_system, get_monitoring_status  # 临时禁用
+# from .core.performance import initialize_performance_system, get_performance_status
+# 临时禁用性能优化系统以避免导入问题
 from .db import close_db, health_check, init_db
 from .middleware import register_exception_handlers, SecurityHeadersMiddleware
 from .schemas import HealthCheckResponse
-from .api.v1.monitoring.endpoints import router as monitoring_router
+# from .api.v1.monitoring.endpoints import router as monitoring_router  # 临时禁用
 
 # Configure logging before app initialization
 configure_logging()
@@ -57,11 +58,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_db()
         logger.info("database_initialized", database_url=settings.DATABASE_URL)
 
-        # Create tables if using SQLite
-        if settings.DATABASE_URL.startswith("sqlite"):
-            from .db.session import create_tables
-            await create_tables()
-            logger.info("database_tables_created")
+        # Create tables for both SQLite and PostgreSQL
+        from .db.session import create_tables
+        await create_tables()
+        logger.info("database_tables_created")
 
         # Initialize Redis cache
         await init_cache()
@@ -124,37 +124,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             }
         }
 
-        await initialize_monitoring_system(app, monitoring_config)
-        logger.info("monitoring_system_initialized", status=get_monitoring_status())
+        # await initialize_monitoring_system(app, monitoring_config)
+        # logger.info("monitoring_system_initialized", status=get_monitoring_status())
 
-        # Initialize performance optimization system
-        performance_config = {
-            'cache': {
-                'auto_warmup': False,  # 启动时不自动预热，避免影响启动速度
-                'max_concurrent_warmers': 5,
-                'local_cache_size': 1000,
-                'redis_namespace': 'mr_performance'
-            },
-            'database': {
-                'slow_query_threshold': 1.0,
-                'max_stats_entries': 10000,
-                'enable_startup_analysis': False
-            },
-            'api': {
-                'enable_response_compression': True,
-                'enable_smart_caching': True,
-                'enable_request_batching': True,
-                'enable_rate_limiting': True,
-                'enable_deduplication': True,
-                'max_concurrent_requests': 100,
-                'default_cache_ttl': 300,
-                'slow_request_threshold': 1.0,
-                'add_middleware': True
-            }
-        }
+        # Initialize performance optimization system (临时禁用)
+        # performance_config = {
+        #     'cache': {
+        #         'auto_warmup': False,  # 启动时不自动预热，避免影响启动速度
+        #         'max_concurrent_warmers': 5,
+        #         'local_cache_size': 1000,
+        #         'redis_namespace': 'mr_performance'
+        #     },
+        #     'database': {
+        #         'slow_query_threshold': 1.0,
+        #         'max_stats_entries': 10000,
+        #         'enable_startup_analysis': False
+        #     },
+        #     'api': {
+        #         'enable_response_compression': True,
+        #         'enable_smart_caching': True,
+        #         'enable_request_batching': True,
+        #         'enable_rate_limiting': True,
+        #         'enable_deduplication': True,
+        #         'max_concurrent_requests': 100,
+        #         'default_cache_ttl': 300,
+        #         'slow_request_threshold': 1.0,
+        #         'add_middleware': True
+        #     }
+        # }
 
-        await initialize_performance_system(app, performance_config)
-        logger.info("performance_system_initialized", status=get_performance_status())
+        # await initialize_performance_system(app, performance_config)
+        # logger.info("performance_system_initialized", status=get_performance_status())
 
         # Application ready
         logger.info("application_ready")
@@ -248,13 +248,13 @@ def register_routes(app: FastAPI) -> None:
         """
         db_healthy = await health_check()
 
-        # Get performance system status
-        performance_status = get_performance_status()
-        performance_healthy = not any(
-            component.get('error') for component in performance_status.values()
-        )
+        # Get performance system status (临时禁用)
+        # performance_status = get_performance_status()
+        # performance_healthy = not any(
+        #     component.get('error') for component in performance_status.values()
+        # )
 
-        overall_healthy = db_healthy and performance_healthy
+        overall_healthy = db_healthy  # and performance_healthy
 
         return HealthCheckResponse(
             status="healthy" if overall_healthy else "unhealthy",
@@ -306,8 +306,8 @@ def register_routes(app: FastAPI) -> None:
     from .api.v1 import api_router
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
-    # Monitoring routes (管理员权限)
-    app.include_router(monitoring_router, prefix=f"{settings.API_V1_PREFIX}/monitoring", tags=["monitoring"])
+    # Monitoring routes (管理员权限) - 临时禁用
+    # app.include_router(monitoring_router, prefix=f"{settings.API_V1_PREFIX}/monitoring", tags=["monitoring"])
 
 
 # Create application instance

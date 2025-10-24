@@ -26,7 +26,8 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from ..db.types import GUID
+from sqlalchemy.dialects.postgresql import UUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -43,7 +44,7 @@ class Application(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -113,7 +114,7 @@ class Application(Base):
     )
 
     created_by: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="创建者(管理员ID)"

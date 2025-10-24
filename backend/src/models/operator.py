@@ -16,6 +16,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -25,8 +26,9 @@ from sqlalchemy import (
     Text,
     DECIMAL,
     TIMESTAMP,
+    text,
 )
-from ..db.types import GUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -43,7 +45,7 @@ class OperatorAccount(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -171,7 +173,7 @@ class OperatorAccount(Base):
     # Force reload trigger
     # NOTE: created_by字段在数据库schema中不存在,已注释
     # created_by: Mapped[Optional[PyUUID]] = mapped_column(
-    #     GUID,
+    #     UUID(as_uuid=True),
     #     ForeignKey("admin_accounts.id", ondelete="SET NULL"),
     #     nullable=True,
     #     comment="创建者(管理员ID)"
@@ -271,14 +273,14 @@ class OperatorAccount(Base):
             "uq_operator_username",
             "username",
             unique=True,
-            postgresql_where=(Text("deleted_at IS NULL"))
+            postgresql_where=text("deleted_at IS NULL")
         ),
         # UNIQUE索引: api_key唯一(排除软删除记录)
         Index(
             "uq_operator_api_key",
             "api_key",
             unique=True,
-            postgresql_where=(Text("deleted_at IS NULL"))
+            postgresql_where=text("deleted_at IS NULL")
         ),
         # 普通索引: 邮箱查询
         Index("idx_operator_email", "email"),
@@ -288,7 +290,7 @@ class OperatorAccount(Base):
         Index(
             "idx_operator_balance",
             "balance",
-            postgresql_where=(Text("balance < 100"))
+            postgresql_where=text("balance < 100")
         ),
     )
 

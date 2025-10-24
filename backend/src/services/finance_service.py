@@ -138,7 +138,7 @@ class FinanceService:
         if finance.role in ["manager", "auditor"]:
             return True
 
-        # Specialist has limited permissions based on permissions JSONB field
+        # Specialist has limited permissions based on permissions JSON field
         if finance.role == "specialist":
             # Check permissions field
             permissions = finance.permissions or {}

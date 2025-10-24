@@ -79,10 +79,11 @@ class AdminAuthService:
         cache = get_cache()
         await cache.delete(f"admin:info:{admin.id}")
 
-        # Generate access token
+        # Generate access token with correct user_type based on role
+        user_type = "finance" if admin.role == "finance" else "admin"
         token = create_access_token(
             subject=str(admin.id),
-            user_type="admin",
+            user_type=user_type,
             additional_claims={
                 "username": admin.username,
                 "role": admin.role,

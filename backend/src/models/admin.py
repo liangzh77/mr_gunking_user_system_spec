@@ -4,10 +4,10 @@ from datetime import datetime
 from uuid import UUID as PyUUID, uuid4
 
 from sqlalchemy import Boolean, String, Text, TIMESTAMP, func
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db.base import Base
-from ..db.types import GUID, JSON
 
 
 class AdminAccount(Base):
@@ -34,7 +34,7 @@ class AdminAccount(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
     )
@@ -67,7 +67,7 @@ class AdminAccount(Base):
 
     # Audit fields
     created_by: Mapped[PyUUID | None] = mapped_column(
-        GUID, nullable=True
+        UUID(as_uuid=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),

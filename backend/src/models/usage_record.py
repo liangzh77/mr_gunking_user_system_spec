@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -24,7 +25,7 @@ from sqlalchemy import (
     DECIMAL,
     TIMESTAMP,
 )
-from ..db.types import GUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -41,7 +42,7 @@ class UsageRecord(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -57,21 +58,21 @@ class UsageRecord(Base):
 
     # ==================== 关联关系 ====================
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"
     )
 
     site_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operation_sites.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营点ID"
     )
 
     application_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("applications.id", ondelete="RESTRICT"),
         nullable=False,
         comment="应用ID"

@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     Boolean,
     ForeignKey,
@@ -21,8 +22,9 @@ from sqlalchemy import (
     String,
     Text,
     TIMESTAMP,
+    text,
 )
-from ..db.types import GUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -39,7 +41,7 @@ class OperationSite(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -47,7 +49,7 @@ class OperationSite(Base):
 
     # ==================== 归属关系 ====================
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="所属运营商ID"
@@ -146,7 +148,7 @@ class OperationSite(Base):
         Index(
             "idx_site_server",
             "server_identifier",
-            postgresql_where=(Text("server_identifier IS NOT NULL"))
+            postgresql_where=text("server_identifier IS NOT NULL")
         ),
     )
 

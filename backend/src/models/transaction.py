@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -23,8 +24,9 @@ from sqlalchemy import (
     Text,
     DECIMAL,
     TIMESTAMP,
+    text,
 )
-from ..db.types import GUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -41,7 +43,7 @@ class TransactionRecord(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -49,7 +51,7 @@ class TransactionRecord(Base):
 
     # ==================== 关联关系 ====================
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"
@@ -83,14 +85,14 @@ class TransactionRecord(Base):
 
     # ==================== 关联记录 ====================
     related_usage_id: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("usage_records.id", ondelete="SET NULL"),
         nullable=True,
         comment="关联使用记录ID(消费类型)"
     )
 
     related_refund_id: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         nullable=True,  # 先不设置FK,等refund_records表创建后再添加
         comment="关联退款记录ID(退款类型)"
     )
@@ -180,7 +182,7 @@ class TransactionRecord(Base):
         Index(
             "idx_trans_payment",
             "payment_order_no",
-            postgresql_where=(Text("payment_order_no IS NOT NULL"))
+            postgresql_where=text("payment_order_no IS NOT NULL")
         ),
         # 普通索引: 时间范围查询
         Index("idx_trans_date", "created_at"),
@@ -205,7 +207,7 @@ class RechargeOrder(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键UUID"
@@ -220,7 +222,7 @@ class RechargeOrder(Base):
     )
 
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="RESTRICT"),
         nullable=False,
         comment="运营商ID"

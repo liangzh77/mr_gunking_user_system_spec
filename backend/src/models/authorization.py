@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -21,8 +22,9 @@ from sqlalchemy import (
     Index,
     Text,
     TIMESTAMP,
+    text,
 )
-from ..db.types import GUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -39,7 +41,7 @@ class OperatorAppAuthorization(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -47,14 +49,14 @@ class OperatorAppAuthorization(Base):
 
     # ==================== 授权关系 ====================
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="CASCADE"),
         nullable=False,
         comment="运营商ID"
     )
 
     application_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("applications.id", ondelete="RESTRICT"),
         nullable=False,
         comment="应用ID"
@@ -76,14 +78,14 @@ class OperatorAppAuthorization(Base):
 
     # ==================== 审批信息 ====================
     authorized_by: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="授权审批人(管理员ID)"
     )
 
     application_request_id: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         nullable=True,  # 先不设置FK,等application_requests表创建后再添加
         comment="关联的申请记录ID(如通过申请授权)"
     )
@@ -147,7 +149,7 @@ class OperatorAppAuthorization(Base):
             "operator_id",
             "application_id",
             unique=True,
-            postgresql_where=(Text("is_active = true"))
+            postgresql_where=text("is_active = true")
         ),
         # 复合索引: 查询运营商授权列表
         Index("idx_auth_operator", "operator_id", "is_active"),
@@ -157,7 +159,7 @@ class OperatorAppAuthorization(Base):
         Index(
             "idx_auth_expiry",
             "expires_at",
-            postgresql_where=(Text("expires_at IS NOT NULL"))
+            postgresql_where=text("expires_at IS NOT NULL")
         ),
     )
 

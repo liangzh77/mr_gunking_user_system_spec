@@ -4,7 +4,7 @@ Financial Account Models (T160)
 财务账号模型
 """
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, TIMESTAMP
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -39,7 +39,7 @@ class FinanceAccount(Base):
         default="specialist",
         comment="角色: specialist/manager/auditor"
     )
-    permissions = Column(JSONB, nullable=False, default=dict, comment="权限配置(JSON对象)")
+    permissions = Column(JSON, nullable=False, default=dict, comment="权限配置(JSON对象)")
 
     # 账号状态
     is_active = Column(Boolean, nullable=False, default=True, comment="账号状态")
@@ -153,7 +153,7 @@ class FinanceOperationLog(Base):
         comment="目标资源ID"
     )
     operation_details = Column(
-        JSONB,
+        JSON,
         nullable=False,
         default=dict,
         comment="操作详情(JSON对象)"

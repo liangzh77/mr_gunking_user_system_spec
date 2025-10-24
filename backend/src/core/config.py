@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     # ========== Database Configuration ==========
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./mr_game_ops.db",
-        description="Database connection URL (supports PostgreSQL with asyncpg or SQLite with aiosqlite)",
+        default="postgresql+asyncpg://mr_admin:mr_password@localhost:5432/mr_game_ops",
+        description="PostgreSQL database connection URL with asyncpg driver",
     )
     DATABASE_POOL_SIZE: int = Field(default=20, ge=1, le=100)
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)

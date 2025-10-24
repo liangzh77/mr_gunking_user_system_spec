@@ -21,7 +21,8 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
 )
-from ..db.types import GUID
+from sqlalchemy.dialects.postgresql import UUID
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -38,7 +39,7 @@ class ApplicationRequest(Base):
 
     # ==================== 主键 ====================
     id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         comment="主键"
@@ -46,14 +47,14 @@ class ApplicationRequest(Base):
 
     # ==================== 申请信息 ====================
     operator_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("operator_accounts.id", ondelete="CASCADE"),
         nullable=False,
         comment="申请运营商ID"
     )
 
     application_id: Mapped[PyUUID] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("applications.id", ondelete="RESTRICT"),
         nullable=False,
         comment="申请的应用ID"
@@ -74,7 +75,7 @@ class ApplicationRequest(Base):
     )
 
     reviewed_by: Mapped[Optional[PyUUID]] = mapped_column(
-        GUID,
+        UUID(as_uuid=True),
         ForeignKey("admin_accounts.id", ondelete="SET NULL"),
         nullable=True,
         comment="审核人(管理员ID)"
