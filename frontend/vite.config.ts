@@ -25,12 +25,14 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: 8080,  // 改为8080避免权限问题，但配置支持80端口的CORS
     host: '0.0.0.0',
     allowedHosts: [
       'localhost',
       '127.0.0.1',
       'mrgunking.frp.carepulse.cn',
+      'localhost:8080',
+      '127.0.0.1:8080',
     ],
     watch: {
       usePolling: true,
