@@ -398,14 +398,34 @@ log_info "虚拟环境Python版本: $VENV_PYTHON_VERSION"
 # 升级pip到最新版本以支持更好的依赖解析
 pip install --upgrade pip setuptools wheel
 
-# 安装核心依赖（使用与本地环境一致的版本）
+# 安装核心依赖（使用经过验证的兼容版本组合）
+log_info "安装FastAPI核心依赖..."
 pip install "fastapi==0.104.1" "uvicorn[standard]==0.24.0.post1"
 
-# 安装Pydantic相关包（允许向后兼容的更新版本）
-pip install "pydantic>=2.5.2,<3.0.0" "pydantic-settings>=2.1.0,<3.0.0"
+# 安装Pydantic相关包（使用与FastAPI 0.104.1完全兼容的版本）
+log_info "安装Pydantic依赖（兼容版本）..."
+pip install "pydantic==2.5.2" "pydantic-settings==2.1.0"
 
-# 安装其他依赖
-pip install -r requirements.txt --force-reinstall
+# 安装数据库和其他依赖
+log_info "安装数据库相关依赖..."
+pip install "sqlalchemy==2.0.23" "alembic>=1.12.1" "asyncpg>=0.29.0"
+
+# 安装其余依赖（跳过已安装的核心包）
+log_info "安装其余依赖..."
+pip install "email-validator>=2.1.0" \
+             "python-dotenv>=1.0.0" \
+             "python-jose[cryptography]>=3.3.0" \
+             "bcrypt>=4.0.1" \
+             "passlib[bcrypt]>=1.7.4" \
+             "python-multipart>=0.0.6" \
+             "httpx>=0.25.2" \
+             "slowapi>=0.1.9" \
+             "redis>=5.0.1" \
+             "structlog>=23.2.0" \
+             "prometheus-client>=0.19.0" \
+             "aiofiles>=23.2.1" \
+             "openpyxl>=3.1.2" \
+             "reportlab>=4.0.7"
 
 # 配置环境变量
 log_info "配置后端环境变量..."
