@@ -18,6 +18,9 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     isLoading.value = true
     try {
       const response = await http.post<AdminLoginResponse>('/admin/login', credentials)
+
+      // 管理员API直接返回字段，不包装在data中
+      // axios的response.data包含整个响应体
       const loginResponse = response.data || {}
 
       // 安全地提取数据，添加空值检查
@@ -25,10 +28,12 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
 
       // 验证必要字段
       if (!access_token) {
+        console.error('登录响应格式:', loginResponse)
         throw new Error('登录响应格式错误：缺少访问令牌')
       }
 
       if (!user || !user.id) {
+        console.error('用户信息格式:', user)
         throw new Error('登录响应格式错误：缺少用户信息')
       }
 
