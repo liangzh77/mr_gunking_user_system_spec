@@ -37,7 +37,7 @@ PROJECT_DIR="/opt/mr_gunking_user_system_spec"
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
 LOGS_DIR="$PROJECT_DIR/logs"
-BACKEND_PORT=8000
+BACKEND_PORT=8001
 FRONTEND_PORT=3000
 
 log_info "开始服务清理重启流程..."
@@ -62,8 +62,8 @@ pkill -f "uvicorn.*main:app" 2>/dev/null || log_warning "未找到uvicorn进程"
 pkill -f "serve.*-s dist" 2>/dev/null || log_warning "未找到serve进程"
 pkill -f "python.*main.py" 2>/dev/null || log_warning "未找到Python主进程"
 
-# 强制杀死占用8000端口的进程
-log_info "强制杀死占用8000端口的进程..."
+# 强制杀死占用8001端口(原8000)的进程
+log_info "强制杀死占用8001端口的进程..."
 PID_8000=$(lsof -ti:$BACKEND_PORT 2>/dev/null || true)
 if [ ! -z "$PID_8000" ]; then
     log_warning "发现占用端口$BACKEND_PORT的进程: $PID_8000"
@@ -116,7 +116,7 @@ find "$BACKEND_DIR" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null ||
 
 log_info "步骤3: 验证端口已完全释放..."
 
-# 检查8000端口
+# 检查8001端口(原8000)
 if lsof -ti:$BACKEND_PORT >/dev/null 2>&1; then
     log_error "端口 $BACKEND_PORT 仍被占用！"
     lsof -ti:$BACKEND_PORT | xargs ps -p
@@ -252,7 +252,7 @@ echo ""
 echo "=========================================="
 echo "服务状态总结："
 echo "=========================================="
-echo "后端服务: http://localhost:$BACKEND_PORT"
+echo "后端服务: http://localhost:$BACKEND_PORT (原8000改为8001)"
 echo "前端服务: http://localhost:$FRONTEND_PORT"
 echo ""
 echo "进程信息："
