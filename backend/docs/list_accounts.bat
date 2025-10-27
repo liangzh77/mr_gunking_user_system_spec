@@ -41,7 +41,7 @@ echo 所有账户列表
 echo ============================================================================
 echo.
 
-docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT 'Admin' as account_type, username, full_name as name, email, phone, role, is_active FROM admin_accounts UNION ALL SELECT 'Finance' as account_type, username, full_name as name, email, phone, role, is_active FROM finance_accounts UNION ALL SELECT 'Operator' as account_type, username, company_name as name, email, phone, 'operator' as role, is_active FROM operator_accounts ORDER BY account_type, username;"
+docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT 'Admin' as account_type, username, full_name as name, email, phone, role, is_active FROM admin_accounts UNION ALL SELECT 'Finance' as account_type, username, full_name as name, email, phone, role, is_active FROM finance_accounts UNION ALL SELECT 'Operator' as account_type, username, full_name as name, email, phone, 'operator' as role, is_active FROM operator_accounts ORDER BY account_type, username;"
 
 echo.
 echo ============================================================================
@@ -65,7 +65,7 @@ echo 运营商账号详情
 echo ============================================================================
 echo.
 
-docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT username, company_name, email, phone, balance, total_recharge, is_active, created_at FROM operator_accounts ORDER BY created_at DESC;"
+docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT username, full_name, email, phone, balance, is_active, created_at FROM operator_accounts ORDER BY created_at DESC;"
 
 echo.
 echo ============================================================================
@@ -73,7 +73,7 @@ echo 账户统计
 echo ============================================================================
 echo.
 
-docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT '管理员账号' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM admin_accounts UNION ALL SELECT '财务账号' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM finance_accounts UNION ALL SELECT '运营商账号' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM operator_accounts;"
+docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "SELECT 'Admin' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM admin_accounts UNION ALL SELECT 'Finance' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM finance_accounts UNION ALL SELECT 'Operator' as type, COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM operator_accounts;"
 
 echo.
 echo ============================================================================
