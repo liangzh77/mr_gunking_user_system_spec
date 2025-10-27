@@ -367,18 +367,45 @@ if [ -d "venv" ]; then
     rm -rf venv
 fi
 
-# 使用Python 3.11创建虚拟环境
+# 确保使用Python 3.11创建虚拟环境
 log_info "使用Python 3.11创建虚拟环境..."
-python3 -m venv venv
+
+# 检查是否有python3.11命令
+if command -v python3.11 &> /dev/null; then
+    PYTHON_CMD="python3.11"
+    log_info "使用python3.11命令创建虚拟环境"
+else
+    PYTHON_CMD="python3"
+    # 验证python3确实是3.11版本
+    PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+    if [[ "$PYTHON_VERSION" != "3.11" ]]; then
+        log_error "找不到Python 3.11，当前版本: $PYTHON_VERSION"
+        exit 1
+    fi
+fi
+
+# 创建虚拟环境
+$PYTHON_CMD -m venv venv
 
 # 激活虚拟环境并安装依赖
 log_info "安装Python依赖..."
 source venv/bin/activate
-pip install --upgrade pip
 
-# 安装与Python 3.11兼容的依赖版本
-pip install "fastapi==0.104.1" "pydantic==2.5.2" "pydantic-settings==2.6.0"
-pip install -r requirements.txt
+# 验证虚拟环境中的Python版本
+VENV_PYTHON_VERSION=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+log_info "虚拟环境Python版本: $VENV_PYTHON_VERSION"
+
+# 升级pip到最新版本以支持更好的依赖解析
+pip install --upgrade pip setuptools wheel
+
+# 安装核心依赖（使用与本地环境一致的版本）
+pip install "fastapi==0.104.1" "uvicorn[standard]==0.24.0.post1"
+
+# 安装Pydantic相关包（允许向后兼容的更新版本）
+pip install "pydantic>=2.5.2,<3.0.0" "pydantic-settings>=2.1.0,<3.0.0"
+
+# 安装其他依赖
+pip install -r requirements.txt --force-reinstall
 
 # 配置环境变量
 log_info "配置后端环境变量..."
