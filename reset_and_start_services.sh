@@ -170,7 +170,7 @@ ENVIRONMENT=production
 DEBUG=false
 HOST=0.0.0.0
 PORT=$BACKEND_PORT
-CORS_ORIGINS=http://localhost:$FRONTEND_PORT,https://your-domain.com
+CORS_ORIGINS=http://localhost:$FRONTEND_PORT,https://https://mrgun.chu-jiao.com
 EOF
 
 log_info "启动后端服务..."
