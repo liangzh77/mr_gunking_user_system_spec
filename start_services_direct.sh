@@ -139,40 +139,48 @@ fi
 
 # 检查Python版本
 PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-if [[ "$PYTHON_VERSION" != "3.11" ]]; then
+if [[ "$PYTHON_VERSION" < "3.13" ]]; then
     log_warning "当前Python版本: $PYTHON_VERSION"
-    log_info "需要Python 3.11，正在安装..."
+    log_info "需要Python 3.13，正在安装..."
 
-    # 安装Python 3.11
+    # 安装Python 3.13
     if command -v apt-get &> /dev/null; then
         # Ubuntu/Debian系统
         apt-get update
         apt-get install -y software-properties-common
         add-apt-repository ppa:deadsnakes/ppa -y
         apt-get update
-        apt-get install -y python3.11 python3.11-venv python3.11-dev python3.11-distutils
+        apt-get install -y python3.13 python3.13-venv python3.13-dev python3.13-distutils
 
-        # 设置python3.11为默认python3
-        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-        update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+        # 设置python3.13为默认python3
+        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 1
+        update-alternatives --install /usr/bin/python python /usr/bin/python3.13 1
 
     elif command -v yum &> /dev/null; then
-        # CentOS/RHEL系统
-        yum install -y python3.11 python3.11-pip python3.11-devel
-        alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-        alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+        # CentOS/RHEL系统 - 从源码编译Python 3.13
+        yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel readline-devel sqlite-devel wget
+        cd /tmp
+        wget https://www.python.org/ftp/python/3.13.7/Python-3.13.7.tgz
+        tar xzf Python-3.13.7.tgz
+        cd Python-3.13.7
+        ./configure --enable-optimizations
+        make altinstall
+        alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.13 1
+        alternatives --install /usr/bin/python python /usr/local/bin/python3.13 1
+        cd /opt/mr_gunking_user_system_spec
+        rm -rf /tmp/Python-3.13.7*
 
     else
-        log_error "不支持的系统，请手动安装Python 3.11"
+        log_error "不支持的系统，请手动安装Python 3.13"
         exit 1
     fi
 
     # 验证安装
     PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if [[ "$PYTHON_VERSION" == "3.11" ]]; then
-        log_success "Python 3.11安装成功"
+    if [[ "$PYTHON_VERSION" == "3.13" ]]; then
+        log_success "Python 3.13安装成功"
     else
-        log_error "Python 3.11安装失败，当前版本: $PYTHON_VERSION"
+        log_error "Python 3.13安装失败，当前版本: $PYTHON_VERSION"
         exit 1
     fi
 else
@@ -367,19 +375,19 @@ if [ -d "venv" ]; then
     rm -rf venv
 fi
 
-# 确保使用Python 3.11创建虚拟环境
-log_info "使用Python 3.11创建虚拟环境..."
+# 确保使用Python 3.13创建虚拟环境
+log_info "使用Python 3.13创建虚拟环境..."
 
-# 检查是否有python3.11命令
-if command -v python3.11 &> /dev/null; then
-    PYTHON_CMD="python3.11"
-    log_info "使用python3.11命令创建虚拟环境"
+# 检查是否有python3.13命令
+if command -v python3.13 &> /dev/null; then
+    PYTHON_CMD="python3.13"
+    log_info "使用python3.13命令创建虚拟环境"
 else
     PYTHON_CMD="python3"
-    # 验证python3确实是3.11版本
+    # 验证python3确实是3.13版本
     PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if [[ "$PYTHON_VERSION" != "3.11" ]]; then
-        log_error "找不到Python 3.11，当前版本: $PYTHON_VERSION"
+    if [[ "$PYTHON_VERSION" != "3.13" ]]; then
+        log_error "找不到Python 3.13，当前版本: $PYTHON_VERSION"
         exit 1
     fi
 fi
