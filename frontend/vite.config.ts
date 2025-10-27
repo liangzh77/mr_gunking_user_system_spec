@@ -38,8 +38,8 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        // 本地开发环境，使用localhost:8000访问后端
-        target: process.env.VITE_BACKEND_URL || 'http://localhost:8000',
+        // 本地开发环境，使用localhost:8001访问后端
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8001',
         changeOrigin: true,
         secure: false,
         ws: true,

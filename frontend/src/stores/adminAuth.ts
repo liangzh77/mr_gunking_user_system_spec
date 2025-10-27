@@ -18,10 +18,19 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     isLoading.value = true
     try {
       const response = await http.post<AdminLoginResponse>('/admin/login', credentials)
-      const loginResponse = response.data
+      const loginResponse = response.data || {}
 
-      // 直接提取数据（后端不包装在 data 字段中）
+      // 安全地提取数据，添加空值检查
       const { access_token, user } = loginResponse
+
+      // 验证必要字段
+      if (!access_token) {
+        throw new Error('登录响应格式错误：缺少访问令牌')
+      }
+
+      if (!user || !user.id) {
+        throw new Error('登录响应格式错误：缺少用户信息')
+      }
 
       // 保存token和admin_id
       accessToken.value = access_token
