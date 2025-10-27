@@ -585,36 +585,55 @@ async def login_finance(
         HTTPException 401: 认证失败(用户名或密码错误)
         HTTPException 500: 服务器内部错误
     """
-    from ...services.finance_service import FinanceService
-    from ...schemas.finance import FinanceLoginRequest
+    from ...services.admin_auth import AdminAuthService
 
     try:
-        # 解析请求
-        login_request = FinanceLoginRequest(**request_data)
+        # 解析请求参数
+        username = request_data.get("username")
+        password = request_data.get("password")
+
+        if not username or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "MISSING_FIELDS",
+                    "message": "用户名和密码不能为空"
+                }
+            )
 
         # 获取客户端IP
         client_ip = http_request.client.host if http_request.client else None
 
-        # 调用财务服务进行登录
-        finance_service = FinanceService(db)
-        response = await finance_service.login(
-            username=login_request.username,
-            password=login_request.password,
-            ip_address=client_ip
+        # 调用管理员认证服务进行登录
+        admin_auth_service = AdminAuthService(db)
+        response = await admin_auth_service.login(
+            username=username,
+            password=password,
+            client_ip=client_ip
         )
 
-        # 返回直接字段格式(符合contract tests期望)
+        # 验证登录用户是否为财务角色
+        if response.user.role != "finance":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_ROLE",
+                    "message": "用户不是财务角色，无法访问财务系统"
+                }
+            )
+
+        # 返回财务登录格式(符合contract tests期望)
         return {
             "access_token": response.access_token,
             "token_type": response.token_type,
             "expires_in": response.expires_in,
             "finance": {
-                "finance_id": response.finance.finance_id,
-                "username": response.finance.username,
-                "name": response.finance.full_name,
-                "full_name": response.finance.full_name,
+                "finance_id": str(response.user.id),
+                "username": response.user.username,
+                "name": response.user.full_name,
+                "full_name": response.user.full_name,
                 "role": "finance",  # 统一返回"finance"角色
-                "email": response.finance.email
+                "email": response.user.email
             }
         }
 
