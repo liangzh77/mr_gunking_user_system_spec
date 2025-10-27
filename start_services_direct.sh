@@ -139,48 +139,48 @@ fi
 
 # 检查Python版本
 PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-if [[ "$PYTHON_VERSION" < "3.13" ]]; then
+if [[ "$PYTHON_VERSION" < "3.12" ]]; then
     log_warning "当前Python版本: $PYTHON_VERSION"
-    log_info "需要Python 3.13，正在安装..."
+    log_info "需要Python 3.12，正在安装..."
 
-    # 安装Python 3.13
+    # 安装Python 3.12
     if command -v apt-get &> /dev/null; then
         # Ubuntu/Debian系统
         apt-get update
         apt-get install -y software-properties-common
         add-apt-repository ppa:deadsnakes/ppa -y
         apt-get update
-        apt-get install -y python3.13 python3.13-venv python3.13-dev python3.13-distutils
+        apt-get install -y python3.12 python3.12-venv python3.12-dev python3.12-distutils
 
-        # 设置python3.13为默认python3
-        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 1
-        update-alternatives --install /usr/bin/python python /usr/bin/python3.13 1
+        # 设置python3.12为默认python3
+        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+        update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
 
     elif command -v yum &> /dev/null; then
-        # CentOS/RHEL系统 - 从源码编译Python 3.13
+        # CentOS/RHEL系统 - 从源码编译Python 3.12
         yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel readline-devel sqlite-devel wget
         cd /tmp
-        wget https://www.python.org/ftp/python/3.13.7/Python-3.13.7.tgz
-        tar xzf Python-3.13.7.tgz
-        cd Python-3.13.7
+        wget https://www.python.org/ftp/python/3.12.7/Python-3.12.7.tgz
+        tar xzf Python-3.12.7.tgz
+        cd Python-3.12.7
         ./configure --enable-optimizations
         make altinstall
-        alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.13 1
-        alternatives --install /usr/bin/python python /usr/local/bin/python3.13 1
+        alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.12 1
+        alternatives --install /usr/bin/python python /usr/local/bin/python3.12 1
         cd /opt/mr_gunking_user_system_spec
-        rm -rf /tmp/Python-3.13.7*
+        rm -rf /tmp/Python-3.12.7*
 
     else
-        log_error "不支持的系统，请手动安装Python 3.13"
+        log_error "不支持的系统，请手动安装Python 3.12"
         exit 1
     fi
 
     # 验证安装
     PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if [[ "$PYTHON_VERSION" == "3.13" ]]; then
-        log_success "Python 3.13安装成功"
+    if [[ "$PYTHON_VERSION" == "3.12" ]]; then
+        log_success "Python 3.12安装成功"
     else
-        log_error "Python 3.13安装失败，当前版本: $PYTHON_VERSION"
+        log_error "Python 3.12安装失败，当前版本: $PYTHON_VERSION"
         exit 1
     fi
 else
@@ -375,19 +375,19 @@ if [ -d "venv" ]; then
     rm -rf venv
 fi
 
-# 确保使用Python 3.13创建虚拟环境
-log_info "使用Python 3.13创建虚拟环境..."
+# 确保使用Python 3.12创建虚拟环境
+log_info "使用Python 3.12创建虚拟环境..."
 
-# 检查是否有python3.13命令
-if command -v python3.13 &> /dev/null; then
-    PYTHON_CMD="python3.13"
-    log_info "使用python3.13命令创建虚拟环境"
+# 检查是否有python3.12命令
+if command -v python3.12 &> /dev/null; then
+    PYTHON_CMD="python3.12"
+    log_info "使用python3.12命令创建虚拟环境"
 else
     PYTHON_CMD="python3"
-    # 验证python3确实是3.13版本
+    # 验证python3确实是3.12版本
     PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if [[ "$PYTHON_VERSION" != "3.13" ]]; then
-        log_error "找不到Python 3.13，当前版本: $PYTHON_VERSION"
+    if [[ "$PYTHON_VERSION" != "3.12" ]]; then
+        log_error "找不到Python 3.12，当前版本: $PYTHON_VERSION"
         exit 1
     fi
 fi
