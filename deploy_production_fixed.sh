@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # =============================================================================
-# MR游戏运营管理系统 - 直接启动服务脚本
+# MR游戏运营管理系统 - 生产环境部署脚本（版本兼容性修复版）
 # =============================================================================
-# 不使用Docker，直接在服务器上启动后端和前端服务
+# 确保Python版本与开发环境一致 (Python 3.11)
 # =============================================================================
 
 set -e  # 遇到错误立即退出
@@ -34,9 +34,7 @@ log_error() {
 
 # 配置变量
 PROJECT_DIR="/opt/mr_gunking_user_system_spec"
-BACKEND_DIR="$PROJECT_DIR/backend"
-FRONTEND_DIR="$PROJECT_DIR/frontend"
-LOGS_DIR="$PROJECT_DIR/logs"
+BACKUP_DIR="/opt/mr_gunking_user_system_spec/backups"
 DB_HOST="localhost"
 DB_PORT="5432"
 DB_NAME="mr_game_ops"
@@ -44,6 +42,7 @@ DB_USER="mr_admin"
 DB_PASSWORD="mr_secure_password_2024"
 BACKEND_PORT="8000"
 FRONTEND_PORT="3000"
+PYTHON_VERSION="3.11"
 
 # 解析命令行参数
 while [[ $# -gt 0 ]]; do
@@ -54,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --db-user)
             DB_USER="$2"
+            shift 2
+            ;;
+        --python-version)
+            PYTHON_VERSION="$2"
             shift 2
             ;;
         --backend-port)
@@ -73,6 +76,7 @@ while [[ $# -gt 0 ]]; do
             echo "选项:"
             echo "  --db-password PASSWORD     数据库密码"
             echo "  --db-user USER             数据库用户名"
+            echo "  --python-version VERSION  Python版本 (默认: 3.11)"
             echo "  --backend-port PORT        后端端口 (默认: 8000)"
             echo "  --frontend-port PORT       前端端口 (默认: 3000)"
             echo "  --skip-db-reset            跳过数据库重置"
@@ -93,18 +97,17 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-log_info "开始MR游戏运营管理系统直接启动服务..."
+log_info "开始MR游戏运营管理系统生产环境部署（版本兼容性修复版）..."
 log_info "使用配置："
 echo "  项目目录: $PROJECT_DIR"
-echo "  后端目录: $BACKEND_DIR"
-echo "  前端目录: $FRONTEND_DIR"
+echo "  Python版本: $PYTHON_VERSION"
 echo "  数据库用户: $DB_USER"
 echo "  数据库密码: $DB_PASSWORD"
 echo "  后端端口: $BACKEND_PORT"
 echo "  前端端口: $FRONTEND_PORT"
 
 # =============================================================================
-# 1. 检查系统和依赖
+# 1. 检查系统依赖
 # =============================================================================
 log_info "步骤1: 检查系统和依赖..."
 
@@ -115,9 +118,8 @@ if [ ! -d "$PROJECT_DIR" ]; then
 fi
 
 # 创建必要目录
-mkdir -p "$LOGS_DIR"
-mkdir -p "$BACKEND_DIR/logs"
-mkdir -p "$FRONTEND_DIR/logs"
+mkdir -p "$BACKUP_DIR"
+mkdir -p "$PROJECT_DIR/logs"
 
 # 检查PostgreSQL
 if ! command -v psql &> /dev/null; then
@@ -131,66 +133,53 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-# 检查Python版本并确保是Python 3.11
-if ! command -v python3 &> /dev/null; then
-    log_error "Python3未安装，请先安装Python3"
-    exit 1
-fi
+log_success "系统依赖检查完成"
 
-# 检查Python版本
-PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-if [[ "$PYTHON_VERSION" != "3.11" ]]; then
-    log_warning "当前Python版本: $PYTHON_VERSION"
-    log_info "需要Python 3.11，正在安装..."
+# =============================================================================
+# 2. 安装Python 3.11（如果需要）
+# =============================================================================
+log_info "步骤2: 检查并安装Python $PYTHON_VERSION..."
 
-    # 安装Python 3.11
-    if command -v apt-get &> /dev/null; then
-        # Ubuntu/Debian系统
-        apt-get update
-        apt-get install -y software-properties-common
+# 检查当前Python版本
+CURRENT_PYTHON=$(python3 --version 2>&1 | awk '{print $2}')
+if [[ "$CURRENT_PYTHON" == "$PYTHON_VERSION"* ]]; then
+    log_success "Python $PYTHON_VERSION 已安装"
+else
+    log_warning "当前Python版本: $CURRENT_PYTHON，需要安装Python $PYTHON_VERSION"
+
+    # 根据系统类型安装Python 3.11
+    if command -v apt &> /dev/null; then
+        # Ubuntu/Debian
+        log_info "在Ubuntu/Debian系统上安装Python $PYTHON_VERSION..."
+        apt update
+        apt install -y software-properties-common
         add-apt-repository ppa:deadsnakes/ppa -y
-        apt-get update
-        apt-get install -y python3.11 python3.11-venv python3.11-dev python3.11-distutils
-
-        # 设置python3.11为默认python3
-        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-        update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-
+        apt update
+        apt install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python$PYTHON_VERSION-dev
+        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.$PYTHON_VERSION 1
     elif command -v yum &> /dev/null; then
-        # CentOS/RHEL系统
-        yum install -y python3.11 python3.11-pip python3.11-devel
-        alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-        alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-
+        # CentOS/RHEL
+        log_info "在CentOS/RHEL系统上安装Python $PYTHON_VERSION..."
+        yum install -y epel-release
+        yum install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
     else
-        log_error "不支持的系统，请手动安装Python 3.11"
+        log_error "不支持的系统，请手动安装Python $PYTHON_VERSION"
         exit 1
     fi
 
     # 验证安装
-    PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if [[ "$PYTHON_VERSION" == "3.11" ]]; then
-        log_success "Python 3.11安装成功"
+    if python3 --version 2>&1 | grep -q "$PYTHON_VERSION"; then
+        log_success "Python $PYTHON_VERSION 安装成功"
     else
-        log_error "Python 3.11安装失败，当前版本: $PYTHON_VERSION"
+        log_error "Python $PYTHON_VERSION 安装失败"
         exit 1
     fi
-else
-    log_success "Python版本检查通过: $PYTHON_VERSION"
 fi
 
-# 检查git
-if ! command -v git &> /dev/null; then
-    log_error "Git未安装，请先安装Git"
-    exit 1
-fi
-
-log_success "系统依赖检查完成"
-
 # =============================================================================
-# 2. 更新代码
+# 3. 更新代码
 # =============================================================================
-log_info "步骤2: 更新项目代码..."
+log_info "步骤3: 更新项目代码..."
 
 cd "$PROJECT_DIR"
 
@@ -205,9 +194,9 @@ fi
 log_success "代码更新完成"
 
 # =============================================================================
-# 3. 准备数据库
+# 4. 准备数据库
 # =============================================================================
-log_info "步骤3: 准备数据库..."
+log_info "步骤4: 准备数据库..."
 
 # 确保PostgreSQL服务运行
 if ! systemctl is-active --quiet postgresql; then
@@ -274,9 +263,9 @@ EOF
 log_success "数据库架构初始化完成"
 
 # =============================================================================
-# 4. 插入种子数据
+# 5. 插入种子数据
 # =============================================================================
-log_info "步骤4: 插入种子数据..."
+log_info "步骤5: 插入种子数据..."
 
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" << 'EOF'
 -- 管理员账户 (密码: admin123456)
@@ -342,11 +331,11 @@ EOF
 log_success "种子数据插入完成"
 
 # =============================================================================
-# 5. 部署后端服务
+# 6. 部署后端服务（使用Python 3.11）
 # =============================================================================
-log_info "步骤5: 部署后端服务..."
+log_info "步骤6: 部署后端服务（Python $PYTHON_VERSION）..."
 
-cd "$BACKEND_DIR"
+cd "$PROJECT_DIR/backend"
 
 # 停止现有后端服务
 if pgrep -f "uvicorn.*main:app" > /dev/null; then
@@ -361,24 +350,38 @@ if systemctl is-active --quiet mr-game-ops-backend; then
     systemctl stop mr-game-ops-backend
 fi
 
-# 删除现有虚拟环境（确保使用正确的Python版本）
+# 删除旧的虚拟环境
 if [ -d "venv" ]; then
-    log_info "删除现有虚拟环境..."
+    log_info "删除旧的虚拟环境..."
     rm -rf venv
 fi
 
-# 使用Python 3.11创建虚拟环境
-log_info "使用Python 3.11创建虚拟环境..."
-python3 -m venv venv
+# 使用Python 3.11创建新的虚拟环境
+log_info "使用Python $PYTHON_VERSION创建虚拟环境..."
+python$PYTHON_VERSION -m venv venv
 
-# 激活虚拟环境并安装依赖
-log_info "安装Python依赖..."
+# 激活虚拟环境
 source venv/bin/activate
-pip install --upgrade pip
 
-# 安装与Python 3.11兼容的依赖版本
-pip install "fastapi==0.104.1" "pydantic==2.5.2" "pydantic-settings==2.6.0"
-pip install -r requirements.txt
+# 升级pip
+log_info "升级pip..."
+python -m pip install --upgrade pip
+
+# 安装兼容的包版本
+log_info "安装Python依赖（兼容版本）..."
+pip install "fastapi==0.115.0" "pydantic==2.9.0" "pydantic-settings==2.6.0"
+pip install "uvicorn[standard]==0.24.0.post1" "sqlalchemy==2.0.23" "alembic>=1.12.1"
+pip install "asyncpg>=0.29.0" "python-jose[cryptography]>=3.3.0" "passlib[bcrypt]>=1.7.4"
+pip install "python-multipart>=0.0.6" "python-dotenv>=1.0.0" "email-validator>=2.1.0"
+pip install "httpx>=0.25.2" "slowapi>=0.1.9" "redis>=5.0.1" "structlog>=23.2.0"
+pip install "prometheus-client>=0.19.0" "aiofiles>=23.2.1" "openpyxl>=3.1.2" "reportlab>=4.0.7"
+pip install "pytest==7.4.3" "pytest-asyncio==0.21.1" "pytest-cov==4.1.0"
+pip install "black==23.12.0" "ruff==0.1.9" "mypy==1.7.1"
+
+# 验证关键包版本
+log_info "验证包版本..."
+python -c "import fastapi; print(f'FastAPI: {fastapi.__version__}')"
+python -c "import pydantic; print(f'Pydantic: {pydantic.__version__}')"
 
 # 配置环境变量
 log_info "配置后端环境变量..."
@@ -395,6 +398,10 @@ PORT=$BACKEND_PORT
 CORS_ORIGINS=http://localhost:$FRONTEND_PORT,https://your-domain.com
 EOF
 
+# 测试导入
+log_info "测试后端模块导入..."
+python -c "from src.main import app; print('后端模块导入成功')"
+
 # 启动后端服务
 log_info "启动后端服务..."
 nohup uvicorn src.main:app --host 0.0.0.0 --port $BACKEND_PORT --env-file .env.production > logs/backend.log 2>&1 &
@@ -404,11 +411,11 @@ echo $BACKEND_PID > logs/backend.pid
 log_success "后端服务启动完成 (PID: $BACKEND_PID)"
 
 # =============================================================================
-# 6. 部署前端服务
+# 7. 部署前端服务
 # =============================================================================
-log_info "步骤6: 部署前端服务..."
+log_info "步骤7: 部署前端服务..."
 
-cd "$FRONTEND_DIR"
+cd "$PROJECT_DIR/frontend"
 
 # 停止现有前端服务
 if pgrep -f "serve.*-s dist" > /dev/null; then
@@ -453,9 +460,9 @@ echo $FRONTEND_PID > logs/frontend.pid
 log_success "前端服务启动完成 (PID: $FRONTEND_PID)"
 
 # =============================================================================
-# 7. 创建systemd服务文件
+# 8. 创建systemd服务文件
 # =============================================================================
-log_info "步骤7: 创建systemd服务文件..."
+log_info "步骤8: 创建systemd服务文件..."
 
 # 后端服务文件
 cat > /etc/systemd/system/mr-game-ops-backend.service << EOF
@@ -466,9 +473,9 @@ After=network.target postgresql.service
 [Service]
 Type=simple
 User=root
-WorkingDirectory=$BACKEND_DIR
-Environment=PATH=$BACKEND_DIR/venv/bin
-ExecStart=$BACKEND_DIR/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port $BACKEND_PORT --env-file .env.production
+WorkingDirectory=$PROJECT_DIR/backend
+Environment=PATH=$PROJECT_DIR/backend/venv/bin
+ExecStart=$PROJECT_DIR/backend/venv/bin/python$PYTHON_VERSION -m uvicorn src.main:app --host 0.0.0.0 --port $BACKEND_PORT --env-file .env.production
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -487,7 +494,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=$FRONTEND_DIR
+WorkingDirectory=$PROJECT_DIR/frontend
 ExecStart=$(which serve) -s dist -l $FRONTEND_PORT
 Restart=always
 RestartSec=10
@@ -508,9 +515,9 @@ systemctl enable mr-game-ops-frontend
 log_success "systemd服务文件创建完成"
 
 # =============================================================================
-# 8. 验证服务
+# 9. 验证服务
 # =============================================================================
-log_info "步骤8: 验证服务状态..."
+log_info "步骤9: 验证服务状态..."
 
 # 等待服务启动
 log_info "等待服务启动..."
@@ -531,9 +538,9 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    log_error "后端服务验证失败，请检查日志: $BACKEND_DIR/logs/backend.log"
+    log_error "后端服务验证失败，请检查日志: $PROJECT_DIR/backend/logs/backend.log"
     log_error "最后几行日志:"
-    tail -10 "$BACKEND_DIR/logs/backend.log"
+    tail -10 "$PROJECT_DIR/backend/logs/backend.log"
     exit 1
 fi
 
@@ -551,16 +558,16 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    log_error "前端服务验证失败，请检查日志: $FRONTEND_DIR/logs/frontend.log"
+    log_error "前端服务验证失败，请检查日志: $PROJECT_DIR/frontend/logs/frontend.log"
     log_error "最后几行日志:"
-    tail -10 "$FRONTEND_DIR/logs/frontend.log"
+    tail -10 "$PROJECT_DIR/frontend/logs/frontend.log"
     exit 1
 fi
 
 # =============================================================================
-# 9. 完成
+# 10. 完成
 # =============================================================================
-log_success "🎉 MR游戏运营管理系统启动完成！"
+log_success "🎉 MR游戏运营管理系统部署完成！"
 
 echo ""
 echo "=========================================="
@@ -569,6 +576,7 @@ echo "=========================================="
 echo "后端服务: http://localhost:$BACKEND_PORT"
 echo "前端服务: http://localhost:$FRONTEND_PORT"
 echo "项目目录: $PROJECT_DIR"
+echo "Python版本: $PYTHON_VERSION"
 echo ""
 echo "数据库配置："
 echo "用户: $DB_USER"
@@ -581,8 +589,8 @@ echo "财务: finance_wang / finance123456"
 echo "运营商: operator_vip / operator123456"
 echo ""
 echo "进程信息："
-echo "后端PID: $(cat $BACKEND_DIR/logs/backend.pid 2>/dev/null || echo '未知')"
-echo "前端PID: $(cat $FRONTEND_DIR/logs/frontend.pid 2>/dev/null || echo '未知')"
+echo "后端PID: $(cat $PROJECT_DIR/backend/logs/backend.pid 2>/dev/null || echo '未知')"
+echo "前端PID: $(cat $PROJECT_DIR/frontend/logs/frontend.pid 2>/dev/null || echo '未知')"
 echo ""
 echo "服务管理命令："
 echo "启动后端: systemctl start mr-game-ops-backend"
@@ -592,8 +600,8 @@ echo "停止前端: systemctl stop mr-game-ops-frontend"
 echo "查看状态: systemctl status mr-game-ops-*"
 echo ""
 echo "日志查看："
-echo "后端日志: tail -f $BACKEND_DIR/logs/backend.log"
-echo "前端日志: tail -f $FRONTEND_DIR/logs/frontend.log"
+echo "后端日志: tail -f $PROJECT_DIR/backend/logs/backend.log"
+echo "前端日志: tail -f $PROJECT_DIR/frontend/logs/frontend.log"
 echo "系统日志: journalctl -u mr-game-ops-backend -f"
 echo "=========================================="
 
@@ -603,5 +611,7 @@ echo "2. 配置防火墙规则开放端口 $BACKEND_PORT 和 $FRONTEND_PORT"
 echo "3. 建议配置nginx反向代理"
 echo "4. 生产环境建议使用HTTPS"
 echo "5. 定期备份数据库"
+echo ""
+echo "✅ Python版本已确保为 $PYTHON_VERSION，兼容性问题已解决！"
 
 exit 0
