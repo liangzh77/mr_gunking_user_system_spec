@@ -815,13 +815,13 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 ### 数据库初始化
 
 - [X] T300 运行数据库迁移 (docker-compose exec backend alembic upgrade head)
-- [ ] T301 导入种子数据 (docker-compose exec backend python scripts/seed_data.py)
-- [ ] T302 验证种子数据 (检查 admin, finance, 测试运营商账号)
+- [X] T301 导入种子数据 (docker-compose exec backend python scripts/seed_data.py)
+- [X] T302 验证种子数据 (检查 admin, finance, 测试运营商账号)
 
 ### 服务验证
 
 - [X] T303 后端健康检查 (curl http://localhost:8000/health, 期望 200 + {"status":"healthy"})
-- [ ] T304 后端 API 文档访问 (浏览器访问 http://localhost:8000/docs, 验证 Swagger UI 正常)
+- [X] T304 后端 API 文档访问 (浏览器访问 http://localhost:8000/docs, 验证 Swagger UI 正常)
 - [X] T305 前端页面访问 (浏览器访问 http://localhost:5173, 验证首页加载)
 
 ### Playwright 自动化测试 (运营商端)
