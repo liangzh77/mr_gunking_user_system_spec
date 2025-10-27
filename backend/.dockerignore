@@ -1,0 +1,86 @@
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.mypy_cache
+.hypothesis
+
+# Virtual environments
+.venv
+.venv*/
+venv
+env
+ENV
+
+# Git
+.git
+.gitignore
+*.md
+README.md
+
+# Tests
+tests
+test
+*.test.py
+.coverage
+htmlcov
+.tox
+*.cover
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs
+
+# Environment files (production will reconfigure)
+.env
+.env.local
+.env.*.local
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+simple_*.py
+check_*.py
+test_*.py
+*_test_*.txt
+*_test_*.json
+
+# Build artifacts
+build
+dist
+*.egg-info
+.eggs
+
+# Database files (local only)
+*.db
+*.sqlite3
+*.sql
+
+# Reports and invoices (generated at runtime)
+invoices/*.pdf
+reports/*.xlsx
+reports/*.csv
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Alembic (keep migrations, exclude local state)
+alembic.ini.local

@@ -386,3 +386,74 @@
 - **SC-010**: 消息通知在事件发生后30秒内推送到运营商消息中心
 - **SC-011**: 系统可用性达到99.5%（每月停机时间不超过3.6小时），数据库故障或支付平台不可用时API返回503状态码及友好错误提示
 - **SC-012**: 并发扣费冲突（同一运营商同时授权）的数据一致性准确率100%（无重复扣费或遗漏扣费）
+
+---
+
+## Deployment & Verification Requirements *(added 2025-10-27)*
+
+### 部署方式
+
+**Docker Compose 本地部署** (Primary Deployment Method)
+
+**Rationale**:
+- 本地开发验证与生产环境部署保持一致
+- 所有服务（PostgreSQL、后端、前端）均在 Docker 容器中运行
+- 简化环境配置，避免依赖冲突
+- 便于团队协作和持续集成
+
+**Target Environment**:
+- **开发环境**: Windows 本地 Docker Desktop
+- **生产环境**: Linux 服务器 Docker + Docker Compose
+
+### 部署架构
+
+```yaml
+services:
+  database:
+    - PostgreSQL 14+ (Docker 容器)
+    - 持久化数据卷
+    - 端口: 5432
+
+  backend:
+    - Python 3.12 + FastAPI
+    - 端口: 8000
+    - 依赖: database
+
+  frontend:
+    - Node.js (容器内) + Vite
+    - 端口: 5173
+    - 反向代理到 backend:8000
+```
+
+### 验证需求
+
+**自动化测试方式**: Playwright MCP (Claude Code 集成)
+
+**测试范围**:
+
+1. **运营商端** (15个页面):
+   - 核心流程: 注册 → 登录 → 充值 → 查看余额 → 查看统计
+   - 关键页面: Dashboard, Profile, Recharge, Sites, Applications, UsageRecords, Statistics
+
+2. **管理员端** (9个页面):
+   - 核心流程: 登录 → 查看运营商列表 → 创建应用 → 授权应用
+   - 关键页面: Dashboard, Operators, Applications, AppRequests
+
+3. **财务端** (7个页面):
+   - 核心流程: 登录 → 查看仪表盘 → 审核退款 → 生成报表
+   - 关键页面: Dashboard, Refunds, Invoices, Reports
+
+**验证标准**:
+- ✅ 所有服务容器正常启动
+- ✅ 数据库迁移成功，种子数据导入完成
+- ✅ 后端 API 健康检查通过 (GET /health 返回 200)
+- ✅ 前端页面可访问，无 404 或 500 错误
+- ✅ 登录功能正常（3端）
+- ✅ 核心业务流程可完整执行
+- ✅ 数据正确显示和保存
+
+**测试输出**:
+- 测试报告 (Markdown 格式)
+- 截图证据 (关键操作步骤)
+- 错误日志 (如有失败)
+- 性能指标 (页面加载时间)

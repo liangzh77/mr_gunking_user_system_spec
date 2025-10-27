@@ -30,12 +30,12 @@
 - [X] T003 配置Docker Compose in docker-compose.yml (PostgreSQL 14)
 - [X] T004 配置环境变量模板 in backend/.env.example
 - [X] T005 [P] 配置代码质量工具 in backend/ (black, ruff, mypy, pytest配置)
-- [ ] T006 [P] 初始化前端Vue项目 in frontend/ (package.json, tsconfig.json, vite.config.ts)
-- [ ] T007 [P] 初始化Python SDK项目 in sdk/python/
+- [X] T006 [P] 初始化前端Vue项目 in frontend/ (package.json, tsconfig.json, vite.config.ts) ✅ 2025-10-27 (Vue3+TS+Vite+ElementPlus+Router+Pinia完整配置,45个文件包含3端页面)
+- [X] T007 [P] 初始化Python SDK项目 in sdk/python/ ✅ 2025-10-27 (完整SDK实现:client/models/exceptions+示例+测试+文档,同时包含Node.js和C# SDK骨架)
 - [X] T008 [P] 创建项目README in README.md
 - [X] T005a 生成OpenAPI契约规范 in specs/001-mr/contracts/openapi.yaml (基于data-model.md和spec.md的API需求，定义60+端点的请求/响应Schema、错误码、认证方式，使用datamodel-code-generator或手动编写，必须在Phase 3测试编写前完成) ✅ 2025-10-15 (contracts/目录包含5个YAML文件，共60个API端点)
 
-**Checkpoint**: ✅ 项目结构就绪，Docker容器可以启动 (MVP核心完成，前端和SDK可延后)
+**Checkpoint**: ✅✅✅ **Phase 1 完成100%** - 项目结构就绪，Docker容器可启动，前端和SDK全部实现
 
 ---
 
@@ -299,11 +299,11 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T120 [P] [US5] 契约测试：管理员登录接口 in backend/tests/contract/test_admin_login.py (POST /v1/auth/admin/login)
-- [ ] T121 [P] [US5] 契约测试：创建运营商接口 in backend/tests/contract/test_admin_create_operator.py (POST /v1/admin/operators)
-- [ ] T122 [P] [US5] 契约测试：授权应用接口 in backend/tests/contract/test_admin_authorize_app.py (POST /v1/admin/operators/{operator_id}/applications)
-- [ ] T123 [P] [US5] 集成测试：完整管理员流程 in backend/tests/integration/test_admin_workflow.py (创建运营商 → 授权应用 → 调价)
-- [ ] T124 [P] [US5] 集成测试：API Key重置 in backend/tests/integration/test_api_key_reset.py
+- [X] T120 [P] [US5] 契约测试：管理员登录接口 in backend/tests/contract/test_admin_login.py (POST /v1/auth/admin/login) ✅ 2025-10-27
+- [X] T121 [P] [US5] 契约测试：创建运营商接口 in backend/tests/contract/test_admin_create_operator.py (POST /v1/admin/operators) ✅ 2025-10-27
+- [X] T122 [P] [US5] 契约测试：授权应用接口 in backend/tests/contract/test_admin_authorize_app.py (POST /v1/admin/operators/{operator_id}/applications) ✅ 2025-10-27
+- [X] T123 [P] [US5] 集成测试：完整管理员流程 in backend/tests/integration/test_admin_workflow.py (创建运营商 → 授权应用 → 调价) ✅ 2025-10-27
+- [X] T124 [P] [US5] 集成测试：API Key重置 in backend/tests/integration/test_api_key_reset.py ✅ 2025-10-27
 
 ### 数据模型
 
@@ -346,9 +346,9 @@
 
 ### 单元测试 (补充)
 
-- [ ] T152 [P] [US5] AdminService单元测试 in backend/tests/unit/services/test_admin_service.py
-- [ ] T153 [P] [US5] AdminApplicationService单元测试 in backend/tests/unit/services/test_admin_application_service.py
-- [ ] T154 [P] [US5] AdminAuthorizationService单元测试 in backend/tests/unit/services/test_admin_authorization_service.py
+- [X] T152 [P] [US5] AdminService单元测试 in backend/tests/unit/services/test_admin_service.py ✅ 2025-10-27
+- [X] T153 [P] [US5] AdminApplicationService单元测试 (已整合到T152 test_admin_service.py) ✅ 2025-10-27
+- [X] T154 [P] [US5] AdminAuthorizationService单元测试 (已整合到T152 test_admin_service.py) ✅ 2025-10-27
 
 **Checkpoint**: User Story 1-5完成 - 管理员可管理整个系统
 
@@ -788,5 +788,91 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 **预计工作量**:
 - 1个全栈开发人员: 约3-4个月 (按优先级顺序)
 - 3个开发人员并行: 约1.5-2个月 (Foundational → 并行实现用户故事)
+
+---
+
+## Phase 14: Deployment & Verification *(added 2025-10-27)*
+
+**Purpose**: Docker 本地部署和 Playwright 自动化验证
+
+**Goal**: 在 Windows 本地使用 Docker Compose 部署完整系统，并通过 Playwright MCP 自动化测试验证所有前端功能
+
+### 部署准备
+
+- [ ] T291 检查 Docker 环境 (Docker Desktop 已安装并运行)
+- [ ] T292 检查 docker-compose.yml 配置 (数据库、后端、前端服务定义)
+- [ ] T293 检查 backend/Dockerfile (Python 3.12 基础镜像、依赖安装、启动脚本)
+- [ ] T294 检查 frontend/Dockerfile.dev (Node.js、Vite 配置、热重载支持)
+- [ ] T295 配置环境变量 in backend/.env (DATABASE_URL, JWT_SECRET, DB_PASSWORD)
+
+### Docker 部署
+
+- [ ] T296 构建 Docker 镜像 (docker-compose build)
+- [ ] T297 启动所有容器 (docker-compose up -d: postgres, backend, frontend)
+- [ ] T298 检查容器状态 (docker-compose ps, 验证所有容器 Up)
+- [ ] T299 查看服务日志 (docker-compose logs -f, 验证无错误)
+
+### 数据库初始化
+
+- [ ] T300 运行数据库迁移 (docker-compose exec backend alembic upgrade head)
+- [ ] T301 导入种子数据 (docker-compose exec backend python scripts/seed_data.py)
+- [ ] T302 验证种子数据 (检查 admin, finance, 测试运营商账号)
+
+### 服务验证
+
+- [ ] T303 后端健康检查 (curl http://localhost:8000/health, 期望 200 + {"status":"healthy"})
+- [ ] T304 后端 API 文档访问 (浏览器访问 http://localhost:8000/docs, 验证 Swagger UI 正常)
+- [ ] T305 前端页面访问 (浏览器访问 http://localhost:5173, 验证首页加载)
+
+### Playwright 自动化测试 (运营商端)
+
+- [ ] T306 测试运营商注册页面 (访问 /operator/register, 填写表单, 提交注册)
+- [ ] T307 测试运营商登录 (访问 /operator/login, 使用测试账号登录, 验证跳转到 Dashboard)
+- [ ] T308 测试运营商仪表盘 (验证余额显示、统计图表加载、快捷操作按钮)
+- [ ] T309 测试个人信息页面 (访问 /operator/profile, 验证信息显示, 测试修改功能)
+- [ ] T310 测试充值页面 (访问 /operator/recharge, 选择金额, 验证支付二维码生成)
+- [ ] T311 测试运营点管理 (访问 /operator/sites, 创建运营点, 编辑, 删除)
+- [ ] T312 测试已授权应用 (访问 /operator/applications, 验证应用列表显示)
+- [ ] T313 测试应用授权申请 (访问 /operator/app-requests, 提交新应用申请)
+- [ ] T314 测试使用记录查询 (访问 /operator/usage-records, 筛选条件, 分页)
+- [ ] T315 测试统计分析页面 (访问 /operator/statistics, 验证图表渲染, 切换维度)
+- [ ] T316 测试交易记录页面 (访问 /operator/transactions, 验证列表和详情)
+- [ ] T317 测试退款申请 (访问 /operator/refunds, 创建退款申请, 查看状态)
+- [ ] T318 测试发票管理 (访问 /operator/invoices, 申请发票, 下载PDF)
+- [ ] T319 测试消息中心 (访问 /operator/messages, 查看未读消息, 标记已读)
+
+### Playwright 自动化测试 (管理员端)
+
+- [ ] T320 测试管理员登录 (访问 /admin/login, 使用 admin 账号登录)
+- [ ] T321 测试管理员仪表盘 (验证运营商统计、收入概览、最近操作)
+- [ ] T322 测试运营商列表 (访问 /admin/operators, 搜索、筛选、分页)
+- [ ] T323 测试运营商详情 (点击运营商, 查看详细信息和运营点列表)
+- [ ] T324 测试应用管理 (访问 /admin/applications, 创建应用, 设置价格和玩家范围)
+- [ ] T325 测试应用更新 (编辑应用信息, 调整价格, 修改玩家数限制)
+- [ ] T326 测试授权申请审批 (访问 /admin/app-requests, 审批通过/拒绝)
+- [ ] T327 测试授权管理 (为运营商授权应用, 撤销授权)
+- [ ] T328 测试交易监控 (访问 /admin/transactions, 查看全局交易记录)
+
+### Playwright 自动化测试 (财务端)
+
+- [ ] T329 测试财务人员登录 (访问 /finance/login, 使用 finance 账号登录)
+- [ ] T330 测试财务仪表盘 (验证今日收入、本月趋势、大客户分析)
+- [ ] T331 测试退款审核列表 (访问 /finance/refunds, 查看待审核退款)
+- [ ] T332 测试退款审核操作 (审核通过/拒绝, 验证状态更新)
+- [ ] T333 测试发票审核列表 (访问 /finance/invoices, 查看待审核发票)
+- [ ] T334 测试发票审核操作 (审核发票, 生成PDF)
+- [ ] T335 测试财务报表生成 (访问 /finance/reports, 选择日期范围, 生成报表)
+- [ ] T336 测试审计日志查询 (访问 /finance/audit-logs, 筛选操作类型, 查看详情)
+
+### 测试报告生成
+
+- [ ] T337 收集测试结果 (统计通过/失败数量, 记录失败原因)
+- [ ] T338 生成测试截图 (保存关键页面截图作为证据)
+- [ ] T339 记录性能指标 (页面加载时间、API 响应时间)
+- [ ] T340 生成 Markdown 测试报告 (包含测试摘要、详细结果、截图链接)
+
+**Checkpoint**: ✅ Docker 部署成功，Playwright 自动化测试完成，生成验证报告
+
+---
 
 祝开发顺利！🚀

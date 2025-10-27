@@ -171,3 +171,167 @@ docs/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | 性能目标偏离 (20 req/s vs 宪章1000 req/s) | 小规模运营场景，100运营商×10并发游戏=20峰值；单实例成本可控 | 1000 req/s需多实例部署+负载均衡，Phase 0不需要，过度设计增加复杂度和成本；可水平扩展预留 |
+
+---
+
+## Deployment Strategy *(added 2025-10-27)*
+
+### Primary Deployment Method: Docker Compose
+
+**Decision**: 采用 Docker Compose 作为本地开发和生产部署的统一方案
+
+**Rationale**:
+1. **环境一致性**: 开发、测试、生产使用相同的容器配置，避免"在我机器上能跑"的问题
+2. **简化配置**: 不需要手动安装 Python 3.12、Node.js、PostgreSQL，全部在容器内
+3. **易于扩展**: 未来添加 Redis、Nginx、监控服务只需修改 docker-compose.yml
+4. **团队协作**: 新成员只需 `docker-compose up` 即可启动完整环境
+5. **生产就绪**: 可直接在生产服务器使用相同的部署命令
+
+### Container Architecture
+
+```yaml
+# docker-compose.yml 结构
+services:
+  postgres:
+    image: postgres:14-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=mr_gunking
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - PYTHON_VERSION=3.12
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/mr_gunking
+      - JWT_SECRET=${JWT_SECRET}
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        python scripts/seed_data.py &&
+        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000
+    volumes:
+      - ./frontend/src:/app/src  # 热重载支持
+```
+
+### Deployment Steps
+
+#### Local Development (Windows)
+
+```bash
+# 1. 确保 Docker Desktop 已安装并运行
+docker --version
+docker-compose --version
+
+# 2. 配置环境变量
+cp backend/.env.example backend/.env
+# 编辑 .env 文件，设置 DB_PASSWORD 和 JWT_SECRET
+
+# 3. 启动所有服务
+docker-compose up -d
+
+# 4. 查看日志
+docker-compose logs -f
+
+# 5. 访问服务
+# 前端: http://localhost:5173
+# 后端 API: http://localhost:8000/docs
+# 数据库: localhost:5432
+```
+
+#### Production Deployment (Linux Server)
+
+```bash
+# 1. 克隆代码
+git clone <repo-url>
+cd mr_gunking_user_system_spec
+
+# 2. 配置生产环境变量
+cp backend/.env.example backend/.env.prod
+# 设置生产配置：强密码、关闭调试模式等
+
+# 3. 使用生产配置启动
+docker-compose -f docker-compose.prod.yml up -d
+
+# 4. 配置 Nginx 反向代理 (可选)
+# 添加 HTTPS、域名绑定等
+```
+
+### Verification Workflow
+
+**自动化验证**: 使用 Playwright MCP (Claude Code 集成)
+
+**验证流程**:
+1. **服务健康检查**
+   - `docker-compose ps` - 验证所有容器运行中
+   - `curl http://localhost:8000/health` - 后端健康检查
+   - `curl http://localhost:5173` - 前端可访问
+
+2. **数据库验证**
+   - 检查数据库迁移状态: `docker-compose exec backend alembic current`
+   - 验证种子数据: `docker-compose exec postgres psql -U postgres -d mr_gunking -c "SELECT COUNT(*) FROM operator_accounts;"`
+
+3. **前端自动化测试** (Playwright MCP)
+   - 运营商端: 注册 → 登录 → 充值 → 查看统计
+   - 管理员端: 登录 → 创建应用 → 授权管理
+   - 财务端: 登录 → 审核退款 → 生成报表
+
+4. **API 端点测试**
+   - 访问 http://localhost:8000/docs
+   - 测试关键端点: `/v1/auth/operators/login`, `/v1/auth/game/authorize`
+
+**成功标准**:
+- ✅ 所有容器状态为 `Up`
+- ✅ 数据库包含种子数据 (admin, finance, 2个测试运营商)
+- ✅ 后端 `/health` 返回 `{"status": "healthy"}`
+- ✅ 前端所有3端可访问，无 404/500 错误
+- ✅ Playwright 测试至少80%通过
+
+### Rollback Strategy
+
+```bash
+# 回滚到上一个版本
+git checkout <previous-commit>
+docker-compose down
+docker-compose up -d --build
+
+# 数据库回滚
+docker-compose exec backend alembic downgrade -1
+```
+
+### Monitoring & Logs
+
+```bash
+# 实时日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 容器资源使用
+docker stats
+
+# 数据库连接数
+docker-compose exec postgres psql -U postgres -c "SELECT count(*) FROM pg_stat_activity;"
+```
