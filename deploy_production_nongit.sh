@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # =============================================================================
-# MR游戏运营管理系统 - 生产环境直接部署脚本
+# MR游戏运营管理系统 - 生产环境直接部署脚本（非Git版本）
 # =============================================================================
 # 使用说明：
 # 1. 上传此脚本到生产服务器
-# 2. chmod +x deploy_production.sh
-# 3. ./deploy_production.sh
+# 2. chmod +x deploy_production_nongit.sh
+# 3. ./deploy_production_nongit.sh
 # =============================================================================
 
 set -e  # 遇到错误立即退出
@@ -36,15 +36,42 @@ log_error() {
 }
 
 # 配置变量
-PROJECT_DIR="/opt/mr_game_ops"
-BACKUP_DIR="/opt/mr_game_ops/backups"
+PROJECT_DIR="/opt/mr_gunking_user_system_spec"
+BACKUP_DIR="/opt/mr_gunking_user_system_spec/backups"
 DB_HOST="localhost"
 DB_PORT="5432"
 DB_NAME="mr_game_ops"
 DB_USER="mr_admin"
-DB_PASSWORD="your_secure_password_here"  # 请修改为实际密码
+DB_PASSWORD="mr_secure_password_2024"  # 默认密码，可以通过参数修改
 BACKEND_PORT="8000"
 FRONTEND_PORT="3000"
+
+# 解析命令行参数
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --db-password)
+            DB_PASSWORD="$2"
+            shift 2
+            ;;
+        --db-user)
+            DB_USER="$2"
+            shift 2
+            ;;
+        --help)
+            echo "用法: $0 [选项]"
+            echo "选项:"
+            echo "  --db-password PASSWORD  数据库密码"
+            echo "  --db-user USER          数据库用户名"
+            echo "  --help                  显示帮助信息"
+            exit 0
+            ;;
+        *)
+            echo "未知参数: $1"
+            echo "使用 --help 查看帮助信息"
+            exit 1
+            ;;
+    esac
+done
 
 # 检查是否以root权限运行
 if [[ $EUID -ne 0 ]]; then
@@ -54,9 +81,14 @@ fi
 
 # 创建备份目录
 mkdir -p "$BACKUP_DIR"
-mkdir -p "$PROJECT_DIR"
 
 log_info "开始MR游戏运营管理系统生产环境部署..."
+log_info "使用配置："
+echo "  项目目录: $PROJECT_DIR"
+echo "  数据库用户: $DB_USER"
+echo "  数据库密码: $DB_PASSWORD"
+echo "  后端端口: $BACKEND_PORT"
+echo "  前端端口: $FRONTEND_PORT"
 
 # =============================================================================
 # 1. 检查系统依赖
@@ -84,40 +116,56 @@ fi
 log_success "系统依赖检查完成"
 
 # =============================================================================
-# 2. 完全重建数据库
+# 2. 备份现有数据
 # =============================================================================
-log_info "完全重建数据库..."
+log_info "备份现有数据..."
 
-# 删除现有数据库
-PGPASSWORD="$DB_PASSWORD" dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" 2>/dev/null || log_info "数据库不存在，跳过删除"
-
-# 重新创建数据库
-PGPASSWORD="$DB_PASSWORD" createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME"
-log_success "数据库重建完成"
-
-# =============================================================================
-# 3. 更新代码
-# =============================================================================
-log_info "更新项目代码..."
-
-cd "$PROJECT_DIR"
-
-# 如果是git仓库，拉取最新代码
-if [ -d ".git" ]; then
-    git pull origin 001-mr
-    log_success "代码更新完成"
+# 备份数据库
+if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
+    BACKUP_FILE="$BACKUP_DIR/db_backup_$(date +%Y%m%d_%H%M%S).sql"
+    PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" > "$BACKUP_FILE"
+    log_success "数据库备份完成: $BACKUP_FILE"
 else
-    log_error "项目目录不是git仓库，请先克隆项目"
-    exit 1
+    log_warning "数据库连接失败，跳过备份"
 fi
 
 # =============================================================================
-# 4. 初始化数据库架构
+# 3. 设置Git仓库（可选）
 # =============================================================================
-log_info "初始化数据库架构..."
+log_info "检查Git仓库状态..."
 
-# 初始化数据库架构
+cd "$PROJECT_DIR"
+
+if [ ! -d ".git" ]; then
+    log_warning "项目目录不是git仓库"
+    read -p "是否要初始化Git仓库？(y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        log_info "初始化Git仓库..."
+        git init
+        git remote add origin https://github.com/liangzh77/mr_gunking_user_system_spec.git
+        git fetch origin
+        git checkout -b 001-mr origin/001-mr
+        log_success "Git仓库初始化完成"
+    else
+        log_info "跳过Git设置，直接使用现有代码"
+    fi
+else
+    log_info "Git仓库已存在，拉取最新代码..."
+    git pull origin 001-mr || log_warning "拉取代码失败，使用现有代码"
+fi
+
+# =============================================================================
+# 4. 重建数据库
+# =============================================================================
+log_info "重建数据库架构..."
+
+# 删除现有数据库架构
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" << 'EOF'
+-- 删除现有架构
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+
 -- 创建扩展
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -136,7 +184,7 @@ CREATE TABLE IF NOT EXISTS system_configs (
 );
 EOF
 
-log_success "数据库架构初始化完成"
+log_success "数据库架构重建完成"
 
 # =============================================================================
 # 5. 插入种子数据
@@ -218,6 +266,9 @@ if pgrep -f "uvicorn.*main:app" > /dev/null; then
     log_info "停止现有后端服务"
 fi
 
+# 创建日志目录
+mkdir -p logs
+
 # 创建Python虚拟环境
 if [ ! -d "venv" ]; then
     python3 -m venv venv
@@ -230,9 +281,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # 配置环境变量
-if [ ! -f ".env.production" ]; then
-    log_warning "未找到.env.production文件，使用默认配置"
-    cat > .env.production << EOF
+cat > .env.production << EOF
 # 生产环境配置
 DATABASE_URL=postgresql+asyncpg://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME
 REDIS_URL=redis://localhost:6379/0
@@ -242,9 +291,8 @@ ENVIRONMENT=production
 DEBUG=false
 HOST=0.0.0.0
 PORT=$BACKEND_PORT
-CORS_ORIGINS=https://your-domain.com  # 请修改为实际域名
+CORS_ORIGINS=http://localhost:$FRONTEND_PORT,https://your-domain.com
 EOF
-fi
 
 # 启动后端服务
 nohup uvicorn src.main:app --host 0.0.0.0 --port $BACKEND_PORT --env-file .env.production > logs/backend.log 2>&1 &
@@ -266,6 +314,9 @@ if pgrep -f "vite.*--port" > /dev/null; then
     log_info "停止现有前端服务"
 fi
 
+# 创建日志目录
+mkdir -p logs
+
 # 安装依赖
 npm install
 
@@ -273,24 +324,20 @@ npm install
 npm run build
 
 # 配置环境变量
-if [ ! -f ".env.production" ]; then
-    cat > .env.production << EOF
+cat > .env.production << EOF
 VITE_BACKEND_URL=http://localhost:$BACKEND_PORT
 VITE_API_BASE_URL=http://localhost:$BACKEND_PORT/api/v1
 EOF
+
+# 检查serve是否安装
+if ! command -v serve &> /dev/null; then
+    log_info "安装serve包..."
+    npm install -g serve
 fi
 
-# 启动前端服务 (使用serve或者nginx)
-if command -v serve &> /dev/null; then
-    nohup serve -s dist -l $FRONTEND_PORT > logs/frontend.log 2>&1 &
-    FRONTEND_PID=$!
-else
-    # 如果没有serve，使用开发模式（生产环境建议配置nginx）
-    log_warning "未安装serve，使用开发模式，建议配置nginx"
-    nohup npm run dev -- --port $FRONTEND_PORT --host 0.0.0.0 > logs/frontend.log 2>&1 &
-    FRONTEND_PID=$!
-fi
-
+# 启动前端服务
+nohup serve -s dist -l $FRONTEND_PORT > logs/frontend.log 2>&1 &
+FRONTEND_PID=$!
 echo $FRONTEND_PID > logs/frontend.pid
 
 log_success "前端服务启动完成 (PID: $FRONTEND_PID)"
@@ -301,21 +348,42 @@ log_success "前端服务启动完成 (PID: $FRONTEND_PID)"
 log_info "验证部署状态..."
 
 # 等待服务启动
-sleep 10
+sleep 15
 
 # 检查后端服务
-if curl -f -s "http://localhost:$BACKEND_PORT/health" > /dev/null; then
-    log_success "后端服务验证通过"
-else
-    log_error "后端服务验证失败"
+MAX_RETRIES=10
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -f -s "http://localhost:$BACKEND_PORT/health" > /dev/null; then
+        log_success "后端服务验证通过"
+        break
+    else
+        log_info "等待后端服务启动... ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+        sleep 5
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    fi
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    log_error "后端服务验证失败，请检查日志: $PROJECT_DIR/backend/logs/backend.log"
     exit 1
 fi
 
 # 检查前端服务
-if curl -f -s "http://localhost:$FRONTEND_PORT" > /dev/null; then
-    log_success "前端服务验证通过"
-else
-    log_error "前端服务验证失败"
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -f -s "http://localhost:$FRONTEND_PORT" > /dev/null; then
+        log_success "前端服务验证通过"
+        break
+    else
+        log_info "等待前端服务启动... ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+        sleep 5
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    fi
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    log_error "前端服务验证失败，请检查日志: $PROJECT_DIR/frontend/logs/frontend.log"
     exit 1
 fi
 
@@ -384,6 +452,11 @@ echo "后端服务: http://localhost:$BACKEND_PORT"
 echo "前端服务: http://localhost:$FRONTEND_PORT"
 echo "备份目录: $BACKUP_DIR"
 echo ""
+echo "数据库配置："
+echo "用户: $DB_USER"
+echo "密码: $DB_PASSWORD"
+echo "数据库: $DB_NAME"
+echo ""
 echo "登录凭据："
 echo "管理员: superadmin / admin123456"
 echo "财务: finance_wang / finance123456"
@@ -401,11 +474,11 @@ echo "后端日志: tail -f $PROJECT_DIR/backend/logs/backend.log"
 echo "前端日志: tail -f $PROJECT_DIR/frontend/logs/frontend.log"
 echo "=========================================="
 
-log_warning "请确保："
-echo "1. 修改脚本中的数据库密码为实际密码"
-echo "2. 更新CORS配置中的域名为实际域名"
-echo "3. 配置防火墙规则开放端口 $BACKEND_PORT 和 $FRONTEND_PORT"
-echo "4. 建议配置nginx反向代理"
-echo "5. 定期备份数据库"
+log_warning "重要提醒："
+echo "1. 请更新CORS配置中的域名为实际域名"
+echo "2. 配置防火墙规则开放端口 $BACKEND_PORT 和 $FRONTEND_PORT"
+echo "3. 建议配置nginx反向代理"
+echo "4. 定期备份数据库"
+echo "5. 生产环境建议使用HTTPS"
 
 exit 0
