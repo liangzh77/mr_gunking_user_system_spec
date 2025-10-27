@@ -1,0 +1,1208 @@
+paths:
+  /finance/dashboard:
+    get:
+      tags:
+        - 财务-仪表盘
+      summary: 今日收入概览
+      description: 查看今日财务数据汇总（充值、消费、退款、净收入）
+      operationId: getFinanceDashboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - today_recharge
+                      - today_consumption
+                      - today_refund
+                      - today_net_income
+                      - total_operators
+                      - active_operators_today
+                    properties:
+                      today_recharge:
+                        type: string
+                        description: 今日充值总额
+                        example: "15000.00"
+                      today_consumption:
+                        type: string
+                        description: 今日消费总额
+                        example: "12000.00"
+                      today_refund:
+                        type: string
+                        description: 今日退款总额
+                        example: "500.00"
+                      today_net_income:
+                        type: string
+                        description: 今日净收入（充值 - 退款）
+                        example: "14500.00"
+                      total_operators:
+                        type: integer
+                        description: 总运营商数
+                        example: 150
+                      active_operators_today:
+                        type: integer
+                        description: 今日活跃运营商数（有交易）
+                        example: 45
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/dashboard/trends:
+    get:
+      tags:
+        - 财务-仪表盘
+      summary: 本月收入趋势
+      description: 查看本月每日收入趋势（折线图数据）
+      operationId: getFinanceTrends
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          description: 月份（YYYY-MM格式，默认当前月）
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: "2025-01"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - month
+                      - chart_data
+                      - summary
+                    properties:
+                      month:
+                        type: string
+                        example: "2025-01"
+                      chart_data:
+                        type: array
+                        description: 每日趋势数据
+                        items:
+                          type: object
+                          required:
+                            - date
+                            - recharge
+                            - consumption
+                            - refund
+                            - net_income
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                              example: "2025-01-15"
+                            recharge:
+                              type: string
+                              description: 当日充值
+                              example: "15000.00"
+                            consumption:
+                              type: string
+                              description: 当日消费
+                              example: "12000.00"
+                            refund:
+                              type: string
+                              description: 当日退款
+                              example: "500.00"
+                            net_income:
+                              type: string
+                              description: 当日净收入
+                              example: "14500.00"
+                      summary:
+                        type: object
+                        description: 本月汇总
+                        required:
+                          - total_recharge
+                          - total_consumption
+                          - total_refund
+                          - total_net_income
+                        properties:
+                          total_recharge:
+                            type: string
+                            example: "350000.00"
+                          total_consumption:
+                            type: string
+                            example: "280000.00"
+                          total_refund:
+                            type: string
+                            example: "5000.00"
+                          total_net_income:
+                            type: string
+                            example: "345000.00"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/top-customers:
+    get:
+      tags:
+        - 财务-仪表盘
+      summary: TOP客户列表
+      description: 查询消费额排名前列的客户（大客户分析）
+      operationId: getTopCustomers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: 返回TOP客户数量
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - $ref: '../openapi.yaml#/components/parameters/StartTimeParam'
+        - $ref: '../openapi.yaml#/components/parameters/EndTimeParam'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - customers
+                      - total_consumption
+                    properties:
+                      customers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TopCustomer'
+                      total_consumption:
+                        type: string
+                        description: 所有客户总消费额
+                        example: "280000.00"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/customers/{operator_id}/details:
+    get:
+      tags:
+        - 财务-仪表盘
+      summary: 查询客户详细财务信息
+      description: 查询指定运营商的详细财务数据（用于退款审核等）
+      operationId: getCustomerFinanceDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CustomerFinanceDetails'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/refunds:
+    get:
+      tags:
+        - 财务-退款审核
+      summary: 查询待审核退款列表
+      description: 查询运营商提交的退款申请
+      operationId: getRefunds
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          description: 审核状态
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RefundRequestFinance'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/refunds/{refund_id}:
+    get:
+      tags:
+        - 财务-退款审核
+      summary: 查询退款详情
+      description: 查询单个退款申请的详细信息（包含运营商财务数据）
+      operationId: getRefundDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          description: 退款申请ID
+          schema:
+            type: string
+            example: "refund_20250115_001"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/RefundRequestFinance'
+                      - type: object
+                        required:
+                          - operator_finance
+                        properties:
+                          operator_finance:
+                            $ref: '#/components/schemas/CustomerFinanceDetails'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/refunds/{refund_id}/approve:
+    post:
+      tags:
+        - 财务-退款审核
+      summary: 批准退款
+      description: |
+        批准退款申请，退还当前账户余额
+
+        **注意**: 审核通过时重新计算可退余额（防止审核期间有新消费）
+      operationId: approveRefund
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          description: 退款申请ID
+          schema:
+            type: string
+            example: "refund_20250115_001"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: 审批备注（可选）
+                  maxLength: 200
+                  example: "退款已处理，退款金额: 80.00元（审核期间有新消费）"
+      responses:
+        '200':
+          description: 批准成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "退款已批准并处理"
+                  data:
+                    type: object
+                    required:
+                      - refund_id
+                      - actual_refund_amount
+                      - balance_after
+                    properties:
+                      refund_id:
+                        type: string
+                        example: "refund_20250115_001"
+                      requested_amount:
+                        type: string
+                        description: 申请金额
+                        example: "100.00"
+                      actual_refund_amount:
+                        type: string
+                        description: 实际退款金额
+                        example: "80.00"
+                      balance_after:
+                        type: string
+                        description: 退款后余额
+                        example: "0.00"
+        '400':
+          description: 退款申请已处理或无可退余额
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "INVALID_PARAMS"
+                message: "该申请已处理，无法重复操作"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/refunds/{refund_id}/reject:
+    post:
+      tags:
+        - 财务-退款审核
+      summary: 拒绝退款
+      description: 拒绝退款申请
+      operationId: rejectRefund
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          description: 退款申请ID
+          schema:
+            type: string
+            example: "refund_20250115_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: 拒绝原因
+                  minLength: 10
+                  maxLength: 200
+                  example: "退款原因不符合公司政策，建议继续使用或联系客服"
+      responses:
+        '200':
+          description: 拒绝成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "退款已拒绝"
+        '400':
+          description: 退款申请已处理
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "INVALID_PARAMS"
+                message: "该申请已处理，无法重复操作"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/invoices:
+    get:
+      tags:
+        - 财务-发票审核
+      summary: 查询待审核发票列表
+      description: 查询运营商提交的发票申请
+      operationId: getInvoices
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          description: 审核状态
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InvoiceRequestFinance'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/invoices/{invoice_id}/approve:
+    post:
+      tags:
+        - 财务-发票审核
+      summary: 批准发票申请
+      description: 批准发票申请并生成电子发票PDF
+      operationId: approveInvoice
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: invoice_id
+          in: path
+          required: true
+          description: 发票申请ID
+          schema:
+            type: string
+            example: "inv_20250115_001"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: 审批备注（可选）
+                  maxLength: 200
+                  example: "发票已生成并发送至邮箱"
+      responses:
+        '200':
+          description: 批准成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "发票已批准并生成"
+                  data:
+                    type: object
+                    required:
+                      - invoice_id
+                      - pdf_url
+                    properties:
+                      invoice_id:
+                        type: string
+                        example: "inv_20250115_001"
+                      pdf_url:
+                        type: string
+                        format: uri
+                        description: 发票PDF下载链接
+                        example: "https://api.example.com/invoices/inv_20250115_001.pdf"
+        '400':
+          description: 发票申请已处理
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "INVALID_PARAMS"
+                message: "该申请已处理，无法重复操作"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/reports/generate:
+    post:
+      tags:
+        - 财务-报表生成
+      summary: 生成财务报表
+      description: 根据指定时间范围和报表类型生成财务报表（PDF/Excel）
+      operationId: generateFinanceReport
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - report_type
+                - start_date
+                - end_date
+                - format
+              properties:
+                report_type:
+                  type: string
+                  enum: [daily, weekly, monthly, custom]
+                  description: 报表类型
+                  example: "monthly"
+                start_date:
+                  type: string
+                  format: date
+                  description: 开始日期
+                  example: "2025-01-01"
+                end_date:
+                  type: string
+                  format: date
+                  description: 结束日期
+                  example: "2025-01-31"
+                format:
+                  type: string
+                  enum: [pdf, excel]
+                  description: 报表格式
+                  example: "pdf"
+                include_sections:
+                  type: array
+                  description: 包含的报表章节（可选，默认全部）
+                  items:
+                    type: string
+                    enum: [income_summary, top_customers, usage_statistics, refund_summary]
+                  example: ["income_summary", "top_customers", "usage_statistics"]
+      responses:
+        '201':
+          description: 报表生成任务已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "报表正在生成，预计5分钟完成"
+                  data:
+                    type: object
+                    required:
+                      - report_id
+                      - status
+                      - estimated_time
+                    properties:
+                      report_id:
+                        type: string
+                        example: "rpt_20250115_001"
+                      status:
+                        type: string
+                        enum: [generating, completed, failed]
+                        example: "generating"
+                      estimated_time:
+                        type: integer
+                        description: 预计完成时间（秒）
+                        example: 300
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/reports:
+    get:
+      tags:
+        - 财务-报表生成
+      summary: 查询历史报表列表
+      description: 查询已生成的财务报表
+      operationId: getFinanceReports
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - name: report_type
+          in: query
+          description: 报表类型筛选
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, custom, all]
+            default: all
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FinanceReport'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/reports/{report_id}/download:
+    get:
+      tags:
+        - 财务-报表生成
+      summary: 下载财务报表
+      description: 下载已生成的财务报表文件（PDF/Excel）
+      operationId: downloadFinanceReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          description: 报表ID
+          schema:
+            type: string
+            example: "rpt_20250115_001"
+      responses:
+        '200':
+          description: 下载成功
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          description: 报表不存在或未完成
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "REPORT_NOT_READY"
+                message: "报表尚未生成完成，请稍后重试"
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /finance/audit-logs:
+    get:
+      tags:
+        - 财务-审计日志
+      summary: 查询财务操作审计日志
+      description: 查询所有财务人员的操作记录（退款审核、发票审核、报表生成等）
+      operationId: getFinanceAuditLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - $ref: '../openapi.yaml#/components/parameters/StartTimeParam'
+        - $ref: '../openapi.yaml#/components/parameters/EndTimeParam'
+        - name: operation_type
+          in: query
+          description: 操作类型筛选
+          required: false
+          schema:
+            type: string
+            enum: [refund_approve, refund_reject, invoice_approve, report_generate, all]
+            default: all
+        - name: finance_id
+          in: query
+          description: 财务人员ID筛选
+          required: false
+          schema:
+            type: string
+            example: "fin_001"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    TopCustomer:
+      type: object
+      required:
+        - rank
+        - operator_id
+        - operator_name
+        - category
+        - total_consumption
+        - consumption_percentage
+        - total_sessions
+      properties:
+        rank:
+          type: integer
+          description: 排名
+          example: 1
+        operator_id:
+          type: string
+          example: "op_12345"
+        operator_name:
+          type: string
+          example: "北京星空娱乐有限公司"
+        category:
+          type: string
+          enum: [trial, normal, vip]
+          description: 客户分类
+          example: "vip"
+        total_consumption:
+          type: string
+          description: 总消费额
+          example: "25000.00"
+        consumption_percentage:
+          type: number
+          format: float
+          description: 消费占比（百分比）
+          example: 8.93
+        total_sessions:
+          type: integer
+          description: 总游戏场次
+          example: 250
+
+    CustomerFinanceDetails:
+      type: object
+      required:
+        - operator_id
+        - operator_name
+        - category
+        - current_balance
+        - total_recharged
+        - total_consumed
+        - total_refunded
+        - total_sessions
+        - first_transaction_at
+        - last_transaction_at
+      properties:
+        operator_id:
+          type: string
+          example: "op_12345"
+        operator_name:
+          type: string
+          example: "北京星空娱乐有限公司"
+        category:
+          type: string
+          enum: [trial, normal, vip]
+          example: "normal"
+        current_balance:
+          type: string
+          description: 当前余额
+          example: "100.00"
+        total_recharged:
+          type: string
+          description: 累计充值
+          example: "5000.00"
+        total_consumed:
+          type: string
+          description: 累计消费
+          example: "4800.00"
+        total_refunded:
+          type: string
+          description: 累计退款
+          example: "100.00"
+        total_sessions:
+          type: integer
+          description: 总游戏场次
+          example: 120
+        first_transaction_at:
+          type: string
+          format: date-time
+          description: 首次交易时间
+          example: "2025-01-01T10:00:00.000Z"
+        last_transaction_at:
+          type: string
+          format: date-time
+          description: 最后交易时间
+          nullable: true
+          example: "2025-01-15T10:20:00.000Z"
+
+    RefundRequestFinance:
+      type: object
+      required:
+        - refund_id
+        - operator_id
+        - operator_name
+        - requested_amount
+        - current_balance
+        - status
+        - reason
+        - created_at
+      properties:
+        refund_id:
+          type: string
+          example: "refund_20250115_001"
+        operator_id:
+          type: string
+          example: "op_12345"
+        operator_name:
+          type: string
+          example: "北京星空娱乐有限公司"
+        operator_category:
+          type: string
+          enum: [trial, normal, vip]
+          example: "normal"
+        requested_amount:
+          type: string
+          description: 申请退款金额（申请时余额）
+          example: "100.00"
+        current_balance:
+          type: string
+          description: 当前账户余额（审核时实时余额）
+          example: "80.00"
+        actual_refund_amount:
+          type: string
+          description: 实际退款金额（审核通过后）
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: 审核状态
+          example: "pending"
+        reason:
+          type: string
+          description: 退款原因
+          example: "业务调整，不再继续使用"
+        reject_reason:
+          type: string
+          description: 拒绝原因
+          nullable: true
+          example: null
+        reviewed_by:
+          type: string
+          description: 审核人ID
+          nullable: true
+          example: null
+        reviewed_at:
+          type: string
+          format: date-time
+          description: 审核时间
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T16:00:00.000Z"
+
+    InvoiceRequestFinance:
+      type: object
+      required:
+        - invoice_id
+        - operator_id
+        - operator_name
+        - amount
+        - invoice_title
+        - tax_id
+        - status
+        - created_at
+      properties:
+        invoice_id:
+          type: string
+          example: "inv_20250115_001"
+        operator_id:
+          type: string
+          example: "op_12345"
+        operator_name:
+          type: string
+          example: "北京星空娱乐有限公司"
+        operator_category:
+          type: string
+          enum: [trial, normal, vip]
+          example: "normal"
+        amount:
+          type: string
+          description: 开票金额
+          example: "1000.00"
+        invoice_title:
+          type: string
+          description: 发票抬头
+          example: "北京星空娱乐有限公司"
+        tax_id:
+          type: string
+          description: 纳税人识别号
+          example: "91110000123456789X"
+        email:
+          type: string
+          format: email
+          description: 接收邮箱
+          example: "finance@example.com"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: 审核状态
+          example: "pending"
+        pdf_url:
+          type: string
+          format: uri
+          description: 发票PDF下载链接（status=approved时）
+          nullable: true
+          example: null
+        reviewed_by:
+          type: string
+          description: 审核人ID
+          nullable: true
+          example: null
+        reviewed_at:
+          type: string
+          format: date-time
+          description: 审核时间
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T17:00:00.000Z"
+
+    FinanceReport:
+      type: object
+      required:
+        - report_id
+        - report_type
+        - start_date
+        - end_date
+        - format
+        - status
+        - created_at
+      properties:
+        report_id:
+          type: string
+          example: "rpt_20250115_001"
+        report_type:
+          type: string
+          enum: [daily, weekly, monthly, custom]
+          description: 报表类型
+          example: "monthly"
+        start_date:
+          type: string
+          format: date
+          description: 开始日期
+          example: "2025-01-01"
+        end_date:
+          type: string
+          format: date
+          description: 结束日期
+          example: "2025-01-31"
+        format:
+          type: string
+          enum: [pdf, excel]
+          description: 报表格式
+          example: "pdf"
+        status:
+          type: string
+          enum: [generating, completed, failed]
+          description: 生成状态
+          example: "completed"
+        file_size:
+          type: integer
+          description: 文件大小（字节）
+          nullable: true
+          example: 2457600
+        download_url:
+          type: string
+          format: uri
+          description: 下载链接（status=completed时）
+          nullable: true
+          example: "https://api.example.com/finance/reports/rpt_20250115_001/download"
+        error_message:
+          type: string
+          description: 错误信息（status=failed时）
+          nullable: true
+          example: null
+        created_by:
+          type: string
+          description: 生成人ID
+          example: "fin_001"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T18:00:00.000Z"
+        completed_at:
+          type: string
+          format: date-time
+          description: 完成时间
+          nullable: true
+          example: "2025-01-15T18:04:30.000Z"
+
+    AuditLog:
+      type: object
+      required:
+        - log_id
+        - finance_id
+        - finance_name
+        - operation_type
+        - target_resource_id
+        - operation_details
+        - ip_address
+        - created_at
+      properties:
+        log_id:
+          type: string
+          example: "log_20250115_123456"
+        finance_id:
+          type: string
+          description: 财务人员ID
+          example: "fin_001"
+        finance_name:
+          type: string
+          description: 财务人员姓名
+          example: "张财务"
+        operation_type:
+          type: string
+          enum: [refund_approve, refund_reject, invoice_approve, invoice_reject, report_generate, view_api_key]
+          description: 操作类型
+          example: "refund_approve"
+        target_resource_id:
+          type: string
+          description: 目标资源ID（退款ID、发票ID等）
+          example: "refund_20250115_001"
+        operation_details:
+          type: object
+          description: 操作详情（JSON格式）
+          additionalProperties: true
+          example:
+            operator_id: "op_12345"
+            operator_name: "北京星空娱乐有限公司"
+            refund_amount: "80.00"
+            note: "退款已处理"
+        ip_address:
+          type: string
+          description: 操作IP地址
+          example: "192.168.1.100"
+        user_agent:
+          type: string
+          description: 用户代理
+          example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+        created_at:
+          type: string
+          format: date-time
+          description: 操作时间
+          example: "2025-01-15T18:30:00.000Z"
