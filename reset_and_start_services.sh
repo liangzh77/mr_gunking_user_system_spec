@@ -38,7 +38,7 @@ BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
 LOGS_DIR="$PROJECT_DIR/logs"
 BACKEND_PORT=8001
-FRONTEND_PORT=3000
+FRONTEND_PORT=80
 
 log_info "开始服务清理重启流程..."
 echo "项目目录: $PROJECT_DIR"
@@ -264,7 +264,7 @@ echo "=========================================="
 echo "服务状态总结："
 echo "=========================================="
 echo "后端服务: http://localhost:$BACKEND_PORT (原8000改为8001)"
-echo "前端服务: http://localhost:$FRONTEND_PORT"
+echo "前端服务: http://localhost:$FRONTEND_PORT (标准HTTP端口)"
 echo ""
 echo "进程信息："
 echo "后端PID: $(cat $BACKEND_DIR/logs/backend.pid 2>/dev/null || echo '未知')"
