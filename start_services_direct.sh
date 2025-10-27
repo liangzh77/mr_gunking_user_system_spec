@@ -42,7 +42,7 @@ DB_PORT="5432"
 DB_NAME="mr_game_ops"
 DB_USER="mr_admin"
 DB_PASSWORD="mr_secure_password_2024"
-BACKEND_PORT="8000"
+BACKEND_PORT="8001"
 FRONTEND_PORT="3000"
 
 # 解析命令行参数
@@ -427,7 +427,7 @@ ENVIRONMENT=production
 DEBUG=false
 HOST=0.0.0.0
 PORT=$BACKEND_PORT
-CORS_ORIGINS=http://localhost:$FRONTEND_PORT,https://your-domain.com
+CORS_ORIGINS=http://localhost:$FRONTEND_PORT,http://localhost:$BACKEND_PORT,https://your-domain.com
 EOF
 
 # 启动后端服务
@@ -601,7 +601,7 @@ echo ""
 echo "=========================================="
 echo "服务状态总结："
 echo "=========================================="
-echo "后端服务: http://localhost:$BACKEND_PORT"
+echo "后端服务: http://localhost:$BACKEND_PORT (已从8000改为8001)"
 echo "前端服务: http://localhost:$FRONTEND_PORT"
 echo "项目目录: $PROJECT_DIR"
 echo ""
@@ -634,7 +634,7 @@ echo "=========================================="
 
 log_warning "重要提醒："
 echo "1. 请更新CORS配置中的域名为实际域名"
-echo "2. 配置防火墙规则开放端口 $BACKEND_PORT 和 $FRONTEND_PORT"
+echo "2. 配置防火墙规则开放端口 $BACKEND_PORT(原8000) 和 $FRONTEND_PORT"
 echo "3. 建议配置nginx反向代理"
 echo "4. 生产环境建议使用HTTPS"
 echo "5. 定期备份数据库"
