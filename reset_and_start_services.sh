@@ -79,12 +79,12 @@ else
     log_success "端口 $BACKEND_PORT 当前未被占用"
 fi
 
-# 强制杀死占用3000端口的进程
-log_info "强制杀死占用3000端口的进程..."
-PID_3000=$(lsof -ti:$FRONTEND_PORT 2>/dev/null || true)
-if [ ! -z "$PID_3000" ]; then
-    log_warning "发现占用端口$FRONTEND_PORT的进程: $PID_3000"
-    kill -9 $PID_3000 2>/dev/null || log_warning "无法强制杀死进程 $PID_3000"
+# 强制杀死占用80端口的进程
+log_info "强制杀死占用80端口的进程..."
+PID_80=$(lsof -ti:$FRONTEND_PORT 2>/dev/null || true)
+if [ ! -z "$PID_80" ]; then
+    log_warning "发现占用端口$FRONTEND_PORT的进程: $PID_80"
+    kill -9 $PID_80 2>/dev/null || log_warning "无法强制杀死进程 $PID_80"
     sleep 2
 else
     log_success "端口 $FRONTEND_PORT 当前未被占用"
@@ -126,7 +126,7 @@ else
     log_success "端口 $BACKEND_PORT 已完全释放"
 fi
 
-# 检查3000端口
+# 检查80端口
 if lsof -ti:$FRONTEND_PORT >/dev/null 2>&1; then
     log_error "端口 $FRONTEND_PORT 仍被占用！"
     lsof -ti:$FRONTEND_PORT | xargs ps -p

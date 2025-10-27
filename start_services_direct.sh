@@ -43,7 +43,7 @@ DB_NAME="mr_game_ops"
 DB_USER="mr_admin"
 DB_PASSWORD="mr_secure_password_2024"
 BACKEND_PORT="8001"
-FRONTEND_PORT="3000"
+FRONTEND_PORT="80"
 
 # 解析命令行参数
 while [[ $# -gt 0 ]]; do
@@ -73,8 +73,8 @@ while [[ $# -gt 0 ]]; do
             echo "选项:"
             echo "  --db-password PASSWORD     数据库密码"
             echo "  --db-user USER             数据库用户名"
-            echo "  --backend-port PORT        后端端口 (默认: 8000)"
-            echo "  --frontend-port PORT       前端端口 (默认: 3000)"
+            echo "  --backend-port PORT        后端端口 (默认: 8001)"
+            echo "  --frontend-port PORT       前端端口 (默认: 80)"
             echo "  --skip-db-reset            跳过数据库重置"
             echo "  --help                     显示帮助信息"
             exit 0
