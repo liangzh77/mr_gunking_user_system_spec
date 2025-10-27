@@ -1,4 +1,4 @@
-# Tasks: MR游戏运营管理系统
+﻿# Tasks: MR游戏运营管理系统
 
 **Feature Branch**: `001-mr`
 **Input**: Design documents from `/specs/001-mr/`
@@ -799,30 +799,30 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 
 ### 部署准备
 
-- [ ] T291 检查 Docker 环境 (Docker Desktop 已安装并运行)
-- [ ] T292 检查 docker-compose.yml 配置 (数据库、后端、前端服务定义)
-- [ ] T293 检查 backend/Dockerfile (Python 3.12 基础镜像、依赖安装、启动脚本)
-- [ ] T294 检查 frontend/Dockerfile.dev (Node.js、Vite 配置、热重载支持)
-- [ ] T295 配置环境变量 in backend/.env (DATABASE_URL, JWT_SECRET, DB_PASSWORD)
+- [X] T291 检查 Docker 环境 (Docker Desktop 已安装并运行)
+- [X] T292 检查 docker-compose.yml 配置 (数据库、后端、前端服务定义)
+- [X] T293 检查 backend/Dockerfile (Python 3.12 基础镜像、依赖安装、启动脚本)
+- [X] T294 检查 frontend/Dockerfile.dev (Node.js、Vite 配置、热重载支持)
+- [X] T295 配置环境变量 in backend/.env (DATABASE_URL, JWT_SECRET, DB_PASSWORD)
 
 ### Docker 部署
 
-- [ ] T296 构建 Docker 镜像 (docker-compose build)
-- [ ] T297 启动所有容器 (docker-compose up -d: postgres, backend, frontend)
-- [ ] T298 检查容器状态 (docker-compose ps, 验证所有容器 Up)
-- [ ] T299 查看服务日志 (docker-compose logs -f, 验证无错误)
+- [X] T296 构建 Docker 镜像 (docker-compose build)
+- [X] T297 启动所有容器 (docker-compose up -d: postgres, backend, frontend)
+- [X] T298 检查容器状态 (docker-compose ps, 验证所有容器 Up)
+- [X] T299 查看服务日志 (docker-compose logs -f, 验证无错误)
 
 ### 数据库初始化
 
-- [ ] T300 运行数据库迁移 (docker-compose exec backend alembic upgrade head)
+- [X] T300 运行数据库迁移 (docker-compose exec backend alembic upgrade head)
 - [ ] T301 导入种子数据 (docker-compose exec backend python scripts/seed_data.py)
 - [ ] T302 验证种子数据 (检查 admin, finance, 测试运营商账号)
 
 ### 服务验证
 
-- [ ] T303 后端健康检查 (curl http://localhost:8000/health, 期望 200 + {"status":"healthy"})
+- [X] T303 后端健康检查 (curl http://localhost:8000/health, 期望 200 + {"status":"healthy"})
 - [ ] T304 后端 API 文档访问 (浏览器访问 http://localhost:8000/docs, 验证 Swagger UI 正常)
-- [ ] T305 前端页面访问 (浏览器访问 http://localhost:5173, 验证首页加载)
+- [X] T305 前端页面访问 (浏览器访问 http://localhost:5173, 验证首页加载)
 
 ### Playwright 自动化测试 (运营商端)
 
