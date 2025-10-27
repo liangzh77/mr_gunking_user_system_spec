@@ -38,9 +38,8 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        // Vite运行在Docker容器内，始终使用Docker内部网络访问后端
-        // 无论是localhost还是FRP访问，代理目标都是backend:8000
-        target: process.env.VITE_BACKEND_URL || 'http://backend:8000',
+        // 本地开发环境，使用localhost:8000访问后端
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         ws: true,

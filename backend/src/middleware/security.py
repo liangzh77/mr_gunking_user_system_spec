@@ -104,11 +104,11 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         # Restrict resource loading to prevent XSS
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Allow Vue/React
-            "style-src 'self' 'unsafe-inline'",  # Allow inline styles
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",  # Allow Vue/React & Swagger UI
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Allow inline styles & Swagger UI CSS
             "img-src 'self' data: https:",
-            "font-src 'self' data:",
-            "connect-src 'self'",
+            "font-src 'self' data: https://cdn.jsdelivr.net",
+            "connect-src 'self' https://cdn.jsdelivr.net",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -174,11 +174,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
             "img-src 'self' data: https:",
-            "font-src 'self' data:",
-            "connect-src 'self'",
+            "font-src 'self' data: https://cdn.jsdelivr.net",
+            "connect-src 'self' https://cdn.jsdelivr.net",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
