@@ -518,52 +518,52 @@
 
 ### 前端基础设施
 
-- [ ] T224 配置Vue Router in frontend/src/router/index.ts (三端路由: /operator, /admin, /finance)
-- [ ] T225 配置Pinia状态管理 in frontend/src/stores/ (auth, user, config)
-- [ ] T226 配置Axios HTTP客户端 in frontend/src/utils/http.ts (拦截器、错误处理)
+- [X] T224 配置Vue Router in frontend/src/router/index.ts (三端路由: /operator, /admin, /finance)
+- [X] T225 配置Pinia状态管理 in frontend/src/stores/ (auth, user, config)
+- [X] T226 配置Axios HTTP客户端 in frontend/src/utils/http.ts (拦截器、错误处理)
 - [ ] T227 [P] 实现通用组件 in frontend/src/components/ (LoadingSpinner, Pagination, DataTable, Chart)
 - [ ] T228 [P] 实现认证Guard in frontend/src/router/guards.ts (JWT验证、权限检查)
 
 ### 运营商端前端 (15个页面)
 
-- [ ] T229 [P] 实现运营商登录页 in frontend/src/pages/operator/Login.vue
-- [ ] T230 [P] 实现运营商注册页 in frontend/src/pages/operator/Register.vue
-- [ ] T231 [P] 实现仪表盘页面 in frontend/src/pages/operator/Dashboard.vue (余额、消费概览)
-- [ ] T232 [P] 实现账户管理页 in frontend/src/pages/operator/Profile.vue
-- [ ] T233 [P] 实现充值页面 in frontend/src/pages/operator/Recharge.vue
-- [ ] T234 [P] 实现交易记录页 in frontend/src/pages/operator/Transactions.vue
-- [ ] T235 [P] 实现退款申请页 in frontend/src/pages/operator/Refunds.vue
-- [ ] T236 [P] 实现发票申请页 in frontend/src/pages/operator/Invoices.vue
-- [ ] T237 [P] 实现运营点管理页 in frontend/src/pages/operator/Sites.vue
-- [ ] T238 [P] 实现已授权应用页 in frontend/src/pages/operator/Applications.vue
-- [ ] T239 [P] 实现应用授权申请页 in frontend/src/pages/operator/AppRequests.vue
-- [ ] T240 [P] 实现使用记录页 in frontend/src/pages/operator/UsageRecords.vue
-- [ ] T241 [P] 实现消费统计页 in frontend/src/pages/operator/Statistics.vue (ECharts图表)
-- [ ] T242 [P] 实现消息中心页 in frontend/src/pages/operator/Messages.vue
+- [X] T229 [P] 实现运营商登录页 in frontend/src/pages/operator/Login.vue
+- [X] T230 [P] 实现运营商注册页 in frontend/src/pages/operator/Register.vue
+- [X] T231 [P] 实现仪表盘页面 in frontend/src/pages/operator/Dashboard.vue (余额、消费概览)
+- [X] T232 [P] 实现账户管理页 in frontend/src/pages/operator/Profile.vue
+- [X] T233 [P] 实现充值页面 in frontend/src/pages/operator/Recharge.vue
+- [X] T234 [P] 实现交易记录页 in frontend/src/pages/operator/Transactions.vue
+- [X] T235 [P] 实现退款申请页 in frontend/src/pages/operator/Refunds.vue
+- [X] T236 [P] 实现发票申请页 in frontend/src/pages/operator/Invoices.vue
+- [X] T237 [P] 实现运营点管理页 in frontend/src/pages/operator/Sites.vue
+- [X] T238 [P] 实现已授权应用页 in frontend/src/pages/operator/Applications.vue
+- [X] T239 [P] 实现应用授权申请页 in frontend/src/pages/operator/AppRequests.vue
+- [X] T240 [P] 实现使用记录页 in frontend/src/pages/operator/UsageRecords.vue
+- [X] T241 [P] 实现消费统计页 in frontend/src/pages/operator/Statistics.vue (ECharts图表)
+- [X] T242 [P] 实现消息中心页 in frontend/src/pages/operator/Messages.vue
 - [ ] T243 [P] 实现数据导出页 in frontend/src/pages/operator/Export.vue
 - [ ] T243a [P] 实现前端Vue组件单元测试 in frontend/tests/unit/ (使用Vitest，至少覆盖核心业务组件：Dashboard.vue、Recharge.vue、Statistics.vue，验证数据渲染、用户交互、API调用)
 
 ### 管理员端前端 (10个页面)
 
-- [ ] T244 [P] 实现管理员登录页 in frontend/src/pages/admin/Login.vue
-- [ ] T245 [P] 实现管理员仪表盘 in frontend/src/pages/admin/Dashboard.vue
-- [ ] T246 [P] 实现运营商列表页 in frontend/src/pages/admin/Operators.vue
+- [X] T244 [P] 实现管理员登录页 in frontend/src/pages/admin/Login.vue
+- [X] T245 [P] 实现管理员仪表盘 in frontend/src/pages/admin/Dashboard.vue
+- [X] T246 [P] 实现运营商列表页 in frontend/src/pages/admin/Operators.vue
 - [ ] T247 [P] 实现运营商详情页 in frontend/src/pages/admin/OperatorDetail.vue
 - [ ] T248 [P] 实现创建运营商页 in frontend/src/pages/admin/CreateOperator.vue
-- [ ] T249 [P] 实现应用管理页 in frontend/src/pages/admin/Applications.vue
-- [ ] T250 [P] 实现创建应用页 in frontend/src/pages/admin/CreateApplication.vue
-- [ ] T251 [P] 实现授权申请审批页 in frontend/src/pages/admin/AppRequests.vue
+- [X] T249 [P] 实现应用管理页 in frontend/src/pages/admin/Applications.vue
+- [X] T250 [P] 实现创建应用页 in frontend/src/pages/admin/CreateApplication.vue
+- [X] T251 [P] 实现授权申请审批页 in frontend/src/pages/admin/AppRequests.vue
 - [ ] T252 [P] 实现授权管理页 in frontend/src/pages/admin/Authorizations.vue
 - [ ] T253 [P] 实现系统公告页 in frontend/src/pages/admin/Announcements.vue
 
 ### 财务端前端 (5个页面)
 
-- [ ] T254 [P] 实现财务登录页 in frontend/src/pages/finance/Login.vue
-- [ ] T255 [P] 实现财务仪表盘 in frontend/src/pages/finance/Dashboard.vue (收入概览、大客户分析)
-- [ ] T256 [P] 实现退款审核页 in frontend/src/pages/finance/Refunds.vue
-- [ ] T257 [P] 实现发票审核页 in frontend/src/pages/finance/Invoices.vue
-- [ ] T258 [P] 实现财务报表页 in frontend/src/pages/finance/Reports.vue (生成和导出)
-- [ ] T259 [P] 实现审计日志页 in frontend/src/pages/finance/AuditLogs.vue
+- [X] T254 [P] 实现财务登录页 in frontend/src/pages/finance/Login.vue
+- [X] T255 [P] 实现财务仪表盘 in frontend/src/pages/finance/Dashboard.vue (收入概览、大客户分析)
+- [X] T256 [P] 实现退款审核页 in frontend/src/pages/finance/Refunds.vue
+- [X] T257 [P] 实现发票审核页 in frontend/src/pages/finance/Invoices.vue
+- [X] T258 [P] 实现财务报表页 in frontend/src/pages/finance/Reports.vue (生成和导出)
+- [X] T259 [P] 实现审计日志页 in frontend/src/pages/finance/AuditLogs.vue
 
 **Checkpoint**: 前端三端功能完整
 
