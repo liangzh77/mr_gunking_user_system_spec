@@ -149,15 +149,26 @@ mkdir -p "$FRONTEND_DIR/logs"
 
 # 启动后端服务
 cd "$BACKEND_DIR"
+
+# 检查虚拟环境（支持Windows和Linux路径）
+VENV_ACTIVATED=false
 if [ -f "venv_py312/Scripts/activate" ]; then
-    log_info "激活Python 3.12虚拟环境..."
+    log_info "激活Python 3.12虚拟环境(Windows路径)..."
     source venv_py312/Scripts/activate
-    PYTHON_VERSION=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    log_info "Python版本: $PYTHON_VERSION"
+    VENV_ACTIVATED=true
+elif [ -f "venv/bin/activate" ]; then
+    log_info "激活Python虚拟环境(Linux路径)..."
+    source venv/bin/activate
+    VENV_ACTIVATED=true
 else
-    log_error "未找到Python 3.12虚拟环境"
+    log_error "未找到Python虚拟环境"
+    log_info "期望路径: venv_py312/Scripts/activate 或 venv/bin/activate"
     exit 1
 fi
+
+# 验证Python版本
+PYTHON_VERSION=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+log_info "Python版本: $PYTHON_VERSION"
 
 # 配置环境变量
 cat > .env.production << EOF
