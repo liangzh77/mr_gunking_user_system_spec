@@ -5,6 +5,7 @@ import asyncio
 import sys
 from pathlib import Path
 import uuid
+import json
 from datetime import datetime
 
 # 添加项目根目录到路径
@@ -66,7 +67,7 @@ async def create_finance_user(username: str, password: str, full_name: str, emai
                 'email': email or f'{username}@mrgameops.com',
                 'phone': phone or '13800138000',
                 'role': 'finance',
-                'permissions': str(finance_permissions),
+                'permissions': json.dumps(finance_permissions, ensure_ascii=False),
                 'is_active': True,
                 'created_at': current_time,
                 'updated_at': current_time
