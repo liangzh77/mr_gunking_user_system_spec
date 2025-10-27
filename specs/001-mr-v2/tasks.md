@@ -362,11 +362,11 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T155 [P] [US6] 契约测试：财务人员登录接口 in backend/tests/contract/test_finance_login.py (POST /v1/auth/finance/login)
-- [ ] T156 [P] [US6] 契约测试：财务仪表盘接口 in backend/tests/contract/test_finance_dashboard.py (GET /v1/finance/dashboard)
-- [ ] T157 [P] [US6] 契约测试：退款审核接口 in backend/tests/contract/test_refund_review.py (POST /v1/finance/refunds/{refund_id}/approve)
-- [ ] T158 [P] [US6] 集成测试：退款审核流程 in backend/tests/integration/test_refund_review.py (查看详情 → 审核通过 → 记录日志)
-- [ ] T159 [P] [US6] 集成测试：财务报表生成 in backend/tests/integration/test_finance_report.py
+- [X] T155 [P] [US6] 契约测试：财务人员登录接口 in backend/tests/contract/test_finance_login.py (POST /v1/auth/finance/login)
+- [X] T156 [P] [US6] 契约测试：财务仪表盘接口 in backend/tests/contract/test_finance_dashboard.py (GET /v1/finance/dashboard)
+- [X] T157 [P] [US6] 契约测试：退款审核接口 in backend/tests/contract/test_refund_review.py (POST /v1/finance/refunds/{refund_id}/approve)
+- [X] T158 [P] [US6] 集成测试：退款审核流程 in backend/tests/integration/test_refund_review.py (查看详情 → 审核通过 → 记录日志)
+- [X] T159 [P] [US6] 集成测试：财务报表生成 in backend/tests/integration/test_finance_report.py
 
 ### 数据模型
 
@@ -389,7 +389,7 @@
 - [X] T170 [US6] 实现FinanceRefundService in backend/src/services/finance_refund.py (退款审核、余额重算)
 - [X] T171 [US6] 实现FinanceInvoiceService in backend/src/services/finance_invoice.py (发票审核、开票)
 - [X] T172 [US6] 实现FinanceReportService in backend/src/services/finance_report.py (日/周/月报表生成、PDF导出)
-- [ ] T173 [US6] 实现AuditLogService in backend/src/services/audit_log.py (操作日志记录、查询)
+- [X] T173 [US6] 实现AuditLogService in backend/src/services/audit_log.py (操作日志记录、查询)
 
 ### API接口 (可并行)
 
@@ -412,14 +412,14 @@
 
 ### 后台任务 (定时报表生成)
 
-- [ ] T189a [US6] 实现定时财务报表生成任务 in backend/src/tasks/scheduled_reports.py (使用APScheduler，每日凌晨1点生成日报、每周一凌晨生成周报、每月1日凌晨生成月报，报表包含收入统计/大客户数据/使用统计三部分，自动保存到文件系统backend/reports/并记录数据库finance_reports表)
-- [ ] T189b [P] [US6] 单元测试：报表生成调度 in backend/tests/unit/tasks/test_scheduled_reports.py (验证调度配置正确、报表生成逻辑、文件保存路径)
+- [X] T189a [US6] 实现定时财务报表生成任务 in backend/src/tasks/scheduled_reports.py (使用APScheduler，每日凌晨1点生成日报、每周一凌晨生成周报、每月1日凌晨生成月报，报表包含收入统计/大客户数据/使用统计三部分，自动保存到文件系统backend/reports/并记录数据库finance_reports表)
+- [X] T189b [P] [US6] 单元测试：报表生成调度 in backend/tests/unit/tasks/test_scheduled_reports.py (验证调度配置正确、报表生成逻辑、文件保存路径)
 
 ### 单元测试 (补充)
 
-- [ ] T190 [P] [US6] FinanceDashboardService单元测试 in backend/tests/unit/services/test_finance_dashboard_service.py
-- [ ] T191 [P] [US6] FinanceRefundService单元测试 in backend/tests/unit/services/test_finance_refund_service.py
-- [ ] T192 [P] [US6] FinanceReportService单元测试 in backend/tests/unit/services/test_finance_report_service.py
+- [X] T190 [P] [US6] FinanceDashboardService单元测试 in backend/tests/unit/services/test_finance_dashboard_service.py
+- [X] T191 [P] [US6] FinanceRefundService单元测试 in backend/tests/unit/services/test_finance_refund_service.py
+- [X] T192 [P] [US6] FinanceReportService单元测试 in backend/tests/unit/services/test_finance_report_service.py
 
 **Checkpoint**: User Story 1-6完成 - 财务人员可审核和生成报表
 
