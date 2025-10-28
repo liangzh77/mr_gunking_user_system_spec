@@ -5,9 +5,13 @@
 # =============================================================================
 
 # 构建阶段
-FROM python:3.11-slim as builder
+FROM python:3.12-slim as builder
 
 WORKDIR /build
+
+# Configure pip to use Aliyun mirror
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set install.trusted-host mirrors.aliyun.com
 
 # 安装编译依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -23,7 +27,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # 运行阶段
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \

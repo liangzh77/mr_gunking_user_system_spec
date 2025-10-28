@@ -60,8 +60,8 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str = Field(
         default="dev_encryption_key_32_bytes_long",
         min_length=32,
-        max_length=32,
-        description="32-byte encryption key for sensitive data (AES-256)",
+        max_length=64,  # 支持base64编码的32字节密钥(44字符)或十六进制(64字符)
+        description="Encryption key for sensitive data - 32 chars hex or 44 chars base64",
     )
 
     # ========== Application Configuration ==========

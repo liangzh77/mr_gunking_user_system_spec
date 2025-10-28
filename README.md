@@ -13,40 +13,60 @@ MR游戏运营管理系统是一个专为游戏运营商设计的授权和计费
 - **管理员后台**: 运营商管理、应用配置、价格调整、授权审批
 - **财务与审计**: 收入概览、大客户分析、退款审核、审计日志
 
+## 🚀 快速开始（Docker）
+
+### 前置要求
+
+- Docker Desktop 或 Docker Engine 20.10+
+- Docker Compose V2
+- 最小 4GB RAM
+
+### 一键启动
+
+```bash
+# 克隆项目
+git clone https://github.com/liangzh77/mr_gunking_user_system_spec.git
+cd mr_gunking_user_system_spec
+
+# 启动所有服务
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+```
+
+### 访问系统
+
+- **管理后台**: http://localhost:5173/admin/login
+  - 用户名: `admin`
+  - 密码: `Admin@123456`
+- **API 文档**: http://localhost:8000/api/docs
+- **数据库管理**: http://localhost:5050
+
+详细部署文档请查看: [Docker 部署指南](./docs/DOCKER_DEPLOYMENT.md)
+
 ## 技术栈
 
 ### 后端
-- **语言**: Python 3.11+
+- **语言**: Python 3.12
 - **框架**: FastAPI 0.104+
-- **数据库**: SQLite (开发) / PostgreSQL 14+ (生产)
-- **缓存**: Redis 5.0+ (分布式缓存、会话管理)
+- **数据库**: PostgreSQL 14 (Alpine)
+- **缓存**: Redis 7 (Alpine)
 - **ORM**: SQLAlchemy 2.0+ (Async)
-- **迁移工具**: Alembic
-- **数据验证**: Pydantic 2.0+
 - **认证**: JWT (python-jose)
-- **密码哈希**: Passlib + Bcrypt (10 rounds)
-- **加密**: AES-256-GCM (敏感数据加密)
-- **频率限制**: Slowapi (内存实现)
-- **日志**: Structlog (结构化JSON日志)
+- **密码哈希**: Bcrypt (10 rounds)
 - **监控**: Prometheus Client
-- **安全**: IP 监控、暴力破解防护、自动封禁
 
 ### 前端
 - **框架**: Vue 3 + TypeScript
 - **状态管理**: Pinia
 - **UI组件库**: Element Plus
-- **HTTP客户端**: Axios
-- **路由**: Vue Router
-- **日期处理**: Day.js
-- **构建工具**: Vite
+- **构建工具**: Vite 5
 
-### 开发工具
-- **容器化**: Docker + Docker Compose
-- **代码格式化**: Black
-- **代码检查**: Ruff
-- **类型检查**: MyPy
-- **测试框架**: Pytest + pytest-asyncio
-- **测试覆盖率**: pytest-cov (目标: 80%+)
+### 容器化
+- **Docker**: 多阶段构建优化
+- **镜像**: Alpine Linux (最小化)
+- **编排**: Docker Compose V2
 
 ## 快速开始
 

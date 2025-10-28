@@ -1,0 +1,419 @@
+openapi: 3.0.3
+info:
+  title: MR游戏运营管理系统 API
+  version: 1.0.0
+  description: |
+    MR游戏运营管理系统 - 游戏授权计费平台
+
+    支持4大角色：
+    - 头显Server：请求游戏授权（API Key + HMAC认证）
+    - 运营商：账户管理、财务操作、运营数据查询（JWT认证）
+    - 管理员：运营商管理、应用授权审批（JWT认证）
+    - 财务人员：财务审计、退款审核、报表生成（JWT认证）
+
+    核心功能：
+    - 游戏授权与实时计费
+    - 账户管理与财务管理
+    - 运营点与应用授权管理
+    - 使用记录与多维度统计
+    - 后台管理与财务审计
+
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.mrgame.example.com/v1
+    description: 生产环境
+  - url: https://api-staging.mrgame.example.com/v1
+    description: 预发布环境
+  - url: http://localhost:8000/v1
+    description: 本地开发环境
+
+tags:
+  - name: 授权
+    description: 游戏授权相关接口
+  - name: 运营商-账户
+    description: 运营商账户管理
+  - name: 运营商-财务
+    description: 运营商财务管理
+  - name: 运营商-运营点
+    description: 运营点管理
+  - name: 运营商-应用授权
+    description: 应用授权管理
+  - name: 运营商-使用统计
+    description: 使用记录与统计
+  - name: 运营商-消息通知
+    description: 消息通知
+  - name: 管理员-运营商管理
+    description: 管理员管理运营商
+  - name: 管理员-应用管理
+    description: 管理员管理应用
+  - name: 管理员-授权审批
+    description: 管理员审批应用授权
+  - name: 管理员-系统公告
+    description: 系统公告管理
+  - name: 财务-仪表盘
+    description: 财务仪表盘
+  - name: 财务-退款审核
+    description: 退款审核管理
+  - name: 财务-发票审核
+    description: 发票审核管理
+  - name: 财务-报表生成
+    description: 财务报表生成
+  - name: 财务-审计日志
+    description: 财务操作审计
+
+paths:
+  # 授权相关接口
+  /auth/game/authorize:
+    $ref: './auth.yaml#/paths/~1auth~1game~1authorize'
+  /auth/operators/register:
+    $ref: './auth.yaml#/paths/~1auth~1operators~1register'
+  /auth/operators/login:
+    $ref: './auth.yaml#/paths/~1auth~1operators~1login'
+  /auth/operators/logout:
+    $ref: './auth.yaml#/paths/~1auth~1operators~1logout'
+  /auth/admin/login:
+    $ref: './auth.yaml#/paths/~1auth~1admin~1login'
+  /auth/finance/login:
+    $ref: './auth.yaml#/paths/~1auth~1finance~1login'
+
+  # 运营商接口
+  /operators/me:
+    $ref: './operator.yaml#/paths/~1operators~1me'
+  /operators/me/api-key/regenerate:
+    $ref: './operator.yaml#/paths/~1operators~1me~1api-key~1regenerate'
+  /operators/me/balance:
+    $ref: './operator.yaml#/paths/~1operators~1me~1balance'
+  /operators/me/recharge:
+    $ref: './operator.yaml#/paths/~1operators~1me~1recharge'
+  /operators/me/transactions:
+    $ref: './operator.yaml#/paths/~1operators~1me~1transactions'
+  /operators/me/refunds:
+    $ref: './operator.yaml#/paths/~1operators~1me~1refunds'
+  /operators/me/invoices:
+    $ref: './operator.yaml#/paths/~1operators~1me~1invoices'
+  /operators/me/sites:
+    $ref: './operator.yaml#/paths/~1operators~1me~1sites'
+  /operators/me/sites/{site_id}:
+    $ref: './operator.yaml#/paths/~1operators~1me~1sites~1{site_id}'
+  /operators/me/authorized-apps:
+    $ref: './operator.yaml#/paths/~1operators~1me~1authorized-apps'
+  /operators/me/app-requests:
+    $ref: './operator.yaml#/paths/~1operators~1me~1app-requests'
+  /operators/me/usage-records:
+    $ref: './operator.yaml#/paths/~1operators~1me~1usage-records'
+  /operators/me/statistics/consumption:
+    $ref: './operator.yaml#/paths/~1operators~1me~1statistics~1consumption'
+  /operators/me/statistics/by-app:
+    $ref: './operator.yaml#/paths/~1operators~1me~1statistics~1by-app'
+  /operators/me/statistics/by-site:
+    $ref: './operator.yaml#/paths/~1operators~1me~1statistics~1by-site'
+  /operators/me/messages:
+    $ref: './operator.yaml#/paths/~1operators~1me~1messages'
+  /operators/me/messages/{message_id}/read:
+    $ref: './operator.yaml#/paths/~1operators~1me~1messages~1{message_id}~1read'
+
+  # 管理员接口
+  /admin/operators:
+    $ref: './admin.yaml#/paths/~1admin~1operators'
+  /admin/operators/{operator_id}:
+    $ref: './admin.yaml#/paths/~1admin~1operators~1{operator_id}'
+  /admin/operators/{operator_id}/category:
+    $ref: './admin.yaml#/paths/~1admin~1operators~1{operator_id}~1category'
+  /admin/operators/{operator_id}/api-key:
+    $ref: './admin.yaml#/paths/~1admin~1operators~1{operator_id}~1api-key'
+  /admin/operators/{operator_id}/api-key/reset:
+    $ref: './admin.yaml#/paths/~1admin~1operators~1{operator_id}~1api-key~1reset'
+  /admin/applications:
+    $ref: './admin.yaml#/paths/~1admin~1applications'
+  /admin/applications/{app_id}:
+    $ref: './admin.yaml#/paths/~1admin~1applications~1{app_id}'
+  /admin/applications/{app_id}/price:
+    $ref: './admin.yaml#/paths/~1admin~1applications~1{app_id}~1price'
+  /admin/app-requests:
+    $ref: './admin.yaml#/paths/~1admin~1app-requests'
+  /admin/app-requests/{request_id}/approve:
+    $ref: './admin.yaml#/paths/~1admin~1app-requests~1{request_id}~1approve'
+  /admin/app-requests/{request_id}/reject:
+    $ref: './admin.yaml#/paths/~1admin~1app-requests~1{request_id}~1reject'
+  /admin/authorizations:
+    $ref: './admin.yaml#/paths/~1admin~1authorizations'
+  /admin/announcements:
+    $ref: './admin.yaml#/paths/~1admin~1announcements'
+
+  # 财务接口
+  /finance/dashboard:
+    $ref: './finance.yaml#/paths/~1finance~1dashboard'
+  /finance/dashboard/trends:
+    $ref: './finance.yaml#/paths/~1finance~1dashboard~1trends'
+  /finance/top-customers:
+    $ref: './finance.yaml#/paths/~1finance~1top-customers'
+  /finance/customers/{operator_id}/details:
+    $ref: './finance.yaml#/paths/~1finance~1customers~1{operator_id}~1details'
+  /finance/refunds:
+    $ref: './finance.yaml#/paths/~1finance~1refunds'
+  /finance/refunds/{refund_id}:
+    $ref: './finance.yaml#/paths/~1finance~1refunds~1{refund_id}'
+  /finance/refunds/{refund_id}/approve:
+    $ref: './finance.yaml#/paths/~1finance~1refunds~1{refund_id}~1approve'
+  /finance/refunds/{refund_id}/reject:
+    $ref: './finance.yaml#/paths/~1finance~1refunds~1{refund_id}~1reject'
+  /finance/invoices:
+    $ref: './finance.yaml#/paths/~1finance~1invoices'
+  /finance/invoices/{invoice_id}/approve:
+    $ref: './finance.yaml#/paths/~1finance~1invoices~1{invoice_id}~1approve'
+  /finance/reports/generate:
+    $ref: './finance.yaml#/paths/~1finance~1reports~1generate'
+  /finance/reports:
+    $ref: './finance.yaml#/paths/~1finance~1reports'
+  /finance/reports/{report_id}/download:
+    $ref: './finance.yaml#/paths/~1finance~1reports~1{report_id}~1download'
+  /finance/audit-logs:
+    $ref: './finance.yaml#/paths/~1finance~1audit-logs'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: 运营商API Key，用于头显Server身份认证（64位随机字符串）
+
+    HmacAuth:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: |
+        HMAC-SHA256签名认证，用于头显Server请求授权接口
+
+        签名计算方法：
+        1. 构造待签名字符串：`{timestamp}\n{method}\n{path}\n{body}`
+        2. 使用API Key作为密钥计算HMAC-SHA256
+        3. 将签名结果进行Base64编码
+
+        请求头要求：
+        - X-Api-Key: 运营商API Key
+        - X-Signature: Base64编码的HMAC签名
+        - X-Timestamp: Unix时间戳（秒），服务端验证时间差不超过5分钟
+        - X-Session-ID: 会话ID，格式：{operatorId}_{timestamp}_{random16}
+
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer Token认证，用于运营商/管理员/财务人员Web端登录
+
+        Token包含以下Claims：
+        - sub: 用户ID
+        - role: 用户角色（operator/admin/finance）
+        - exp: 过期时间（默认30天）
+        - iat: 签发时间
+
+  schemas:
+    # 公共错误响应
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          description: 错误码
+          enum:
+            - UNAUTHORIZED
+            - INSUFFICIENT_BALANCE
+            - APP_NOT_AUTHORIZED
+            - PLAYER_COUNT_OUT_OF_RANGE
+            - SESSION_DUPLICATE
+            - INVALID_API_KEY
+            - INVALID_SIGNATURE
+            - TIMESTAMP_EXPIRED
+            - APP_NOT_FOUND
+            - OPERATOR_NOT_FOUND
+            - SITE_NOT_FOUND
+            - REFUND_NOT_FOUND
+            - INVOICE_NOT_FOUND
+            - INVALID_PARAMS
+            - PERMISSION_DENIED
+            - ACCOUNT_DEACTIVATED
+            - PAYMENT_FAILED
+            - RATE_LIMIT_EXCEEDED
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: 错误描述
+          example: "账户余额不足，当前余额: 30.00元，需要: 50.00元"
+        details:
+          type: object
+          description: 额外错误详情
+          additionalProperties: true
+
+    # 公共成功响应
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "操作成功"
+        data:
+          type: object
+          description: 响应数据
+          additionalProperties: true
+
+    # 分页响应
+    PaginatedResponse:
+      type: object
+      required:
+        - page
+        - page_size
+        - total
+        - items
+      properties:
+        page:
+          type: integer
+          description: 当前页码（从1开始）
+          example: 1
+        page_size:
+          type: integer
+          description: 每页条数
+          example: 20
+        total:
+          type: integer
+          description: 总记录数
+          example: 100
+        items:
+          type: array
+          description: 数据列表
+          items:
+            type: object
+
+  parameters:
+    # 分页参数
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从1开始）
+      required: false
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页条数
+      required: false
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+
+    # 时间范围参数
+    StartTimeParam:
+      name: start_time
+      in: query
+      description: 开始时间（ISO 8601格式）
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-01-01T00:00:00.000Z"
+
+    EndTimeParam:
+      name: end_time
+      in: query
+      description: 结束时间（ISO 8601格式）
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-01-31T23:59:59.999Z"
+
+    # 排序参数
+    SortByParam:
+      name: sort_by
+      in: query
+      description: 排序字段
+      required: false
+      schema:
+        type: string
+        example: "created_at"
+
+    SortOrderParam:
+      name: sort_order
+      in: query
+      description: 排序方向
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+
+  responses:
+    # 公共错误响应
+    UnauthorizedError:
+      description: 未授权（Token无效或已过期）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "UNAUTHORIZED"
+            message: "认证失败，请重新登录"
+
+    ForbiddenError:
+      description: 无权限访问
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "PERMISSION_DENIED"
+            message: "您没有权限执行此操作"
+
+    NotFoundError:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "RESOURCE_NOT_FOUND"
+            message: "请求的资源不存在"
+
+    BadRequestError:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "INVALID_PARAMS"
+            message: "请求参数验证失败"
+            details:
+              field: "player_count"
+              error: "玩家数量必须在2-8之间"
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "INTERNAL_ERROR"
+            message: "服务器内部错误，请稍后重试"

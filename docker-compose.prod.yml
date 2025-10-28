@@ -1,17 +1,22 @@
-version: '3.8'
-
 # =============================================================================
 # Docker Compose 配置 - 生产环境
 # =============================================================================
-# ⚠️ 生产环境部署注意事项：
-# 1. 修改所有密码和密钥
-# 2. 使用 .env.production 配置文件
-# 3. 配置 HTTPS/SSL 证书
-# 4. 启用防火墙规则
-# 5. 配置日志轮转
-# 6. 设置自动备份
-# 7. 监控服务健康状态
+# 说明：
+# - 此配置用于生产环境部署
+# - 移除了开发工具（pgadmin, redis-commander）
+# - 使用生产级别的资源限制和安全配置
+# - 添加了健康检查和日志管理
+# - 前端使用 Nginx 提供静态文件服务
 # =============================================================================
+#
+# 使用方法：
+# 1. 复制 .env.production.template 为 .env.production 并配置
+# 2. 运行: docker-compose -f docker-compose.prod.yml up -d
+# 3. 查看日志: docker-compose -f docker-compose.prod.yml logs -f
+# 4. 停止服务: docker-compose -f docker-compose.prod.yml down
+# =============================================================================
+
+version: '3.8'
 
 services:
   # PostgreSQL 数据库 (生产环境)
@@ -19,100 +24,23 @@ services:
     image: postgres:14-alpine
     container_name: mr_game_ops_db_prod
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-mr_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-mr_game_ops}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
-    # 生产环境不暴露端口到主机（仅容器间通信）
-    expose:
-      - "5432"
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
-      - ./backups:/backups:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backups:/backups  # 数据库备份目录
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mr_admin} -d ${POSTGRES_DB:-mr_game_ops}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - mr_network_prod
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Redis 缓存 (生产环境)
-  redis:
-    image: redis:7-alpine
-    container_name: mr_game_ops_redis_prod
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-    expose:
-      - "6379"
-    volumes:
-      - redis_data_prod:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s
     networks:
-      - mr_network_prod
+      - mr_network
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # FastAPI 后端服务 (生产环境)
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-      args:
-        - BUILD_ENV=production
-    image: mr_game_ops_backend:${VERSION:-latest}
-    container_name: mr_game_ops_backend_prod
-    command: gunicorn src.main:app --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120
-    expose:
-      - "8000"
-    env_file:
-      - ./backend/.env.production
-    environment:
-      ENVIRONMENT: production
-      DEBUG: "false"
-    volumes:
-      - backend_logs_prod:/var/log/mr_game_ops
-      - backend_uploads_prod:/var/www/mr_game_ops/uploads
-      - backend_invoices_prod:/var/www/mr_game_ops/invoices
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - mr_network_prod
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 60s
-      timeout: 30s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "7"
     deploy:
       resources:
         limits:
@@ -121,105 +49,157 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
-
-  # Vue 3 前端服务 (生产环境 - Nginx)
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-      args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://api.yourdomain.com/api/v1}
-    image: mr_game_ops_frontend:${VERSION:-latest}
-    container_name: mr_game_ops_frontend_prod
-    expose:
-      - "80"
-    depends_on:
-      - backend
-    networks:
-      - mr_network_prod
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Nginx 反向代理和负载均衡
-  nginx:
-    image: nginx:alpine
-    container_name: mr_game_ops_nginx
-    ports:
-      - "80:80"
-      - "443:443"
+  # Redis 缓存和会话存储 (生产环境)
+  redis:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_prod
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - mr_network_prod
-    restart: always
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
+        max-size: "5m"
+        max-file: "3"
+
+  # FastAPI 后端服务 (生产模式)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+      args:
+        - BUILD_DATE=${BUILD_DATE}
+        - VERSION=${VERSION}
+    container_name: mr_game_ops_backend_prod
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4 --log-level warning
+    volumes:
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+      - backend_invoices:/app/invoices
+    expose:
+      - "8000"  # 只在内部网络暴露
+    env_file:
+      - .env.production
+    environment:
+      # 数据库配置
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      # Redis配置
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      # 应用配置
+      ENVIRONMENT: production
+      DEBUG: "false"
+      LOG_LEVEL: WARNING
+      # 安全配置
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      # CORS配置
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
         max-file: "5"
 
-  # PostgreSQL 自动备份服务 (可选，暂时禁用以避免网络问题)
-  # postgres-backup:
-  #   image: prodrigestivill/postgres-backup-local:14-alpine
-  #   container_name: mr_game_ops_backup
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_DB: ${POSTGRES_DB:-mr_game_ops}
-  #     POSTGRES_USER: ${POSTGRES_USER:-mr_admin}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_PASSWORD}
-  #     SCHEDULE: "@daily"  # 每天凌晨2点备份
-  #     BACKUP_KEEP_DAYS: 30
-  #     BACKUP_KEEP_WEEKS: 8
-  #     BACKUP_KEEP_MONTHS: 6
-  #   volumes:
-  #     - ./backups:/backups
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - mr_network_prod
-  #   restart: always
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+  # Vue 3 前端 + Nginx (生产模式)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - BUILD_DATE=${BUILD_DATE}
+        - VERSION=${VERSION}
+    container_name: mr_game_ops_frontend_prod
+    ports:
+      - "${FRONTEND_PORT:-80}:80"  # 默认80端口，可通过环境变量覆盖
+    depends_on:
+      - backend
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
 
+# 持久化存储卷
 volumes:
-  postgres_data_prod:
+  postgres_data:
     driver: local
-  redis_data_prod:
+  redis_data:
     driver: local
-  backend_logs_prod:
+  backend_logs:
     driver: local
-  backend_uploads_prod:
+  backend_uploads:
     driver: local
-  backend_invoices_prod:
-    driver: local
-  nginx_logs:
+  backend_invoices:
     driver: local
 
+# 网络配置
 networks:
-  mr_network_prod:
+  mr_network:
     driver: bridge
     ipam:
       config:

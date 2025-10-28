@@ -102,17 +102,32 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
 
         # Content-Security-Policy
         # Restrict resource loading to prevent XSS
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",  # Allow Vue/React & Swagger UI
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Allow inline styles & Swagger UI CSS
-            "img-src 'self' data: https:",
-            "font-src 'self' data: https://cdn.jsdelivr.net",
-            "connect-src 'self' https://cdn.jsdelivr.net",
-            "frame-ancestors 'none'",
-            "base-uri 'self'",
-            "form-action 'self'",
-        ]
+        # In development: allow CDN resources for Swagger UI
+        if self.settings.is_production:
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ]
+        else:
+            # Development: allow CDN for Swagger UI
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+                "img-src 'self' data: https:",
+                "font-src 'self' data: https://cdn.jsdelivr.net",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ]
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
         # Referrer-Policy
@@ -172,17 +187,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
 
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-            "img-src 'self' data: https:",
-            "font-src 'self' data: https://cdn.jsdelivr.net",
-            "connect-src 'self' https://cdn.jsdelivr.net",
-            "frame-ancestors 'none'",
-            "base-uri 'self'",
-            "form-action 'self'",
-        ]
+        # In development: allow CDN resources for Swagger UI
+        if self.settings.is_production:
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ]
+        else:
+            # Development: allow CDN for Swagger UI
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+                "img-src 'self' data: https:",
+                "font-src 'self' data: https://cdn.jsdelivr.net",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ]
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
