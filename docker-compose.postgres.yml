@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 生产数据库
+  postgres:
+    image: postgres:14-alpine
+    container_name: mr_game_ops_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_POSTGRES_PASSWORD}
+      POSTGRES_DB: mr_game_ops_prod
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    env_file:
+      - .env.postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init_postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./database/postgres.conf:/etc/postgresql/postgresql.conf:ro
+      - ./database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - postgres_logs:/var/log/postgresql
+      - postgres_backups:/var/backups/postgresql
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - mr_network_prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mr_game_ops_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=80MB
+      -c max_wal_size=1GB
+      -c log_statement=mod
+      -c log_min_duration_statement=1000
+      -c log_checkpoints=on
+      -c log_connections=on
+      -c log_disconnections=on
+      -c log_lock_waits=on
+
+  # PostgreSQL 监控和备份
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: mr_game_ops_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres_exporter:${POSTGRES_EXPORTER_PASSWORD:-CHANGE_THIS_EXPORTER_PASSWORD}@postgres:5432/mr_game_ops_prod?sslmode=disable"
+    env_file:
+      - .env.postgres
+    ports:
+      - "${POSTGRES_EXPORTER_PORT:-9187}:9187"
+    networks:
+      - mr_network_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # pgAdmin (数据库管理界面 - 仅内网访问)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mr_game_ops_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-CHANGE_THIS_PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    env_file:
+      - .env.postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./database/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - mr_network_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - admin  # 只在需要时启动
+
+  # 自动备份服务
+  postgres_backup:
+    image: postgres:14-alpine
+    container_name: mr_game_ops_postgres_backup
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-CHANGE_THIS_POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: mr_game_ops_prod
+      POSTGRES_USER: postgres
+      BACKUP_SCHEDULE: "0 2 * * *"  # 每天凌晨2点
+      BACKUP_RETENTION_DAYS: 30
+      S3_BUCKET: ${S3_BACKUP_BUCKET:-mr-game-ops-backups}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    env_file:
+      - .env.postgres
+    volumes:
+      - postgres_backups:/var/backups/postgresql
+      - ./scripts/backup_postgres.sh:/backup.sh:ro
+      - ./scripts/s3_backup.sh:/s3_backup.sh:ro
+    networks:
+      - mr_network_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Starting PostgreSQL backup service...'
+        while true; do
+          echo 'Creating database backup...'
+          /backup.sh
+          echo 'Backup completed. Next backup in 24 hours.'
+          sleep 86400
+        done
+      "
+    profiles:
+      - backup
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./data/postgres}
+  postgres_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_LOGS_PATH:-./logs/postgres}
+  postgres_backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_BACKUPS_PATH:-./backups/postgres}
+  pgadmin_data:
+    driver: local
+
+networks:
+  mr_network_prod:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

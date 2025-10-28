@@ -1,9 +1,18 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version: 1.0.0 (Initial Constitution)
+Version: 1.0.3 (AI Agent Autonomous Execution Principle Addition)
 Ratification Date: 2025-10-10
-Last Amended: 2025-10-10
+Last Amended: 2025-10-17
+
+Amendment Summary:
+- 新增原则VII: AI Agent自主执行原则 (AI Agent Autonomous Execution Principle)
+- 理由: AI Agent 应在既定框架内自主决策和执行，避免频繁打断用户，提高开发效率
+- 影响范围: AI Agent 工作流程，决策机制，用户交互模式
+
+Previous Amendments:
+- v1.0.2 (2025-10-17): 新增原则VI - 端到端测试原则，要求使用 Playwright 进行 E2E 测试
+- v1.0.1 (2025-10-13): 性能约束调整，系统吞吐量从≥1000 req/s调整为≥20 req/s (小规模部署场景)
 
 Principles Defined:
 - I. 测试驱动开发 (Test-Driven Development)
@@ -11,6 +20,8 @@ Principles Defined:
 - III. 业务逻辑完整性 (Business Logic Integrity)
 - IV. API契约优先 (API Contract First)
 - V. 可观测性与审计 (Observability & Audit)
+- VI. 端到端测试原则 (End-to-End Testing)
+- VII. AI Agent自主执行原则 (AI Agent Autonomous Execution) - NEW
 
 Sections Added:
 - 架构约束 (Architecture Constraints)
@@ -22,7 +33,9 @@ Templates Status:
 ✅ spec-template.md - User story structure supports TDD
 ✅ tasks-template.md - Task organization supports testing-first approach
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- [ ] 更新 plan.md 删除 Complexity Tracking 表中的性能偏离记录
+- [ ] 在 CI/CD 流程中集成 Playwright E2E 测试
 -->
 
 # MR游戏运营管理系统 Constitution
@@ -84,6 +97,46 @@ Follow-up TODOs: None
 
 **理由**: 运营系统需要实时监控业务健康度，审计日志是财务对账和纠纷解决的依据。完善的可观测性能够快速定位和解决生产问题。
 
+### VI. 端到端测试原则 (End-to-End Testing)
+
+**规则 (MANDATORY)**:
+- 所有前端核心用户流程必须实施自动化 E2E 测试，使用 Playwright 框架
+- 每个用户角色（管理员、运营商）的关键业务路径必须有对应的 E2E 测试用例
+- E2E 测试覆盖率必须达到≥90%的核心用户流程（登录、核心业务操作、数据查询、异常处理）
+- 所有 E2E 测试必须在 CI 环境中自动运行，测试失败阻止部署
+- 测试失败时必须自动生成调试资源（截图、视频录制、Playwright trace）
+- E2E 测试套件总执行时间必须 < 5分钟，保证快速反馈
+- 测试用例必须独立运行，不依赖其他测试的状态或执行顺序
+
+**理由**: 前端用户界面是系统的关键交互层，涉及复杂的用户操作流程（充值、授权申请、统计查询等）。手动测试无法保证每次变更后所有流程的完整性。自动化 E2E 测试能够在代码变更时快速验证完整的用户体验，防止 UI 破坏性变更进入生产环境，同时为重构和优化提供安全网。
+
+**测试范围要求**:
+- **管理员端**: 登录、Dashboard加载、运营商列表（搜索/筛选/分页）、应用列表（搜索/详情）、授权申请审核（通过/拒绝）、侧边栏导航、退出登录
+- **运营商端**: 登录、注册、充值流程、应用授权申请、运营点管理、使用记录查询、统计图表显示
+- **异常场景**: 网络错误处理、表单验证错误、权限不足提示、会话过期处理
+
+### VII. AI Agent自主执行原则 (AI Agent Autonomous Execution)
+
+**规则 (MANDATORY)**:
+- AI Agent 必须按照任务列表（tasks.md）、优先级和依赖关系自主决策并推进实施
+- AI Agent 应持续执行任务直至完成或遇到阻塞，无需在每个小决策点请求用户批准
+- **仅在以下情况才询问用户**：
+  - 遇到技术障碍无法自行解决（如关键依赖缺失、环境错误）
+  - 需求规格存在歧义或矛盾，需要业务决策
+  - 发现重大架构问题，可能需要偏离原计划
+  - 需要用户提供外部信息（如API密钥、账号凭证）
+  - 操作可能产生破坏性影响（如删除数据、修改核心配置）
+- **不应询问的情况**：
+  - 选择下一个要执行的任务（应自动按优先级选择）
+  - 常规代码实现细节（如选择哪个库、如何组织代码）
+  - 是否继续执行后续任务（应自动继续）
+  - 提供多个选项让用户选择（应自己评估并决策）
+  - 本次会话消耗了大量token和时间，总结当前进展并汇报
+- AI Agent 应定期汇报关键进度节点（Phase完成、User Story完成），但无需等待批准即可继续
+- 遇到测试失败时，AI Agent 应自动分析原因并修复，除非多次尝试仍失败
+
+**理由**: 频繁打断用户会降低开发效率，AI Agent 应像一个经验丰富的开发者一样自主工作。用户已通过 constitution.md、spec.md、tasks.md 提供了完整的决策框架，AI Agent 应在此框架内自主执行。只有真正需要人类判断的重大决策才应询问用户。
+
 ## 架构约束
 
 ### 技术栈要求
@@ -102,7 +155,7 @@ Follow-up TODOs: None
 
 ### 性能约束
 - API响应时间：P95 < 200ms（授权接口 < 100ms）
-- 系统吞吐量：支持至少1000次/秒的授权请求
+- 系统吞吐量：支持至少20次/秒的授权请求（小规模部署场景，可水平扩展至更高吞吐量）
 - 数据库查询：单次查询 < 50ms，避免N+1问题
 - 缓存策略：热点数据（价格配置、用户额度）必须缓存，TTL根据业务特性设定
 
@@ -144,4 +197,4 @@ Follow-up TODOs: None
 - MINOR: 新增原则或章节、扩展现有指导
 - PATCH: 措辞优化、错误修正、澄清说明
 
-**Version**: 1.0.0 | **Ratified**: 2025-10-10 | **Last Amended**: 2025-10-10
+**Version**: 1.0.3 | **Ratified**: 2025-10-10 | **Last Amended**: 2025-10-17

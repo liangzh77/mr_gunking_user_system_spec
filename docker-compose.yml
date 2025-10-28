@@ -1,0 +1,160 @@
+# =============================================================================
+# Docker Compose 配置 - 开发环境
+# =============================================================================
+# 说明：
+# - 此配置用于本地开发环境
+# - 生产环境请使用 docker-compose.prod.yml
+# - 包含 PostgreSQL, Redis, 后端服务和管理工具
+# =============================================================================
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:14-alpine
+    container_name: mr_game_ops_db
+    environment:
+      POSTGRES_USER: mr_admin
+      POSTGRES_PASSWORD: mr_secure_password_2024
+      POSTGRES_DB: mr_game_ops
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mr_admin -d mr_game_ops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mr_network
+    restart: unless-stopped
+
+  # Redis 缓存和会话存储
+  redis:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis
+    command: redis-server --requirepass dev_redis_password --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mr_network
+    restart: unless-stopped
+
+  # FastAPI 后端服务 (开发模式)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: mr_game_ops_backend
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+      - backend_invoices:/app/invoices
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.development
+    environment:
+      # 覆盖环境文件中的部分配置
+      DATABASE_URL: postgresql+asyncpg://mr_admin:mr_secure_password_2024@postgres:5432/mr_game_ops
+      REDIS_URL: redis://:dev_redis_password@redis:6379/0
+      ENVIRONMENT: development
+      DEBUG: "true"
+      ENCRYPTION_KEY: "12345678901234567890123456789012"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mr_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Vue 3 前端服务 (开发模式)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: mr_game_ops_frontend
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - mr_network
+    restart: unless-stopped
+
+  # PgAdmin (PostgreSQL管理工具)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mr_game_ops_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mrgameops.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - mr_network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis Commander (Redis管理工具，可选)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: mr_game_ops_redis_commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:dev_redis_password
+    ports:
+      - "8081:8081"
+    networks:
+      - mr_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_invoices:
+    driver: local
+
+networks:
+  mr_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

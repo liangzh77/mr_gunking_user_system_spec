@@ -1,0 +1,381 @@
+<template>
+  <div class="usage-records-page">
+    <!-- 页面标题 -->
+    <el-card class="header-card">
+      <div class="header-content">
+        <div class="title-section">
+          <el-icon :size="24"><Document /></el-icon>
+          <h2>使用记录</h2>
+        </div>
+        <el-button type="success" :loading="exporting" @click="handleExport">
+          <el-icon><Download /></el-icon>
+          导出记录
+        </el-button>
+      </div>
+    </el-card>
+
+    <!-- 筛选条件 -->
+    <el-card class="filter-card" style="margin-top: 20px">
+      <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 380px"
+          />
+        </el-form-item>
+
+        <el-form-item label="运营点">
+          <el-select
+            v-model="filterForm.site_id"
+            placeholder="全部运营点"
+            clearable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="site in sites"
+              :key="site.site_id"
+              :label="site.site_name"
+              :value="site.site_id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="应用">
+          <el-select
+            v-model="filterForm.app_id"
+            placeholder="全部应用"
+            clearable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="app in applications"
+              :key="app.app_id"
+              :label="app.app_name"
+              :value="app.app_id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><RefreshLeft /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 使用记录列表 -->
+    <el-card class="list-card" style="margin-top: 20px">
+      <el-table
+        v-loading="loading"
+        :data="records"
+        stripe
+        style="width: 100%"
+      >
+        <el-table-column prop="session_id" label="会话ID" width="180" show-overflow-tooltip />
+        <el-table-column prop="site_name" label="运营点" width="150" />
+        <el-table-column prop="app_name" label="应用" width="150" />
+        <el-table-column prop="player_count" label="玩家数" width="100" align="center" />
+        <el-table-column prop="unit_price" label="单价" width="100">
+          <template #default="{ row }">
+            ¥{{ row.unit_price }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_cost" label="总费用" width="120">
+          <template #default="{ row }">
+            <span class="total-cost">¥{{ row.total_cost }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="使用时间" width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div v-if="!loading && records.length === 0" class="empty-state">
+        <el-empty description="暂无使用记录" />
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="pagination.total > 0" class="pagination-container">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.page_size"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadRecords"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 统计信息 -->
+    <el-card v-if="records.length > 0" style="margin-top: 20px">
+      <div class="statistics">
+        <div class="stat-item">
+          <div class="stat-label">总记录数</div>
+          <div class="stat-value">{{ pagination.total }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">当前页记录</div>
+          <div class="stat-value">{{ records.length }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">当前页总费用</div>
+          <div class="stat-value page-total">¥{{ pageTotal }}</div>
+        </div>
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useOperatorStore } from '@/stores/operator'
+import type { UsageRecord, OperationSite, AuthorizedApplication } from '@/types'
+import dayjs from 'dayjs'
+
+const operatorStore = useOperatorStore()
+
+const loading = ref(false)
+const exporting = ref(false)
+const records = ref<UsageRecord[]>([])
+const sites = ref<OperationSite[]>([])
+const applications = ref<AuthorizedApplication[]>([])
+const dateRange = ref<[string, string] | null>(null)
+
+const filterForm = ref({
+  site_id: '',
+  app_id: '',
+})
+
+const pagination = ref({
+  page: 1,
+  page_size: 20,
+  total: 0,
+})
+
+// 计算当前页总费用
+const pageTotal = computed(() => {
+  return records.value
+    .reduce((sum, record) => sum + parseFloat(record.total_cost), 0)
+    .toFixed(2)
+})
+
+// 格式化日期时间
+const formatDateTime = (datetime: string) => {
+  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 加载使用记录
+const loadRecords = async () => {
+  loading.value = true
+  try {
+    const params: any = {
+      page: pagination.value.page,
+      page_size: pagination.value.page_size,
+    }
+
+    if (dateRange.value) {
+      params.start_time = dateRange.value[0]
+      params.end_time = dateRange.value[1]
+    }
+
+    if (filterForm.value.site_id) {
+      params.site_id = filterForm.value.site_id
+    }
+
+    if (filterForm.value.app_id) {
+      params.app_id = filterForm.value.app_id
+    }
+
+    const response = await operatorStore.getUsageRecords(params)
+    records.value = response.items
+    pagination.value.total = response.total
+  } catch (error) {
+    console.error('Load usage records error:', error)
+    ElMessage.error('加载使用记录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载运营点列表
+const loadSites = async () => {
+  try {
+    sites.value = await operatorStore.getSites()
+  } catch (error) {
+    console.error('Load sites error:', error)
+  }
+}
+
+// 加载应用列表
+const loadApplications = async () => {
+  try {
+    applications.value = await operatorStore.getAuthorizedApplications()
+  } catch (error) {
+    console.error('Load applications error:', error)
+  }
+}
+
+// 搜索
+const handleSearch = () => {
+  pagination.value.page = 1
+  loadRecords()
+}
+
+// 重置
+const handleReset = () => {
+  dateRange.value = null
+  filterForm.value = {
+    site_id: '',
+    app_id: '',
+  }
+  pagination.value.page = 1
+  loadRecords()
+}
+
+// 页大小变化
+const handlePageSizeChange = () => {
+  pagination.value.page = 1
+  loadRecords()
+}
+
+// 导出记录
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const params: any = {
+      format: 'excel',
+    }
+
+    if (dateRange.value) {
+      params.start_time = dateRange.value[0]
+      params.end_time = dateRange.value[1]
+    }
+
+    if (filterForm.value.site_id) {
+      params.site_id = filterForm.value.site_id
+    }
+
+    if (filterForm.value.app_id) {
+      params.app_id = filterForm.value.app_id
+    }
+
+    const response = await operatorStore.exportUsageRecords(params)
+
+    // 创建下载链接
+    const link = document.createElement('a')
+    link.href = response.download_url
+    link.download = response.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('Export usage records error:', error)
+    ElMessage.error('导出失败')
+  } finally {
+    exporting.value = false
+  }
+}
+
+onMounted(() => {
+  loadSites()
+  loadApplications()
+  loadRecords()
+})
+</script>
+
+<style scoped>
+.usage-records-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header-card {
+  margin-bottom: 0;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title-section h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.filter-card :deep(.el-card__body) {
+  padding: 20px;
+}
+
+.list-card :deep(.el-card__body) {
+  padding: 20px;
+}
+
+.total-cost {
+  color: #F56C6C;
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: 40px 0;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.statistics {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.stat-value.page-total {
+  color: #F56C6C;
+}
+</style>

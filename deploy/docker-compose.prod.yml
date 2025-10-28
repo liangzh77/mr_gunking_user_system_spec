@@ -1,0 +1,213 @@
+version: '3.8'
+
+# =============================================================================
+# Docker Compose 配置 - 生产环境
+# =============================================================================
+# 说明：
+# - 此配置用于生产环境部署
+# - 包含安全配置、性能优化和监控
+# - 不包含开发工具和管理界面
+# =============================================================================
+
+services:
+  # PostgreSQL 数据库 (生产环境)
+  postgres:
+    image: postgres:14-alpine
+    container_name: mr_game_ops_db_prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - /opt/mr-game-ops/data/postgres:/var/lib/postgresql/data
+      - /opt/mr-game-ops/backups:/backups
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis 缓存 (生产环境)
+  redis:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_prod
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - /opt/mr-game-ops/data/redis:/data
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # FastAPI 后端服务 (生产环境)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: mr_game_ops_backend_prod
+    command: gunicorn src.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120 --access-logfile - --error-logfile -
+    ports:
+      - "8000:8000"  # 生产环境建议只通过nginx访问，可关闭此端口
+    volumes:
+      - /opt/mr-game-ops/data/uploads:/app/uploads
+      - /opt/mr-game-ops/data/invoices:/app/invoices
+      - /opt/mr-game-ops/logs:/app/logs
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ENVIRONMENT: production
+      DEBUG: "false"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Vue 3 前端 (生产环境)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: mr_game_ops_frontend_prod
+    environment:
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://backend:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - mr_network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: mr_game_ops_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/mr-game-ops/config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/mr-game-ops/config/nginx/ssl:/etc/nginx/ssl:ro
+      - /opt/mr-game-ops/logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - mr_network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prometheus 监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mr_game_ops_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - /opt/mr-game-ops/config/prometheus:/etc/prometheus
+      - /opt/mr-game-ops/data/prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - mr_network
+    restart: always
+
+  # Grafana 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mr_game_ops_grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - /opt/mr-game-ops/data/grafana:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - mr_network
+    restart: always
+    depends_on:
+      - prometheus
+
+networks:
+  mr_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

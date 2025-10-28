@@ -1,0 +1,78 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Specifications (design artifacts)
+specs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Environment files (should be set at runtime)
+.env
+.env.*
+*.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+tests/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+tmp/
+temp/
+
+# Database files (not needed in image)
+*.db
+*.sqlite3
+
+# Node modules (if frontend added)
+node_modules/
+npm-debug.log*
+
+# Logs
+logs/
+*.log
+
+# Reports and generated files (not needed in image)
+backend/reports/
+backend/invoices/
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore

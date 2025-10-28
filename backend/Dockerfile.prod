@@ -1,0 +1,76 @@
+# =============================================================================
+# Multi-stage Dockerfile for Production
+# =============================================================================
+# 阶段1: 构建阶段 - 编译依赖
+# 阶段2: 运行阶段 - 最小化镜像
+# =============================================================================
+
+# ============== 阶段1: 构建阶段 ==============
+FROM python:3.12-slim AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 配置pip使用清华镜像加速
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 安装构建依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制依赖文件
+COPY requirements.txt .
+
+# 安装Python依赖到特定目录
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ============== 阶段2: 运行阶段 ==============
+FROM python:3.12-slim
+
+# 设置构建参数（可在构建时传入）
+ARG BUILD_DATE
+ARG VERSION
+LABEL maintainer="MR Game Ops Team"
+LABEL build_date="${BUILD_DATE}"
+LABEL version="${VERSION}"
+LABEL description="MR Game Operations System - Backend API"
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装运行时依赖（仅必需的）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 从构建阶段复制已安装的Python包
+COPY --from=builder /install /usr/local
+
+# 创建非root用户（安全最佳实践）
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# 复制应用代码
+COPY . .
+
+# 创建必要的目录并设置权限
+RUN mkdir -p logs uploads invoices && \
+    chown -R appuser:appuser /app
+
+# 切换到非root用户
+USER appuser
+
+# 暴露端口
+EXPOSE 8000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 生产环境启动命令（使用多worker）
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "warning"]

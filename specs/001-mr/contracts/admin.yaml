@@ -1,0 +1,1240 @@
+paths:
+  /admin/operators:
+    get:
+      tags:
+        - 管理员-运营商管理
+      summary: 查询运营商列表
+      description: 查询所有运营商账户（支持筛选和分页）
+      operationId: getOperators
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - $ref: '../openapi.yaml#/components/parameters/SortByParam'
+        - $ref: '../openapi.yaml#/components/parameters/SortOrderParam'
+        - name: category
+          in: query
+          description: 客户分类筛选
+          required: false
+          schema:
+            type: string
+            enum: [trial, normal, vip, all]
+            default: all
+        - name: keyword
+          in: query
+          description: 关键词搜索（用户名、姓名、电话、邮箱）
+          required: false
+          schema:
+            type: string
+            example: "北京"
+        - name: include_deactivated
+          in: query
+          description: 是否包含已注销账户
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OperatorSummary'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 管理员-运营商管理
+      summary: 创建运营商账户
+      description: 管理员创建新运营商账户并分配初始客户分类
+      operationId: createOperator
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - name
+                - phone
+                - email
+                - category
+              properties:
+                username:
+                  type: string
+                  description: 用户名（唯一，3-20字符）
+                  pattern: '^[a-zA-Z0-9_]{3,20}$'
+                  example: "operator_shanghai_01"
+                password:
+                  type: string
+                  description: 初始密码（8-32字符）
+                  minLength: 8
+                  maxLength: 32
+                  example: "InitPass123"
+                name:
+                  type: string
+                  description: 真实姓名或公司名
+                  minLength: 2
+                  maxLength: 50
+                  example: "上海未来娱乐有限公司"
+                phone:
+                  type: string
+                  description: 联系电话
+                  pattern: '^1[3-9]\d{9}$'
+                  example: "13900139000"
+                email:
+                  type: string
+                  format: email
+                  description: 邮箱地址
+                  example: "operator_sh@example.com"
+                category:
+                  type: string
+                  enum: [trial, normal, vip]
+                  description: 客户分类
+                  example: "normal"
+                initial_balance:
+                  type: string
+                  description: 初始余额（可选，默认0）
+                  pattern: '^\d+(\.\d{1,2})?$'
+                  example: "0.00"
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "运营商账户创建成功"
+                  data:
+                    type: object
+                    required:
+                      - operator_id
+                      - username
+                      - api_key
+                      - category
+                      - balance
+                      - created_at
+                    properties:
+                      operator_id:
+                        type: string
+                        example: "op_67890"
+                      username:
+                        type: string
+                        example: "operator_shanghai_01"
+                      api_key:
+                        type: string
+                        description: API Key（请妥善保存并转交运营商）
+                        example: "b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3"
+                      category:
+                        type: string
+                        example: "normal"
+                      balance:
+                        type: string
+                        example: "0.00"
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T10:00:00.000Z"
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/operators/{operator_id}:
+    get:
+      tags:
+        - 管理员-运营商管理
+      summary: 查询运营商详情
+      description: 查询指定运营商的详细信息（包括财务数据）
+      operationId: getOperatorDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/OperatorDetails'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 管理员-运营商管理
+      summary: 更新运营商信息
+      description: 更新运营商的基本信息（姓名、电话、邮箱）
+      operationId: updateOperator
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  example: "北京星空娱乐有限公司（更新）"
+                phone:
+                  type: string
+                  pattern: '^1[3-9]\d{9}$'
+                  example: "13800138001"
+                email:
+                  type: string
+                  format: email
+                  example: "operator_new@example.com"
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "运营商信息已更新"
+                  data:
+                    $ref: '#/components/schemas/OperatorDetails'
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/operators/{operator_id}/category:
+    put:
+      tags:
+        - 管理员-运营商管理
+      summary: 调整客户分类
+      description: 调整运营商的客户分类（试用/普通/VIP）
+      operationId: updateOperatorCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - category
+              properties:
+                category:
+                  type: string
+                  enum: [trial, normal, vip]
+                  description: 新客户分类
+                  example: "vip"
+                reason:
+                  type: string
+                  description: 调整原因（可选）
+                  maxLength: 200
+                  example: "月消费额超过10000元，升级为VIP客户"
+      responses:
+        '200':
+          description: 调整成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "客户分类已调整为VIP"
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/operators/{operator_id}/api-key:
+    get:
+      tags:
+        - 管理员-运营商管理
+      summary: 查看运营商API Key
+      description: 查看运营商的当前API Key（敏感操作，需记录审计日志）
+      operationId: getOperatorApiKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - api_key
+                      - generated_at
+                    properties:
+                      api_key:
+                        type: string
+                        description: API Key
+                        example: "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
+                      generated_at:
+                        type: string
+                        format: date-time
+                        description: 生成时间
+                        example: "2025-01-01T10:00:00.000Z"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/operators/{operator_id}/api-key/reset:
+    post:
+      tags:
+        - 管理员-运营商管理
+      summary: 强制重置API Key
+      description: |
+        强制重置运营商的API Key，旧Key立即失效
+
+        **使用场景**: API Key泄露、安全事件
+      operationId: resetOperatorApiKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operator_id
+          in: path
+          required: true
+          description: 运营商ID
+          schema:
+            type: string
+            example: "op_12345"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: 重置原因
+                  minLength: 10
+                  maxLength: 200
+                  example: "运营商报告API Key泄露，需立即重置"
+      responses:
+        '200':
+          description: 重置成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "API Key已重置，请通知运营商更新配置"
+                  data:
+                    type: object
+                    required:
+                      - api_key
+                      - generated_at
+                    properties:
+                      api_key:
+                        type: string
+                        description: 新API Key
+                        example: "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4z3y2x1w0v9u8"
+                      generated_at:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T14:30:00.000Z"
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/applications:
+    get:
+      tags:
+        - 管理员-应用管理
+      summary: 查询应用列表
+      description: 查询所有可授权的MR游戏应用
+      operationId: getApplications
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - name: keyword
+          in: query
+          description: 应用名称关键词搜索
+          required: false
+          schema:
+            type: string
+            example: "太空"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 管理员-应用管理
+      summary: 创建应用
+      description: 创建新的MR游戏应用
+      operationId: createApplication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - app_name
+                - unit_price
+                - min_players
+                - max_players
+              properties:
+                app_name:
+                  type: string
+                  description: 应用名称
+                  minLength: 2
+                  maxLength: 50
+                  example: "星际战争"
+                unit_price:
+                  type: string
+                  description: 单人价格（元）
+                  pattern: '^\d+(\.\d{1,2})?$'
+                  example: "12.00"
+                min_players:
+                  type: integer
+                  description: 最小玩家数
+                  minimum: 1
+                  example: 2
+                max_players:
+                  type: integer
+                  description: 最大玩家数
+                  minimum: 1
+                  example: 6
+                description:
+                  type: string
+                  description: 应用描述（可选）
+                  maxLength: 500
+                  example: "多人太空射击游戏，支持2-6人同时游玩"
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "应用创建成功"
+                  data:
+                    $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/applications/{app_id}:
+    put:
+      tags:
+        - 管理员-应用管理
+      summary: 更新应用信息
+      description: 更新应用的基本信息（不包括价格，价格调整使用专用接口）
+      operationId: updateApplication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          description: 应用ID
+          schema:
+            type: string
+            example: "app_space_adventure_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                app_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  example: "太空探险（升级版）"
+                min_players:
+                  type: integer
+                  minimum: 1
+                  example: 2
+                max_players:
+                  type: integer
+                  minimum: 1
+                  example: 10
+                description:
+                  type: string
+                  maxLength: 500
+                  example: "经典太空探险游戏，已支持最多10人"
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "应用信息已更新"
+                  data:
+                    $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/applications/{app_id}/price:
+    put:
+      tags:
+        - 管理员-应用管理
+      summary: 调整应用价格
+      description: |
+        调整应用的单人价格，新价格立即生效
+
+        **注意**: 会自动向所有授权该应用的运营商发送通知
+      operationId: updateApplicationPrice
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          description: 应用ID
+          schema:
+            type: string
+            example: "app_space_adventure_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - unit_price
+              properties:
+                unit_price:
+                  type: string
+                  description: 新单人价格（元）
+                  pattern: '^\d+(\.\d{1,2})?$'
+                  example: "12.00"
+                reason:
+                  type: string
+                  description: 调价原因（可选）
+                  maxLength: 200
+                  example: "游戏内容升级，增加新关卡"
+      responses:
+        '200':
+          description: 调价成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "价格已更新，已通知所有授权运营商"
+                  data:
+                    type: object
+                    required:
+                      - app_id
+                      - old_price
+                      - new_price
+                      - notified_operators_count
+                    properties:
+                      app_id:
+                        type: string
+                        example: "app_space_adventure_001"
+                      old_price:
+                        type: string
+                        example: "10.00"
+                      new_price:
+                        type: string
+                        example: "12.00"
+                      notified_operators_count:
+                        type: integer
+                        description: 已通知运营商数量
+                        example: 15
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/app-requests:
+    get:
+      tags:
+        - 管理员-授权审批
+      summary: 查询待审批申请列表
+      description: 查询运营商提交的应用授权申请
+      operationId: getAppRequests
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../openapi.yaml#/components/parameters/PageParam'
+        - $ref: '../openapi.yaml#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          description: 申请状态
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../openapi.yaml#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AppRequestAdmin'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/app-requests/{request_id}/approve:
+    post:
+      tags:
+        - 管理员-授权审批
+      summary: 批准应用授权申请
+      description: 批准运营商的应用授权申请，授权立即生效
+      operationId: approveAppRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          description: 申请ID
+          schema:
+            type: string
+            example: "req_20250115_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: 授权过期时间（null表示永久授权）
+                  nullable: true
+                  example: null
+                note:
+                  type: string
+                  description: 审批备注（可选）
+                  maxLength: 200
+                  example: "大客户申请，批准永久授权"
+      responses:
+        '200':
+          description: 批准成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "申请已批准，运营商可立即使用"
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/app-requests/{request_id}/reject:
+    post:
+      tags:
+        - 管理员-授权审批
+      summary: 拒绝应用授权申请
+      description: 拒绝运营商的应用授权申请
+      operationId: rejectAppRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          description: 申请ID
+          schema:
+            type: string
+            example: "req_20250115_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: 拒绝原因
+                  minLength: 10
+                  maxLength: 200
+                  example: "申请原因不充分，请补充详细说明"
+      responses:
+        '200':
+          description: 拒绝成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "申请已拒绝"
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          $ref: '../openapi.yaml#/components/responses/NotFoundError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/authorizations:
+    post:
+      tags:
+        - 管理员-授权审批
+      summary: 直接为运营商授权应用
+      description: |
+        管理员直接为运营商授权应用（无需申请流程）
+
+        **使用场景**: 新运营商注册、批量授权、特殊情况
+      operationId: createAuthorization
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - operator_id
+                - app_id
+              properties:
+                operator_id:
+                  type: string
+                  description: 运营商ID
+                  example: "op_12345"
+                app_id:
+                  type: string
+                  description: 应用ID
+                  example: "app_space_adventure_001"
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: 授权过期时间（null表示永久授权）
+                  nullable: true
+                  example: null
+                note:
+                  type: string
+                  description: 备注（可选）
+                  maxLength: 200
+                  example: "新运营商初始授权"
+      responses:
+        '201':
+          description: 授权成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "授权已生效"
+        '400':
+          description: 参数错误或已授权
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "INVALID_PARAMS"
+                message: "该运营商已被授权此应用"
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '404':
+          description: 运营商或应用不存在
+          content:
+            application/json:
+              schema:
+                $ref: '../openapi.yaml#/components/schemas/ErrorResponse'
+              example:
+                error_code: "RESOURCE_NOT_FOUND"
+                message: "运营商或应用不存在"
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+  /admin/announcements:
+    post:
+      tags:
+        - 管理员-系统公告
+      summary: 发布系统公告
+      description: 向所有运营商发布系统公告（消息通知）
+      operationId: createAnnouncement
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                  description: 公告标题
+                  minLength: 2
+                  maxLength: 100
+                  example: "春节假期运营时间调整"
+                content:
+                  type: string
+                  description: 公告内容
+                  minLength: 10
+                  maxLength: 2000
+                  example: "春节期间（2月10日-2月17日），客服响应时间调整为10:00-18:00，紧急事项请拨打24小时热线：400-123-4567。"
+                target_operators:
+                  type: array
+                  description: 目标运营商ID列表（为空表示全体运营商）
+                  items:
+                    type: string
+                  example: []
+      responses:
+        '201':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "公告已发布"
+                  data:
+                    type: object
+                    required:
+                      - announcement_id
+                      - recipients_count
+                    properties:
+                      announcement_id:
+                        type: string
+                        example: "ann_20250115_001"
+                      recipients_count:
+                        type: integer
+                        description: 接收运营商数量
+                        example: 150
+        '400':
+          $ref: '../openapi.yaml#/components/responses/BadRequestError'
+        '401':
+          $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+        '500':
+          $ref: '../openapi.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    OperatorSummary:
+      type: object
+      required:
+        - operator_id
+        - username
+        - name
+        - category
+        - balance
+        - total_consumed
+        - is_deactivated
+        - created_at
+      properties:
+        operator_id:
+          type: string
+          example: "op_12345"
+        username:
+          type: string
+          example: "operator_beijing_01"
+        name:
+          type: string
+          example: "北京星空娱乐有限公司"
+        phone:
+          type: string
+          example: "13800138000"
+        email:
+          type: string
+          example: "operator@example.com"
+        category:
+          type: string
+          enum: [trial, normal, vip]
+          example: "normal"
+        balance:
+          type: string
+          description: 当前余额
+          example: "1234.56"
+        total_consumed:
+          type: string
+          description: 累计消费
+          example: "3765.44"
+        is_deactivated:
+          type: boolean
+          description: 是否已注销
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-01T10:00:00.000Z"
+
+    OperatorDetails:
+      allOf:
+        - $ref: '#/components/schemas/OperatorSummary'
+        - type: object
+          required:
+            - total_recharged
+            - total_sessions
+            - last_transaction_at
+            - authorized_apps_count
+            - sites_count
+          properties:
+            total_recharged:
+              type: string
+              description: 累计充值
+              example: "5000.00"
+            total_sessions:
+              type: integer
+              description: 总游戏场次
+              example: 120
+            last_transaction_at:
+              type: string
+              format: date-time
+              description: 最后交易时间
+              nullable: true
+              example: "2025-01-15T10:20:00.000Z"
+            authorized_apps_count:
+              type: integer
+              description: 已授权应用数量
+              example: 5
+            sites_count:
+              type: integer
+              description: 运营点数量
+              example: 3
+            updated_at:
+              type: string
+              format: date-time
+              example: "2025-01-15T14:30:00.000Z"
+
+    Application:
+      type: object
+      required:
+        - app_id
+        - app_name
+        - unit_price
+        - min_players
+        - max_players
+        - created_at
+      properties:
+        app_id:
+          type: string
+          example: "app_space_adventure_001"
+        app_name:
+          type: string
+          example: "太空探险"
+        unit_price:
+          type: string
+          description: 单人价格（元）
+          example: "10.00"
+        min_players:
+          type: integer
+          description: 最小玩家数
+          example: 2
+        max_players:
+          type: integer
+          description: 最大玩家数
+          example: 8
+        description:
+          type: string
+          description: 应用描述
+          example: "经典太空探险游戏，支持2-8人协作"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-12-01T00:00:00.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:00:00.000Z"
+
+    AppRequestAdmin:
+      type: object
+      required:
+        - request_id
+        - operator_id
+        - operator_name
+        - app_id
+        - app_name
+        - reason
+        - status
+        - created_at
+      properties:
+        request_id:
+          type: string
+          example: "req_20250115_001"
+        operator_id:
+          type: string
+          example: "op_12345"
+        operator_name:
+          type: string
+          description: 运营商名称
+          example: "北京星空娱乐有限公司"
+        operator_category:
+          type: string
+          enum: [trial, normal, vip]
+          description: 运营商分类
+          example: "normal"
+        app_id:
+          type: string
+          example: "app_star_war_001"
+        app_name:
+          type: string
+          example: "星际战争"
+        reason:
+          type: string
+          description: 申请原因
+          example: "门店客户强烈要求，预计月消费额5000元以上"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: 审核状态
+          example: "pending"
+        reject_reason:
+          type: string
+          description: 拒绝原因
+          nullable: true
+          example: null
+        reviewed_by:
+          type: string
+          description: 审核人ID
+          nullable: true
+          example: null
+        reviewed_at:
+          type: string
+          format: date-time
+          description: 审核时间
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T15:00:00.000Z"

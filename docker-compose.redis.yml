@@ -1,0 +1,322 @@
+version: '3.8'
+
+services:
+  # Redis Master 主节点
+  redis-master:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_master
+    restart: unless-stopped
+    command: >
+      redis-server
+      --port 6379
+      --bind 0.0.0.0
+      --requirepass ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      --maxmemory ${REDIS_MAX_MEMORY:-512mb}
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --appendonly yes
+      --appendfsync everysec
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+      --timeout 0
+      --tcp-keepalive 60
+      --tcp-backlog 511
+      --databases 16
+    volumes:
+      - redis_master_data:/data
+      - redis_master_logs:/var/log/redis
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+    ports:
+      - "${REDIS_MASTER_PORT:-6379}:6379"
+    networks:
+      - mr_redis_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Slave 从节点1
+  redis-slave-1:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_slave_1
+    restart: unless-stopped
+    command: >
+      redis-server
+      --port 6379
+      --bind 0.0.0.0
+      --requirepass ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      --replicaof redis-master 6379
+      --replica-read-only yes
+      --maxmemory ${REDIS_MAX_MEMORY:-512mb}
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+      --timeout 0
+    volumes:
+      - redis_slave_1_data:/data
+      - redis_slave_1_logs:/var/log/redis
+      - ./redis/redis-slave.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - "${REDIS_SLAVE_1_PORT:-6380}:6379"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Slave 从节点2
+  redis-slave-2:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_slave_2
+    restart: unless-stopped
+    command: >
+      redis-server
+      --port 6379
+      --bind 0.0.0.0
+      --requirepass ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      --replicaof redis-master 6379
+      --replica-read-only yes
+      --maxmemory ${REDIS_MAX_MEMORY:-512mb}
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+      --timeout 0
+    volumes:
+      - redis_slave_2_data:/data
+      - redis_slave_2_logs:/var/log/redis
+      - ./redis/redis-slave.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - "${REDIS_SLAVE_2_PORT:-6381}:6379"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Sentinel 1
+  redis-sentinel-1:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_sentinel_1
+    restart: unless-stopped
+    command: >
+      redis-sentinel /usr/local/etc/redis/sentinel.conf
+      --sentinel announce-ip ${SENTINEL_1_IP:-172.20.0.11}
+      --sentinel announce-port 26379
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - redis_sentinel_1_logs:/var/log/redis
+    ports:
+      - "${REDIS_SENTINEL_1_PORT:-26379}:26379"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  # Redis Sentinel 2
+  redis-sentinel-2:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_sentinel_2
+    restart: unless-stopped
+    command: >
+      redis-sentinel /usr/local/etc/redis/sentinel.conf
+      --sentinel announce-ip ${SENTINEL_2_IP:-172.20.0.12}
+      --sentinel announce-port 26379
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - redis_sentinel_2_logs:/var/log/redis
+    ports:
+      - "${REDIS_SENTINEL_2_PORT:-26380}:26379"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  # Redis Sentinel 3
+  redis-sentinel-3:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_sentinel_3
+    restart: unless-stopped
+    command: >
+      redis-sentinel /usr/local/etc/redis/sentinel.conf
+      --sentinel announce-ip ${SENTINEL_3_IP:-172.20.0.13}
+      --sentinel announce-port 26379
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - redis_sentinel_3_logs:/var/log/redis
+    ports:
+      - "${REDIS_SENTINEL_3_PORT:-26381}:26379"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  # Redis Cluster Manager
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: mr_game_ops_redis_commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "redis-master:${REDIS_MASTER_PORT:-6379},redis-slave-1:${REDIS_SLAVE_1_PORT:-6380},redis-slave-2:${REDIS_SLAVE_2_PORT:-6381}"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      HTTP_USER: ${REDIS_COMMANDER_USER:-admin}
+      HTTP_PASSWORD: ${REDIS_COMMANDER_PASSWORD:-CHANGE_THIS_COMMANDER_PASSWORD}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - mr_redis_network
+    depends_on:
+      - redis-master
+      - redis-slave-1
+      - redis-slave-2
+    profiles:
+      - management
+
+  # Redis Exporter (for Prometheus monitoring)
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: mr_game_ops_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis-master:${REDIS_MASTER_PORT:-6379}"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      REDIS_EXPORTER_LOG_FORMAT: "txt"
+    ports:
+      - "${REDIS_EXPORTER_PORT:-9121}:9121"
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  # Redis Backup Service
+  redis-backup:
+    image: redis:7-alpine
+    container_name: mr_game_ops_redis_backup
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-CHANGE_THIS_REDIS_PASSWORD}
+      BACKUP_SCHEDULE: "0 3 * * *"  # 每天凌晨3点备份
+      BACKUP_RETENTION_DAYS: 7
+      S3_BUCKET: ${S3_REDIS_BACKUP_BUCKET:-mr-game-ops-redis-backups}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    volumes:
+      - redis_backups:/var/backups/redis
+      - ./scripts/backup_redis.sh:/backup.sh:ro
+      - ./scripts/restore_redis.sh:/restore.sh:ro
+    networks:
+      - mr_redis_network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Starting Redis backup service...'
+        while true; do
+          echo 'Creating Redis backup...'
+          /backup.sh
+          echo 'Backup completed. Next backup in 24 hours.'
+          sleep 86400
+        done
+      "
+    profiles:
+      - backup
+
+volumes:
+  # Redis数据卷
+  redis_master_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_MASTER_DATA_PATH:-./data/redis/master}
+  redis_slave_1_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SLAVE_1_DATA_PATH:-./data/redis/slave1}
+  redis_slave_2_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SLAVE_2_DATA_PATH:-./data/redis/slave2}
+
+  # Redis日志卷
+  redis_master_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_MASTER_LOGS_PATH:-./logs/redis/master}
+  redis_slave_1_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SLAVE_1_LOGS_PATH:-./logs/redis/slave1}
+  redis_slave_2_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SLAVE_2_LOGS_PATH:-./logs/redis/slave2}
+  redis_sentinel_1_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SENTINEL_1_LOGS_PATH:-./logs/redis/sentinel1}
+  redis_sentinel_2_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SENTINEL_2_LOGS_PATH:-./logs/redis/sentinel2}
+  redis_sentinel_3_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_SENTINEL_3_LOGS_PATH:-./logs/redis/sentinel3}
+  redis_backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_BACKUPS_PATH:-./backups/redis}
+
+networks:
+  mr_redis_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

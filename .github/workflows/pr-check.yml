@@ -1,0 +1,222 @@
+name: Pull Request 检查
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # ==================== PR 标题检查 ====================
+  pr-title-check:
+    name: PR 标题检查
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检查 PR 标题格式
+      uses: amannn/action-semantic-pull-request@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        types: |
+          feat
+          fix
+          docs
+          style
+          refactor
+          perf
+          test
+          build
+          ci
+          chore
+        scopes: |
+          backend
+          frontend
+          deployment
+          docs
+          test
+        requireScope: false
+
+  # ==================== 代码变更分析 ====================
+  changed-files:
+    name: 代码变更分析
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      docs: ${{ steps.filter.outputs.docs }}
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 检测变更文件
+      uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+          docs:
+            - '**.md'
+            - 'docs/**'
+
+  # ==================== 后端快速检查 ====================
+  backend-quick-check:
+    name: 后端快速检查
+    runs-on: ubuntu-latest
+    needs: changed-files
+    if: needs.changed-files.outputs.backend == 'true'
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: 安装依赖
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black ruff
+
+    - name: 代码格式检查
+      working-directory: ./backend
+      run: |
+        black --check src tests
+
+    - name: 快速语法检查
+      working-directory: ./backend
+      run: |
+        ruff check src tests
+
+  # ==================== 代码评审建议 ====================
+  code-review:
+    name: 自动代码评审
+    runs-on: ubuntu-latest
+    needs: changed-files
+    if: needs.changed-files.outputs.backend == 'true'
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 运行代码复杂度分析
+      working-directory: ./backend
+      run: |
+        pip install radon
+        radon cc src -a -nb || true
+        radon mi src -nb || true
+
+    - name: 检查代码重复
+      run: |
+        pip install pylint
+        pylint --disable=all --enable=duplicate-code backend/src || true
+
+  # ==================== PR 大小检查 ====================
+  pr-size-check:
+    name: PR 大小检查
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检查 PR 大小
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const additions = pr.additions;
+          const deletions = pr.deletions;
+          const total = additions + deletions;
+
+          let label = '';
+          if (total < 100) label = 'size/XS';
+          else if (total < 300) label = 'size/S';
+          else if (total < 600) label = 'size/M';
+          else if (total < 1000) label = 'size/L';
+          else label = 'size/XL';
+
+          // 添加标签
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pr.number,
+            labels: [label]
+          });
+
+          // 如果 PR 太大，添加评论
+          if (total > 1000) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: '⚠️ 此 PR 包含超过 1000 行代码变更。考虑将其拆分为多个较小的 PR 以便于审查。'
+            });
+          }
+
+  # ==================== 测试覆盖率报告 ====================
+  coverage-report:
+    name: 测试覆盖率报告
+    runs-on: ubuntu-latest
+    needs: changed-files
+    if: needs.changed-files.outputs.backend == 'true'
+
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: 安装依赖
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: 运行测试并生成覆盖率
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+        DEBUG: true
+        ENCRYPTION_KEY: test_key_32_characters_long!!
+        JWT_SECRET_KEY: test_jwt_secret_key_for_testing_32_chars_min
+      run: |
+        pytest tests/unit -v --cov=src --cov-report=term --cov-report=html
+
+    - name: 上传覆盖率报告
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: backend/htmlcov/
+
+    - name: 覆盖率注释
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MINIMUM_GREEN: 80
+        MINIMUM_ORANGE: 70
+      continue-on-error: true
