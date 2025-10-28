@@ -215,11 +215,16 @@ const disabledDate = (time: Date) => {
 const loadOperators = async () => {
   try {
     loading.value = true
-    const response = await http.getOperators({
+    const params: any = {
       page: currentPage.value,
-      page_size: pageSize.value,
-      search: filterForm.search || undefined
-    })
+      page_size: pageSize.value
+    }
+
+    if (filterForm.search) {
+      params.search = filterForm.search
+    }
+
+    const response = await http.get('/admins/operators', { params })
 
     operators.value = response.data.items
     total.value = response.data.total
@@ -231,7 +236,6 @@ const loadOperators = async () => {
   } finally {
     loading.value = false
   }
-}
 
 // 为运营商加载授权信息(通过应用列表推断)
 const loadAuthorizationsForOperators = async () => {
@@ -246,10 +250,7 @@ const loadAuthorizationsForOperators = async () => {
 // 加载应用列表
 const loadApplications = async () => {
   try {
-    const response = await http.getApplications({
-      page: 1,
-      page_size: 100 // 加载所有应用
-    })
+    const response = await http.get('/admins/applications', { params: { page: 1, page_size: 100 } })
     applications.value = response.data.items
   } catch (error: any) {
     ElMessage.error(error.response?.data?.detail || '加载应用列表失败')
@@ -303,7 +304,7 @@ const handleConfirmAuthorize = async () => {
     try {
       authorizing.value = true
 
-      await http.authorizeApplication(currentOperator.value.id, {
+      await http.post(`/admins/operators/${currentOperator.value.id}/applications`, {
         application_id: authorizeForm.application_id,
         expires_at: authorizeForm.expires_at?.toISOString()
       })
@@ -332,7 +333,7 @@ const handleRevokeAuth = async (operatorId: string, appId: string) => {
       }
     )
 
-    await http.revokeAuthorization(operatorId, appId)
+    await http.delete(`/admins/operators/${operatorId}/applications/${appId}`)
     ElMessage.success('授权已撤销')
     loadOperators() // 刷新列表
   } catch (error: any) {
