@@ -65,7 +65,7 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.admin import AdminAccount
+from src.models import AdminAccount
 
 async def list_admins():
     init_db()
@@ -104,7 +104,7 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.operator import OperatorAccount
+from src.models import OperatorAccount
 
 async def list_operators():
     init_db()
@@ -165,7 +165,7 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.admin import AdminAccount
+from src.models import AdminAccount
 from src.core.utils.password import hash_password
 
 async def create_admin():
@@ -229,7 +229,7 @@ sys.path.insert(0, '/app')
 from decimal import Decimal
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.operator import OperatorAccount
+from src.models import OperatorAccount
 from src.core.utils.password import hash_password
 
 async def create_operator():
@@ -299,8 +299,8 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.admin import AdminAccount
-from src.models.operator import OperatorAccount
+from src.models import AdminAccount
+from src.models import OperatorAccount
 from src.core.utils.password import hash_password
 
 async def reset_password():
@@ -368,8 +368,8 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.admin import AdminAccount
-from src.models.operator import OperatorAccount
+from src.models import AdminAccount
+from src.models import OperatorAccount
 
 async def toggle_account():
     init_db()
@@ -423,7 +423,7 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models.admin import AdminAccount
+from src.models import AdminAccount
 
 async def change_role():
     init_db()
@@ -479,7 +479,7 @@ sys.path.insert(0, '/app')
 
 from decimal import Decimal
 from src.db.session import init_db, get_db_context
-from src.models.operator import OperatorAccount
+from src.models import OperatorAccount
 from src.core.utils.password import hash_password
 
 async def batch_create():
