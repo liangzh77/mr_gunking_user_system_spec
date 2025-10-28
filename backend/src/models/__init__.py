@@ -27,6 +27,7 @@ from .application import Application
 from .authorization import OperatorAppAuthorization
 from .finance import FinanceAccount
 from .invoice import InvoiceRecord
+from .message import OperatorMessage
 from .operator import OperatorAccount
 from .refund import RefundRecord
 from .site import OperationSite
@@ -45,4 +46,5 @@ __all__ = [
     "InvoiceRecord",
     "ApplicationRequest",
     "FinanceAccount",
+    "OperatorMessage",
 ]
