@@ -42,7 +42,7 @@ async def create_initial_admins():
             email="superadmin@mrgameops.com",
             phone="10000000000",
             role="super_admin",
-            permissions={},
+            permissions=[],
             is_active=True,
         )
 
@@ -54,7 +54,7 @@ async def create_initial_admins():
             email="testadmin@mrgameops.com",
             phone="10000000001",
             role="admin",
-            permissions={},
+            permissions=[],
             is_active=True,
         )
 
