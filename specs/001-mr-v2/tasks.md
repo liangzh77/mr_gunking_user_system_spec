@@ -839,7 +839,7 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 - [X] T316 测试交易记录页面 (访问 /operator/transactions, 验证列表和详情)
 - [X] T317 测试退款申请 (访问 /operator/refunds, 创建退款申请, 查看状态)
 - [X] T318 测试发票管理 (访问 /operator/invoices, 申请发票, 下载PDF)
-- [ ] T319 测试消息中心 (访问 /operator/messages, 查看未读消息, 标记已读)
+- [X] T319 测试消息中心 (访问 /operator/messages, 查看未读消息, 标记已读)
 
 ### Playwright 自动化测试 (管理员端)
 
@@ -850,7 +850,7 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 - [ ] T324 测试应用管理 (访问 /admin/applications, 创建应用, 设置价格和玩家范围)
 - [ ] T325 测试应用更新 (编辑应用信息, 调整价格, 修改玩家数限制)
 - [ ] T326 测试授权申请审批 (访问 /admin/app-requests, 审批通过/拒绝)
-- [ ] T327 测试授权管理 (为运营商授权应用, 撤销授权)
+- [ ] T327 ⚠️ 测试授权管理 (为运营商授权应用, 撤销授权)
 - [ ] T328 测试交易监控 (访问 /admin/transactions, 查看全局交易记录)
 
 ### Playwright 自动化测试 (财务端)

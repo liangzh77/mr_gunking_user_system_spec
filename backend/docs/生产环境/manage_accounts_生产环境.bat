@@ -165,11 +165,19 @@ if /i not "%confirm%"=="Y" (
 )
 
 echo.
+echo Generating password hash...
+echo.
+
+REM Generate correct bcrypt hash for Admin@123
+FOR /F "tokens=*" %%i IN ('docker exec mr_game_ops_backend python -c "from src.core.utils.password import hash_password; print(hash_password('Admin@123'))"') DO SET NEW_HASH=%%i
+
+echo Hash generated successfully
+echo.
 echo Resetting password...
 echo.
 
-REM Use superadmin's password hash (Admin@123)
-docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "UPDATE %table_name% SET password_hash = (SELECT password_hash FROM admin_accounts WHERE username = 'superadmin') WHERE username = '%username%';"
+REM Update password with properly generated hash
+docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops -c "UPDATE %table_name% SET password_hash = '%NEW_HASH%' WHERE username = '%username%';"
 
 if %errorlevel% equ 0 (
     echo.
