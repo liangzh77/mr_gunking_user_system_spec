@@ -39,7 +39,7 @@ class FinanceAccount(Base):
         default="specialist",
         comment="角色: specialist/manager/auditor"
     )
-    permissions = Column(JSON, nullable=False, default=dict, comment="权限配置(JSON对象)")
+    permissions = Column(JSON, nullable=False, server_default='[]', comment="权限配置(JSON数组)")
 
     # 账号状态
     is_active = Column(Boolean, nullable=False, default=True, comment="账号状态")
