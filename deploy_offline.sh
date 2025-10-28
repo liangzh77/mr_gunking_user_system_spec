@@ -139,7 +139,7 @@ export VERSION="1.0.0"
 
 # 构建后端
 echo -e "${BLUE}构建后端服务...${NC}"
-if docker-compose -f docker-compose.prod.yml build backend; then
+if docker-compose -f docker-compose.prod.yml build --no-cache backend; then
     echo -e "${GREEN}✓ 后端构建成功${NC}"
 else
     echo -e "${RED}✗ 后端构建失败${NC}"
@@ -150,7 +150,7 @@ echo ""
 
 # 构建前端
 echo -e "${BLUE}构建前端服务...${NC}"
-if docker-compose -f docker-compose.prod.yml build frontend; then
+if docker-compose -f docker-compose.prod.yml build --no-cache frontend; then
     echo -e "${GREEN}✓ 前端构建成功${NC}"
 else
     echo -e "${RED}✗ 前端构建失败${NC}"
