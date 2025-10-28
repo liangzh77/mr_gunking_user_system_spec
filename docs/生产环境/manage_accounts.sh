@@ -107,7 +107,7 @@ async def list_all_accounts():
             for op in operators:
                 status = "✅ 激活" if op.is_active else "❌ 禁用"
                 balance = f"¥{float(op.balance):.2f}"
-                site_count = len(op.sites) if op.sites else 0
+                site_count = len(op.operation_sites) if op.operation_sites else 0
                 print(f"{op.username:<15} {op.full_name:<15} {op.email:<30} {balance:<15} {status:<8} {site_count:<8}")
             print(f"\n共 {len(operators)} 个运营商账户")
         else:
