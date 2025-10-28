@@ -236,6 +236,7 @@ const loadOperators = async () => {
   } finally {
     loading.value = false
   }
+}
 
 // 为运营商加载授权信息(通过应用列表推断)
 const loadAuthorizationsForOperators = async () => {
