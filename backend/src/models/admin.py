@@ -54,7 +54,9 @@ class AdminAccount(Base):
     role: Mapped[str] = mapped_column(
         String(32), nullable=False, default="admin", index=True
     )
-    permissions: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    permissions: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, server_default='[]'
+    )
 
     # Status fields
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

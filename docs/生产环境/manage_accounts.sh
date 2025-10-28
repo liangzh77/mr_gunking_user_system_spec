@@ -187,7 +187,7 @@ async def create_admin():
             email="$email",
             phone="$phone",
             role="$role",
-            permissions={},
+            permissions=[],
             is_active=True,
         )
 
