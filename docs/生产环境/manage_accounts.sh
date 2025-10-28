@@ -40,23 +40,23 @@ show_menu() {
     echo -e "${BLUE}   MR游戏运营管理系统 - 账户管理${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo ""
-    echo "1. 查看所有管理员账户"
-    echo "2. 查看所有运营商账户"
-    echo "3. 创建管理员账户"
-    echo "4. 创建运营商账户"
-    echo "5. 重置账户密码"
-    echo "6. 启用/禁用账户"
-    echo "7. 修改管理员角色"
-    echo "8. 批量创建运营商"
-    echo "9. 导出账户信息"
+    echo "1. 查看所有账户"
+    echo "2. 创建管理员账户"
+    echo "3. 创建运营商账户"
+    echo "4. 创建财务账户"
+    echo "5. 删除账户"
+    echo "6. 重置账户密码"
+    echo "7. 启用/禁用账户"
+    echo "8. 修改管理员角色"
+    echo "9. 批量创建运营商"
     echo "0. 退出"
     echo ""
     echo -e "${BLUE}=========================================${NC}"
 }
 
-# 列出所有管理员
-list_admins() {
-    echo -e "${YELLOW}正在查询管理员账户...${NC}"
+# 查看所有账户
+list_all_accounts() {
+    echo -e "${YELLOW}正在查询所有账户...${NC}"
 
     docker exec -i $BACKEND_CONTAINER python3 << 'EOFPYTHON'
 import asyncio
@@ -65,71 +65,75 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import select
 from src.db.session import init_db, get_db_context
-from src.models import AdminAccount
+from src.models import AdminAccount, OperatorAccount, FinanceAccount
 
-async def list_admins():
+async def list_all_accounts():
     init_db()
     async with get_db_context() as session:
-        result = await session.execute(select(AdminAccount).order_by(AdminAccount.created_at.desc()))
-        admins = result.scalars().all()
+        # 查询所有管理员
+        admins_result = await session.execute(select(AdminAccount).order_by(AdminAccount.created_at.desc()))
+        admins = admins_result.scalars().all()
 
-        if not admins:
-            print("❌ 没有找到管理员账户")
-            return
+        # 查询所有运营商
+        operators_result = await session.execute(select(OperatorAccount).order_by(OperatorAccount.created_at.desc()))
+        operators = operators_result.scalars().all()
 
-        print("\n" + "=" * 100)
-        print(f"{'用户名':<15} {'姓名':<15} {'邮箱':<25} {'角色':<12} {'状态':<8} {'创建时间':<20}")
-        print("=" * 100)
+        # 查询所有财务人员
+        finance_result = await session.execute(select(FinanceAccount).order_by(FinanceAccount.created_at.desc()))
+        finance_accounts = finance_result.scalars().all()
 
-        for admin in admins:
-            status = "✅ 激活" if admin.is_active else "❌ 禁用"
-            created = admin.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{admin.username:<15} {admin.full_name:<15} {admin.email:<25} {admin.role:<12} {status:<8} {created:<20}")
+        # 显示管理员账户
+        print("\n" + "=" * 120)
+        print("【管理员账户】")
+        print("=" * 120)
+        if admins:
+            print(f"{'用户名':<15} {'姓名':<15} {'邮箱':<30} {'角色':<15} {'状态':<8} {'创建时间':<20}")
+            print("-" * 120)
+            for admin in admins:
+                status = "✅ 激活" if admin.is_active else "❌ 禁用"
+                created = admin.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                print(f"{admin.username:<15} {admin.full_name:<15} {admin.email:<30} {admin.role:<15} {status:<8} {created:<20}")
+            print(f"\n共 {len(admins)} 个管理员账户")
+        else:
+            print("❌ 没有管理员账户")
 
-        print("=" * 100)
-        print(f"\n共 {len(admins)} 个管理员账户\n")
+        # 显示运营商账户
+        print("\n" + "=" * 120)
+        print("【运营商账户】")
+        print("=" * 120)
+        if operators:
+            print(f"{'用户名':<15} {'名称':<15} {'邮箱':<30} {'余额':<15} {'状态':<8} {'站点数':<8}")
+            print("-" * 120)
+            for op in operators:
+                status = "✅ 激活" if op.is_active else "❌ 禁用"
+                balance = f"¥{float(op.balance):.2f}"
+                site_count = len(op.sites) if op.sites else 0
+                print(f"{op.username:<15} {op.full_name:<15} {op.email:<30} {balance:<15} {status:<8} {site_count:<8}")
+            print(f"\n共 {len(operators)} 个运营商账户")
+        else:
+            print("❌ 没有运营商账户")
 
-asyncio.run(list_admins())
-EOFPYTHON
-}
+        # 显示财务账户
+        print("\n" + "=" * 120)
+        print("【财务账户】")
+        print("=" * 120)
+        if finance_accounts:
+            print(f"{'用户名':<15} {'姓名':<15} {'邮箱':<30} {'角色':<15} {'状态':<8} {'创建时间':<20}")
+            print("-" * 120)
+            for finance in finance_accounts:
+                status = "✅ 激活" if finance.is_active else "❌ 禁用"
+                created = finance.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                print(f"{finance.username:<15} {finance.full_name:<15} {finance.email:<30} {finance.role:<15} {status:<8} {created:<20}")
+            print(f"\n共 {len(finance_accounts)} 个财务账户")
+        else:
+            print("❌ 没有财务账户")
 
-# 列出所有运营商
-list_operators() {
-    echo -e "${YELLOW}正在查询运营商账户...${NC}"
+        print("\n" + "=" * 120)
+        total = len(admins) + len(operators) + len(finance_accounts)
+        print(f"账户总数: {total} (管理员:{len(admins)} + 运营商:{len(operators)} + 财务:{len(finance_accounts)})")
+        print("=" * 120 + "\n")
 
-    docker exec -i $BACKEND_CONTAINER python3 << 'EOFPYTHON'
-import asyncio
-import sys
-sys.path.insert(0, '/app')
-
-from sqlalchemy import select
-from src.db.session import init_db, get_db_context
-from src.models import OperatorAccount
-
-async def list_operators():
-    init_db()
-    async with get_db_context() as session:
-        result = await session.execute(select(OperatorAccount).order_by(OperatorAccount.created_at.desc()))
-        operators = result.scalars().all()
-
-        if not operators:
-            print("❌ 没有找到运营商账户")
-            return
-
-        print("\n" + "=" * 110)
-        print(f"{'用户名':<15} {'姓名':<15} {'邮箱':<25} {'电话':<15} {'余额':<12} {'状态':<8} {'创建时间':<20}")
-        print("=" * 110)
-
-        for op in operators:
-            status = "✅ 激活" if op.is_active else "❌ 禁用"
-            created = op.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            balance = f"¥{float(op.balance):.2f}"
-            print(f"{op.username:<15} {op.full_name:<15} {op.email:<25} {op.phone:<15} {balance:<12} {status:<8} {created:<20}")
-
-        print("=" * 110)
-        print(f"\n共 {len(operators)} 个运营商账户\n")
-
-asyncio.run(list_operators())
+asyncio.run(list_all_accounts())
 EOFPYTHON
 }
 
@@ -263,6 +267,195 @@ async def create_operator():
         print(f"  初始余额: ¥$initial_balance")
 
 asyncio.run(create_operator())
+EOFPYTHON
+
+    echo ""
+    read -p "按回车键继续..."
+}
+
+# 创建财务账户
+create_finance_account() {
+    echo -e "${GREEN}=== 创建财务账户 ===${NC}\n"
+
+    read -p "用户名: " username
+    read -s -p "密码: " password
+    echo ""
+    read -p "姓名: " full_name
+    read -p "邮箱: " email
+    read -p "电话: " phone
+
+    echo ""
+    echo "角色选择:"
+    echo "  1. specialist (专员)"
+    echo "  2. manager (经理)"
+    echo "  3. auditor (审计员)"
+    read -p "请选择 [1/2/3]: " role_choice
+
+    if [ "$role_choice" == "1" ]; then
+        role="specialist"
+    elif [ "$role_choice" == "2" ]; then
+        role="manager"
+    else
+        role="auditor"
+    fi
+
+    echo -e "\n${YELLOW}正在创建财务账户...${NC}"
+
+    docker exec -i $BACKEND_CONTAINER python3 << EOFPYTHON
+import asyncio
+import sys
+sys.path.insert(0, '/app')
+
+from sqlalchemy import select
+from src.db.session import init_db, get_db_context
+from src.models import FinanceAccount
+from src.core.utils.password import hash_password
+
+async def create_finance():
+    init_db()
+    async with get_db_context() as session:
+        # 检查用户名是否存在
+        result = await session.execute(
+            select(FinanceAccount).where(FinanceAccount.username == "$username")
+        )
+        if result.scalar_one_or_none():
+            print("❌ 用户名已存在！")
+            sys.exit(1)
+
+        # 创建财务账户
+        finance = FinanceAccount(
+            username="$username",
+            password_hash=hash_password("$password"),
+            full_name="$full_name",
+            email="$email",
+            phone="$phone",
+            role="$role",
+            permissions=[],
+            is_active=True,
+        )
+
+        session.add(finance)
+        await session.commit()
+
+        print("✅ 财务账户创建成功！")
+        print(f"  用户名: $username")
+        print(f"  姓名: $full_name")
+        print(f"  角色: $role")
+
+asyncio.run(create_finance())
+EOFPYTHON
+
+    echo ""
+    read -p "按回车键继续..."
+}
+
+# 删除账户
+delete_account() {
+    echo -e "${RED}=== 删除账户 ===${NC}\n"
+    echo -e "${YELLOW}警告: 此操作不可恢复！${NC}\n"
+
+    echo "账户类型:"
+    echo "  1. 管理员"
+    echo "  2. 运营商"
+    echo "  3. 财务人员"
+    read -p "请选择 [1/2/3]: " account_type
+
+    read -p "用户名: " username
+
+    if [ "$account_type" == "1" ]; then
+        model="AdminAccount"
+        type_name="管理员"
+    elif [ "$account_type" == "2" ]; then
+        model="OperatorAccount"
+        type_name="运营商"
+    else
+        model="FinanceAccount"
+        type_name="财务人员"
+    fi
+
+    echo -e "\n${YELLOW}正在查询账户信息...${NC}"
+
+    # 先显示账户信息
+    docker exec -i $BACKEND_CONTAINER python3 << EOFPYTHON
+import asyncio
+import sys
+sys.path.insert(0, '/app')
+
+from sqlalchemy import select
+from src.db.session import init_db, get_db_context
+from src.models import AdminAccount, OperatorAccount, FinanceAccount
+
+async def show_account():
+    init_db()
+    async with get_db_context() as session:
+        Model = $model
+        result = await session.execute(
+            select(Model).where(Model.username == "$username")
+        )
+        account = result.scalar_one_or_none()
+
+        if not account:
+            print("❌ 账户不存在！")
+            sys.exit(1)
+
+        print("\n账户信息:")
+        print(f"  用户名: {account.username}")
+        print(f"  姓名: {account.full_name}")
+        print(f"  邮箱: {account.email}")
+        if hasattr(account, 'role'):
+            print(f"  角色: {account.role}")
+        if hasattr(account, 'balance'):
+            print(f"  余额: ¥{float(account.balance):.2f}")
+        print(f"  状态: {'激活' if account.is_active else '禁用'}")
+
+asyncio.run(show_account())
+EOFPYTHON
+
+    if [ $? -ne 0 ]; then
+        read -p "按回车键继续..."
+        return
+    fi
+
+    echo ""
+    read -p "确认删除这个${type_name}账户? [y/N]: " confirm
+
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+        echo -e "${GREEN}已取消删除${NC}"
+        read -p "按回车键继续..."
+        return
+    fi
+
+    echo -e "\n${YELLOW}正在删除账户...${NC}"
+
+    docker exec -i $BACKEND_CONTAINER python3 << EOFPYTHON
+import asyncio
+import sys
+sys.path.insert(0, '/app')
+
+from sqlalchemy import select
+from src.db.session import init_db, get_db_context
+from src.models import AdminAccount, OperatorAccount, FinanceAccount
+
+async def delete_account():
+    init_db()
+    async with get_db_context() as session:
+        Model = $model
+        result = await session.execute(
+            select(Model).where(Model.username == "$username")
+        )
+        account = result.scalar_one_or_none()
+
+        if not account:
+            print("❌ 账户不存在！")
+            sys.exit(1)
+
+        await session.delete(account)
+        await session.commit()
+
+        print("✅ 账户删除成功！")
+        print(f"  用户名: $username")
+
+asyncio.run(delete_account())
 EOFPYTHON
 
     echo ""
@@ -587,33 +780,32 @@ main() {
 
         case $choice in
             1)
-                list_admins
+                list_all_accounts
                 read -p "按回车键继续..."
                 ;;
             2)
-                list_operators
-                read -p "按回车键继续..."
-                ;;
-            3)
                 create_admin
                 ;;
-            4)
+            3)
                 create_operator
                 ;;
+            4)
+                create_finance_account
+                ;;
             5)
-                reset_password
+                delete_account
                 ;;
             6)
-                toggle_account
+                reset_password
                 ;;
             7)
-                change_admin_role
+                toggle_account
                 ;;
             8)
-                batch_create_operators
+                change_admin_role
                 ;;
             9)
-                export_accounts
+                batch_create_operators
                 ;;
             0)
                 echo -e "\n${GREEN}再见！${NC}"
