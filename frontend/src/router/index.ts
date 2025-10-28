@@ -141,6 +141,11 @@ const router = createRouter({
               component: () => import('@/pages/admin/CreateApplication.vue'),
             },
             {
+              path: 'authorizations',
+              name: 'AdminAuthorizations',
+              component: () => import('@/pages/admin/Authorizations.vue'),
+            },
+            {
               path: 'transactions',
               name: 'AdminTransactions',
               component: () => import('@/pages/admin/Transactions.vue'),
