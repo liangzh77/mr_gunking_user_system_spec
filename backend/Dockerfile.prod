@@ -3,10 +3,15 @@
 # =============================================================================
 # 阶段1: 构建阶段 - 编译依赖
 # 阶段2: 运行阶段 - 最小化镜像
+# 优化: 使用国内镜像源加速下载
 # =============================================================================
 
 # ============== 阶段1: 构建阶段 ==============
 FROM python:3.12-slim AS builder
+
+# 使用阿里云镜像源加速apt (Debian 12 Bookworm)
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
 # 设置工作目录
 WORKDIR /app
@@ -30,37 +35,46 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # ============== 阶段2: 运行阶段 ==============
 FROM python:3.12-slim
 
-# 设置构建参数（可在构建时传入）
+# 使用阿里云镜像源
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
+# 构建参数
 ARG BUILD_DATE
 ARG VERSION
-LABEL maintainer="MR Game Ops Team"
-LABEL build_date="${BUILD_DATE}"
-LABEL version="${VERSION}"
-LABEL description="MR Game Operations System - Backend API"
+
+# 元数据标签
+LABEL maintainer="MR Game Ops Team" \
+      version="${VERSION}" \
+      build_date="${BUILD_DATE}" \
+      description="MR Game Ops Backend Service - Production"
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/usr/local/bin:$PATH"
+
+# 创建非root用户
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装运行时依赖（仅必需的）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-client \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# 从构建阶段复制已安装的Python包
+# 从构建阶段复制Python包
 COPY --from=builder /install /usr/local
 
-# 创建非root用户（安全最佳实践）
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
 # 复制应用代码
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# 创建必要的目录并设置权限
-RUN mkdir -p logs uploads invoices && \
-    chown -R appuser:appuser /app
+# 创建必要的目录
+RUN mkdir -p /app/logs /app/uploads /app/invoices && \
+    chown -R appuser:appuser /app/logs /app/uploads /app/invoices
 
 # 切换到非root用户
 USER appuser
@@ -72,5 +86,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# 生产环境启动命令（使用多worker）
+# 启动命令
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "warning"]

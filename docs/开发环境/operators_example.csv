@@ -1,0 +1,6 @@
+username,password,full_name,email,phone,initial_balance
+operator1,Pass123!,一号游戏厅,operator1@example.com,13800000001,5000
+operator2,Pass123!,二号游戏厅,operator2@example.com,13800000002,3000
+operator3,Pass123!,三号游戏厅,operator3@example.com,13800000003,4000
+operator4,Pass123!,四号游戏厅,operator4@example.com,13800000004,6000
+operator5,Pass123!,五号游戏厅,operator5@example.com,13800000005,2000
