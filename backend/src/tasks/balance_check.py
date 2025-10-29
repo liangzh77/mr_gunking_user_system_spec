@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.operator_account import OperatorAccount
+from ..models.operator import OperatorAccount
 from ..models.message import OperatorMessage
 from ..services.notification import NotificationService
 from ..db.session import get_async_session

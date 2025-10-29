@@ -15,9 +15,9 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.operator_account import OperatorAccount
+from ..models.operator import OperatorAccount
 from ..models.usage_record import UsageRecord
-from ..models.operation_site import OperationSite
+from ..models.site import OperationSite
 from ..models.application import Application
 
 

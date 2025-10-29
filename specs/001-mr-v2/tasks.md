@@ -494,8 +494,8 @@
 ### API接口 (可并行)
 
 - [X] T215 [P] [US8] 实现消息列表API in backend/src/api/v1/operators.py::get_messages (GET /v1/operators/me/messages)
-- [X] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id})
-- [X] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read)
+- [X] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id}) ✅ 2025-10-29
+- [X] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read) ✅ 2025-10-29
 - [X] T218 [P] [US8] 实现未读数量API in backend/src/api/v1/operators.py::get_unread_count (GET /v1/operators/me/messages/unread-count)
 - [X] T219 [P] [US8] 实现批量标记已读API in backend/src/api/v1/operators.py::mark_all_read (POST /v1/operators/me/messages/mark-all-read)
 
