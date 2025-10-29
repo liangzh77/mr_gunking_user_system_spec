@@ -434,28 +434,28 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T193 [P] [US7] 契约测试：全局统计仪表盘接口 in backend/tests/contract/test_global_dashboard.py (GET /v1/statistics/dashboard)
-- [ ] T194 [P] [US7] 契约测试：多维度分析接口 in backend/tests/contract/test_cross_analysis.py (GET /v1/statistics/cross-analysis)
-- [ ] T195 [P] [US7] 集成测试：全局统计查询 in backend/tests/integration/test_global_statistics.py
+- [X] T193 [P] [US7] 契约测试：全局统计仪表盘接口 in backend/tests/contract/test_global_dashboard.py (GET /v1/statistics/dashboard) ✅ 2025-10-29
+- [X] T194 [P] [US7] 契约测试：多维度分析接口 in backend/tests/contract/test_cross_analysis.py (GET /v1/statistics/cross-analysis) ✅ 2025-10-29
+- [X] T195 [P] [US7] 集成测试：全局统计查询 in backend/tests/integration/test_global_statistics.py ✅ 2025-10-29
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T196 [P] [US7] 创建全局统计Schema in backend/src/schemas/statistics/global.py (GlobalDashboardResponse, CrossAnalysisRequest)
-- [ ] T197 [P] [US7] 创建玩家分布统计Schema in backend/src/schemas/statistics/player_distribution.py (PlayerDistributionResponse)
+- [X] T196 [P] [US7] 创建全局统计Schema in backend/src/schemas/statistics/global.py (GlobalDashboardResponse, CrossAnalysisRequest) ✅ 2025-10-29
+- [X] T197 [P] [US7] 创建玩家分布统计Schema in backend/src/schemas/statistics/player_distribution.py (PlayerDistributionResponse) ✅ 2025-10-29
 
 ### 业务服务
 
-- [ ] T198 [US7] 实现GlobalStatisticsService in backend/src/services/global_statistics.py (全局数据聚合、多维度交叉分析)
+- [X] T198 [US7] 实现GlobalStatisticsService in backend/src/services/global_statistics.py (全局数据聚合、多维度交叉分析) ✅ 2025-10-29
 
 ### API接口 (可并行)
 
-- [ ] T199 [P] [US7] 实现全局统计仪表盘API in backend/src/api/v1/statistics/dashboard.py::get_global_dashboard (GET /v1/statistics/dashboard)
-- [ ] T200 [P] [US7] 实现按应用统计API in backend/src/api/v1/statistics/applications.py::get_app_statistics (GET /v1/statistics/by-application)
-- [ ] T201 [P] [US7] 实现按运营点统计API in backend/src/api/v1/statistics/sites.py::get_site_statistics (GET /v1/statistics/by-site)
-- [ ] T202 [P] [US7] 实现玩家数量分布API in backend/src/api/v1/statistics/players.py::get_player_distribution (GET /v1/statistics/player-distribution)
-- [ ] T203 [P] [US7] 实现多维度交叉分析API in backend/src/api/v1/statistics/cross-analysis.py::cross_analysis (POST /v1/statistics/cross-analysis)
-- [ ] T204 [P] [US7] 实现导出全局报表API in backend/src/api/v1/statistics/export.py::export_global_report (GET /v1/statistics/export)
-- [ ] T205 [US7] 注册统计路由 in backend/src/main.py
+- [X] T199 [P] [US7] 实现全局统计仪表盘API in backend/src/api/v1/statistics/dashboard.py::get_global_dashboard (GET /v1/statistics/dashboard) ✅ 2025-10-29
+- [X] T200 [P] [US7] 实现按应用统计API in backend/src/api/v1/statistics/applications.py::get_app_statistics (GET /v1/statistics/by-application) ✅ 2025-10-29
+- [X] T201 [P] [US7] 实现按运营点统计API in backend/src/api/v1/statistics/sites.py::get_site_statistics (GET /v1/statistics/by-site) ✅ 2025-10-29
+- [X] T202 [P] [US7] 实现玩家数量分布API in backend/src/api/v1/statistics/players.py::get_player_distribution (GET /v1/statistics/player-distribution) ✅ 2025-10-29
+- [X] T203 [P] [US7] 实现多维度交叉分析API in backend/src/api/v1/statistics/cross-analysis.py::cross_analysis (POST /v1/statistics/cross-analysis) ✅ 2025-10-29
+- [X] T204 [P] [US7] 实现导出全局报表API in backend/src/api/v1/statistics/export.py::export_global_report (GET /v1/statistics/export) ✅ 2025-10-29
+- [X] T205 [US7] 注册统计路由 in backend/src/main.py ✅ 2025-10-29
 
 ### 单元测试 (补充)
 
