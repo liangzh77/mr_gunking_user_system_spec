@@ -506,8 +506,8 @@
 
 ### 单元测试 (补充)
 
-- [ ] T222 [P] [US8] MessageService单元测试 in backend/tests/unit/services/test_message_service.py
-- [ ] T223 [P] [US8] NotificationService单元测试 in backend/tests/unit/services/test_notification_service.py
+- [X] T222 [P] [US8] MessageService单元测试 in backend/tests/unit/services/test_message_service.py ✅ 2025-10-29
+- [X] T223 [P] [US8] NotificationService单元测试 in backend/tests/unit/services/test_notification_service.py ✅ 2025-10-29
 
 **Checkpoint**: 所有8个用户故事完成 - 系统功能完整
 
