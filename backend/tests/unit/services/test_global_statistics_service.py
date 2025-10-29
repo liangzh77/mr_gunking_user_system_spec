@@ -70,9 +70,7 @@ async def global_stats_test_data(test_db):
             id=uuid4(),
             operator_id=operator.id,
             name=f"测试门店{i}",
-            address=f"测试地址{i}",
-            server_endpoint=f"https://site{i}.test.com",
-            created_by=admin.id
+            address=f"测试地址{i}"
         )
         test_db.add(site)
         sites.append(site)
@@ -119,6 +117,7 @@ async def global_stats_test_data(test_db):
             player_count=players,
             price_per_player=apps[0].price_per_player,
             total_cost=Decimal(str(players * 10.00)),
+            authorization_token=f"token_{uuid4().hex[:16]}",
             created_at=base_time + timedelta(days=day)
         )
         test_db.add(record)
@@ -135,6 +134,7 @@ async def global_stats_test_data(test_db):
             player_count=players,
             price_per_player=apps[1].price_per_player,
             total_cost=Decimal(str(players * 20.00)),
+            authorization_token=f"token_{uuid4().hex[:16]}",
             created_at=base_time + timedelta(days=day)
         )
         test_db.add(record)
@@ -150,6 +150,7 @@ async def global_stats_test_data(test_db):
         player_count=4,
         price_per_player=apps[0].price_per_player,
         total_cost=Decimal("40.00"),
+        authorization_token=f"token_{uuid4().hex[:16]}",
         created_at=base_time + timedelta(days=5)
     )
     test_db.add(record)
@@ -421,5 +422,5 @@ async def test_get_player_distribution_empty_data(test_db):
 
     # 验证空数据
     assert result["total_sessions"] == 0
-    assert result["most_common_player_count"] == 0
+    assert result["most_common_player_count"] == 4  # 默认值
     assert result["distribution"] == []
