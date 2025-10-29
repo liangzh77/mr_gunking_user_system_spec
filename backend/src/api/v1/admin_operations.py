@@ -11,6 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import CurrentUserToken, DatabaseSession
 from ...schemas.admin import ApplicationRequestReviewRequest
 from ...schemas.admin_operator import CreateOperatorRequest, OperatorDetailResponse
+from ...schemas.admin_application import (
+    CreateApplicationRequest,
+    UpdateApplicationRequest,
+    ApplicationResponse,
+    ApplicationListResponse,
+    AuthorizeApplicationRequest,
+    AuthorizationResponse,
+)
 from ...schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
 from ...schemas.common import MessageResponse
 from ...schemas.site import SiteCreateRequest, SiteUpdateRequest, SiteListResponse, SiteItem
@@ -108,7 +116,7 @@ async def get_operators(
 
 @router.get(
     "/applications",
-    response_model=dict,
+    response_model=ApplicationListResponse,
     status_code=status.HTTP_200_OK,
     summary="Get Applications List",
     description="Get list of all applications with search capability",
@@ -119,7 +127,7 @@ async def get_applications(
     search: Optional[str] = Query(None, description="Search by app_code or app_name"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> dict:
+) -> ApplicationListResponse:
     """Get applications list for admin.
 
     Args:
@@ -130,13 +138,29 @@ async def get_applications(
         page_size: Items per page
 
     Returns:
-        dict: Paginated list of applications
+        ApplicationListResponse: Paginated list of applications
     """
+    from math import ceil
+
     service = AdminService(db)
-    return await service.get_applications(
+    applications, total = await service.get_applications(
         search=search,
         page=page,
         page_size=page_size
+    )
+
+    # Convert Application models to ApplicationResponse
+    items = [ApplicationResponse.model_validate(app) for app in applications]
+
+    # Calculate total pages
+    total_pages = ceil(total / page_size) if total > 0 else 0
+
+    return ApplicationListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages
     )
 
 
@@ -218,16 +242,16 @@ async def review_application_request(
 
 @router.post(
     "/applications",
-    response_model=dict,
+    response_model=ApplicationResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Application",
     description="Create a new application (admin only)",
 )
 async def create_application(
-    app_data: dict,
+    app_data: CreateApplicationRequest,
     token: CurrentUserToken,
     db: DatabaseSession,
-) -> dict:
+) -> ApplicationResponse:
     """Create a new application.
 
     Args:
@@ -236,20 +260,67 @@ async def create_application(
         db: Database session
 
     Returns:
-        dict: Created application data
+        ApplicationResponse: Created application data
     """
     admin_id = get_token_subject(token)
     service = AdminService(db)
 
-    return await service.create_application(
+    app = await service.create_application(
         admin_id=admin_id,
-        app_code=app_data["app_code"],
-        app_name=app_data["app_name"],
-        description=app_data.get("description"),
-        price_per_player=app_data["price_per_player"],
-        min_players=app_data["min_players"],
-        max_players=app_data["max_players"]
+        app_name=app_data.app_name,
+        unit_price=app_data.unit_price,
+        min_players=app_data.min_players,
+        max_players=app_data.max_players,
+        description=app_data.description,
     )
+
+    return ApplicationResponse.model_validate(app)
+
+
+@router.put(
+    "/applications/{app_id}",
+    response_model=ApplicationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Application",
+    description="Update application basic information (excludes price)",
+)
+async def update_application(
+    app_id: str,
+    app_data: UpdateApplicationRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> ApplicationResponse:
+    """Update application basic information.
+
+    Args:
+        app_id: Application ID (UUID string)
+        app_data: Application update data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        ApplicationResponse: Updated application data
+    """
+    from uuid import UUID
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    service = AdminService(db)
+
+    app = await service.update_application(
+        app_id=app_uuid,
+        app_name=app_data.app_name,
+        min_players=app_data.min_players,
+        max_players=app_data.max_players,
+        description=app_data.description,
+        is_active=app_data.is_active,
+    )
+
+    return ApplicationResponse.model_validate(app)
 
 
 @router.put(
@@ -319,48 +390,67 @@ async def update_player_range(
 
 @router.post(
     "/operators/{operator_id}/applications",
-    response_model=dict,
+    response_model=AuthorizationResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Authorize Application",
     description="Authorize an application for an operator",
 )
 async def authorize_application(
     operator_id: str,
-    auth_data: dict,
+    auth_data: AuthorizeApplicationRequest,
     token: CurrentUserToken,
     db: DatabaseSession,
-) -> dict:
+) -> AuthorizationResponse:
     """Authorize an application for an operator.
 
     Args:
-        operator_id: Operator ID
-        auth_data: Authorization data {"application_id": str, "expires_at": Optional[str]}
+        operator_id: Operator ID (UUID string)
+        auth_data: Authorization request data
         token: Current admin token
         db: Database session
 
     Returns:
-        dict: Authorization data
+        AuthorizationResponse: Authorization data with operator and app names
     """
-    from datetime import datetime
+    from uuid import UUID
+
+    try:
+        operator_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
 
     admin_id = get_token_subject(token)
     service = AdminService(db)
 
-    expires_at = None
-    if auth_data.get("expires_at"):
-        expires_at = datetime.fromisoformat(auth_data["expires_at"])
-
-    return await service.authorize_application(
-        operator_id=operator_id,
-        application_id=auth_data["application_id"],
+    authorization = await service.authorize_application(
+        operator_id=operator_uuid,
+        application_id=auth_data.application_id,
         admin_id=admin_id,
-        expires_at=expires_at
+        expires_at=auth_data.expires_at,
+        application_request_id=auth_data.application_request_id,
+    )
+
+    # Build response with operator and app names from relationships
+    return AuthorizationResponse(
+        id=authorization.id,
+        operator_id=authorization.operator_id,
+        application_id=authorization.application_id,
+        operator_name=authorization.operator.full_name,
+        app_name=authorization.application.app_name,
+        authorized_at=authorization.authorized_at,
+        expires_at=authorization.expires_at,
+        authorized_by=authorization.authorized_by,
+        application_request_id=authorization.application_request_id,
+        is_active=authorization.is_active,
+        created_at=authorization.created_at,
+        updated_at=authorization.updated_at,
     )
 
 
 @router.delete(
     "/operators/{operator_id}/applications/{app_id}",
-    response_model=dict,
+    response_model=AuthorizationResponse,
     status_code=status.HTTP_200_OK,
     summary="Revoke Authorization",
     description="Revoke an application authorization for an operator",
@@ -370,22 +460,47 @@ async def revoke_authorization(
     app_id: str,
     token: CurrentUserToken,
     db: DatabaseSession,
-) -> dict:
+) -> AuthorizationResponse:
     """Revoke an application authorization.
 
     Args:
-        operator_id: Operator ID
-        app_id: Application ID
+        operator_id: Operator ID (UUID string)
+        app_id: Application ID (UUID string)
         token: Current admin token
         db: Database session
 
     Returns:
-        dict: Revoked authorization data
+        AuthorizationResponse: Revoked authorization data
     """
+    from uuid import UUID
+
+    try:
+        operator_uuid = UUID(operator_id)
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid ID format")
+
     service = AdminService(db)
-    return await service.revoke_authorization(
-        operator_id=operator_id,
-        application_id=app_id
+    authorization = await service.revoke_authorization(
+        operator_id=operator_uuid,
+        application_id=app_uuid
+    )
+
+    # Build response with operator and app names from relationships
+    return AuthorizationResponse(
+        id=authorization.id,
+        operator_id=authorization.operator_id,
+        application_id=authorization.application_id,
+        operator_name=authorization.operator.full_name,
+        app_name=authorization.application.app_name,
+        authorized_at=authorization.authorized_at,
+        expires_at=authorization.expires_at,
+        authorized_by=authorization.authorized_by,
+        application_request_id=authorization.application_request_id,
+        is_active=authorization.is_active,
+        created_at=authorization.created_at,
+        updated_at=authorization.updated_at,
     )
 
 

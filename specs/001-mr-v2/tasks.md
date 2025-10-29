@@ -314,8 +314,8 @@
 
 - [X] T127 [P] [US5] 创建管理员登录Schema in backend/src/schemas/admin.py (AdminLoginRequest, AdminLoginResponse等9个schemas) ✅ 2025-10-12
 - [X] T128 [P] [US5] 创建运营商管理Schema in backend/src/schemas/admin/operator.py (CreateOperatorRequest, OperatorDetailResponse)
-- [ ] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin/application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse)
-- [ ] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin/authorization.py (AuthorizeApplicationRequest, AuthorizationResponse)
+- [X] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin_application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse, ApplicationListResponse等8个schemas) ✅ 2025-10-29
+- [X] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin_application.py (AuthorizeApplicationRequest, AuthorizationResponse, RevokeAuthorizationRequest, AuthorizationListResponse) ✅ 2025-10-29
 
 ### 业务服务
 
@@ -327,12 +327,13 @@
 
 - [X] T134 [P] [US5] 实现管理员认证API in backend/src/api/v1/admin_auth.py (5个端点: login/logout/me/refresh/change-password) ✅ 2025-10-12
 - [X] T136 [P] [US5] 实现运营商列表API in backend/src/api/v1/admin_operations.py::get_operators (GET /admin/admins/operators，已实现) ✅ 2025-10-17
-- [X] T141 [P] [US5] 实现创建应用API in backend/src/api/v1/admin_operations.py::create_application (POST /admin/admins/applications) ✅ 2025-10-17
-- [X] T142 [P] [US5] 实现应用列表API in backend/src/api/v1/admin_operations.py::get_applications (GET /admin/admins/applications，已实现) ✅ 2025-10-17
+- [X] T141 [P] [US5] 实现创建应用API in backend/src/api/v1/admin_operations.py::create_application (POST /admin/admins/applications，使用CreateApplicationRequest，自动生成app_code) ✅ 2025-10-29
+- [X] T141a [P] [US5] 实现更新应用API in backend/src/api/v1/admin_operations.py::update_application (PUT /admin/admins/applications/{app_id}，使用UpdateApplicationRequest，不含价格) ✅ 2025-10-29
+- [X] T142 [P] [US5] 实现应用列表API in backend/src/api/v1/admin_operations.py::get_applications (GET /admin/admins/applications，使用ApplicationListResponse) ✅ 2025-10-29
 - [X] T143 [P] [US5] 实现更新应用价格API in backend/src/api/v1/admin_operations.py::update_application_price (PUT /admin/admins/applications/{app_id}/price) ✅ 2025-10-17
 - [X] T144 [P] [US5] 实现更新玩家范围API in backend/src/api/v1/admin_operations.py::update_player_range (PUT /admin/admins/applications/{app_id}/player-range) ✅ 2025-10-17
-- [X] T145 [P] [US5] 实现授权应用API in backend/src/api/v1/admin_operations.py::authorize_application (POST /admin/admins/operators/{operator_id}/applications) ✅ 2025-10-17
-- [X] T146 [P] [US5] 实现撤销授权API in backend/src/api/v1/admin_operations.py::revoke_authorization (DELETE /admin/admins/operators/{operator_id}/applications/{app_id}) ✅ 2025-10-17
+- [X] T145 [P] [US5] 实现授权应用API in backend/src/api/v1/admin_operations.py::authorize_application (POST /admin/admins/operators/{operator_id}/applications，使用AuthorizeApplicationRequest和AuthorizationResponse) ✅ 2025-10-29
+- [X] T146 [P] [US5] 实现撤销授权API in backend/src/api/v1/admin_operations.py::revoke_authorization (DELETE /admin/admins/operators/{operator_id}/applications/{app_id}，使用AuthorizationResponse) ✅ 2025-10-29
 - [X] T147 [P] [US5] 实现查询授权申请列表API in backend/src/api/v1/admin_operations.py::get_application_requests (GET /admin/admins/applications/requests，已实现) ✅ 2025-10-17
 - [X] T148 [P] [US5] 实现审批授权申请API in backend/src/api/v1/admin_operations.py::review_application_request (POST /admin/admins/applications/requests/{request_id}/review，已实现) ✅ 2025-10-17
 - [X] T151 [US5] 注册管理员路由 in backend/src/api/v1/__init__.py (admin_operations_router已注册) ✅ 2025-10-17

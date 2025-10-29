@@ -17,6 +17,16 @@ from .admin import (
     AdminUserDetail,
     AdminUserInfo,
 )
+from .admin_application import (
+    ApplicationListResponse,
+    ApplicationResponse,
+    AuthorizationListResponse,
+    AuthorizationResponse,
+    AuthorizeApplicationRequest,
+    CreateApplicationRequest,
+    RevokeAuthorizationRequest,
+    UpdateApplicationRequest,
+)
 from .auth import (
     GameAuthorizeRequest,
     GameAuthorizeResponse,
@@ -79,6 +89,15 @@ __all__ = [
     "AdminUpdateRequest",
     "AdminChangePasswordRequest",
     "AdminListResponse",
+    # Admin application management schemas
+    "CreateApplicationRequest",
+    "UpdateApplicationRequest",
+    "ApplicationResponse",
+    "ApplicationListResponse",
+    "AuthorizeApplicationRequest",
+    "AuthorizationResponse",
+    "AuthorizationListResponse",
+    "RevokeAuthorizationRequest",
     # User Story 1: Auth schemas
     "GameAuthorizeRequest",
     "GameAuthorizeResponse",

@@ -4,6 +4,7 @@ This service handles admin operations like reviewing application authorization r
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID as PyUUID
 
@@ -318,7 +319,7 @@ class AdminService:
         search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
-    ) -> dict:
+    ) -> tuple[list[Application], int]:
         """Get applications list for admin.
 
         Args:
@@ -327,7 +328,7 @@ class AdminService:
             page_size: Items per page
 
         Returns:
-            dict: Paginated list of applications
+            tuple: (list of Application models, total count)
         """
         # Build query
         query = select(Application)
@@ -344,7 +345,7 @@ class AdminService:
         query = query.order_by(desc(Application.created_at))
 
         # Get total count
-        count_query = select(Application)
+        count_query = select(func.count()).select_from(Application)
         if search:
             search_pattern = f"%{search}%"
             count_query = count_query.where(
@@ -353,7 +354,7 @@ class AdminService:
             )
 
         count_result = await self.db.execute(count_query)
-        total = len(count_result.scalars().all())
+        total = count_result.scalar()
 
         # Apply pagination
         offset = (page - 1) * page_size
@@ -363,84 +364,68 @@ class AdminService:
         result = await self.db.execute(query)
         applications = result.scalars().all()
 
-        # Convert to response items
-        items = [
-            {
-                "id": str(app.id),
-                "app_code": app.app_code,
-                "app_name": app.app_name,
-                "description": app.description,
-                "price_per_request": float(app.price_per_player),
-                "is_active": app.is_active,
-                "created_at": app.created_at,
-                "updated_at": app.updated_at,
-            }
-            for app in applications
-        ]
-
-        return {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "items": items
-        }
+        return applications, total
 
     # ==================== Application Management (T132) ====================
 
     async def create_application(
         self,
         admin_id: PyUUID,
-        app_code: str,
         app_name: str,
-        description: Optional[str],
-        price_per_player: float,
+        unit_price: Decimal,
         min_players: int,
-        max_players: int
-    ) -> dict:
-        """Create a new application.
+        max_players: int,
+        description: Optional[str] = None,
+    ) -> Application:
+        """Create a new application with auto-generated app_code.
 
         Args:
             admin_id: Admin ID creating the application
-            app_code: Unique application code
             app_name: Application name
-            description: Application description
-            price_per_player: Price per player
+            unit_price: Price per player (Decimal)
             min_players: Minimum players
             max_players: Maximum players
+            description: Application description (optional)
 
         Returns:
-            dict: Created application data
+            Application: Created application model instance
 
         Raises:
             BadRequestException: If validation fails
         """
-        from decimal import Decimal
+        from datetime import datetime
+        from decimal import Decimal as D
 
-        # Check if app_code already exists
-        existing = await self.db.execute(
-            select(Application).where(Application.app_code == app_code)
+        # Validation is already done by Pydantic schema, but we add DB-level checks
+
+        # Generate unique app_code: APP_YYYYMMDD_NNN
+        today = datetime.now().strftime("%Y%m%d")
+        prefix = f"APP_{today}_"
+
+        # Find the highest number for today
+        result = await self.db.execute(
+            select(Application.app_code)
+            .where(Application.app_code.like(f"{prefix}%"))
+            .order_by(Application.app_code.desc())
+            .limit(1)
         )
-        if existing.scalar_one_or_none():
-            raise BadRequestException(f"Application code '{app_code}' already exists")
+        last_code = result.scalar_one_or_none()
 
-        # Validate player range
-        if min_players < 1:
-            raise BadRequestException("Minimum players must be at least 1")
-        if max_players < min_players:
-            raise BadRequestException("Maximum players must be >= minimum players")
-        if max_players > 100:
-            raise BadRequestException("Maximum players cannot exceed 100")
+        if last_code:
+            # Extract number from APP_20250129_001 -> 001
+            last_num = int(last_code.split("_")[-1])
+            new_num = last_num + 1
+        else:
+            new_num = 1
 
-        # Validate price
-        if price_per_player <= 0:
-            raise BadRequestException("Price per player must be positive")
+        app_code = f"{prefix}{new_num:03d}"
 
         # Create application
         app = Application(
             app_code=app_code,
             app_name=app_name,
             description=description,
-            price_per_player=Decimal(str(price_per_player)),
+            price_per_player=D(str(unit_price)),
             min_players=min_players,
             max_players=max_players,
             is_active=True,
@@ -450,18 +435,70 @@ class AdminService:
         await self.db.commit()
         await self.db.refresh(app)
 
-        return {
-            "id": str(app.id),
-            "app_code": app.app_code,
-            "app_name": app.app_name,
-            "description": app.description,
-            "price_per_player": float(app.price_per_player),
-            "min_players": app.min_players,
-            "max_players": app.max_players,
-            "is_active": app.is_active,
-            "created_at": app.created_at,
-            "updated_at": app.updated_at,
-        }
+        return app
+
+    async def update_application(
+        self,
+        app_id: PyUUID,
+        app_name: Optional[str] = None,
+        min_players: Optional[int] = None,
+        max_players: Optional[int] = None,
+        description: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> Application:
+        """Update application basic information (excludes price).
+
+        Args:
+            app_id: Application ID (UUID)
+            app_name: New application name (optional)
+            min_players: New minimum players (optional)
+            max_players: New maximum players (optional)
+            description: New description (optional)
+            is_active: New active status (optional)
+
+        Returns:
+            Application: Updated application model instance
+
+        Raises:
+            NotFoundException: If application not found
+            BadRequestException: If validation fails
+        """
+        # Find application
+        result = await self.db.execute(
+            select(Application).where(Application.id == app_id)
+        )
+        app = result.scalar_one_or_none()
+
+        if not app:
+            raise NotFoundException("Application not found")
+
+        # Update fields if provided
+        if app_name is not None:
+            app.app_name = app_name
+
+        if min_players is not None:
+            app.min_players = min_players
+
+        if max_players is not None:
+            app.max_players = max_players
+
+        if description is not None:
+            app.description = description
+
+        if is_active is not None:
+            app.is_active = is_active
+
+        # Validate player range if either was updated
+        if min_players is not None or max_players is not None:
+            if app.max_players < app.min_players:
+                raise BadRequestException("max_players must be >= min_players")
+
+        app.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(app)
+
+        return app
 
     async def update_application_price(
         self,
@@ -579,36 +616,31 @@ class AdminService:
 
     async def authorize_application(
         self,
-        operator_id: str,
-        application_id: str,
+        operator_id: PyUUID,
+        application_id: PyUUID,
         admin_id: PyUUID,
-        expires_at: Optional[datetime] = None
-    ) -> dict:
+        expires_at: Optional[datetime] = None,
+        application_request_id: Optional[PyUUID] = None,
+    ) -> OperatorAppAuthorization:
         """Authorize an application for an operator.
 
         Args:
-            operator_id: Operator ID
-            application_id: Application ID
-            admin_id: Admin ID performing the authorization
+            operator_id: Operator ID (UUID)
+            application_id: Application ID (UUID)
+            admin_id: Admin ID performing the authorization (UUID)
             expires_at: Optional expiration datetime
+            application_request_id: Optional related application request ID
 
         Returns:
-            dict: Authorization data
+            OperatorAppAuthorization: Created authorization model instance
 
         Raises:
             NotFoundException: If operator or application not found
             BadRequestException: If authorization already exists
         """
-        # Convert IDs to UUID
-        try:
-            op_uuid = PyUUID(operator_id)
-            app_uuid = PyUUID(application_id)
-        except ValueError:
-            raise BadRequestException("Invalid ID format")
-
         # Check operator exists
         op_result = await self.db.execute(
-            select(OperatorAccount).where(OperatorAccount.id == op_uuid)
+            select(OperatorAccount).where(OperatorAccount.id == operator_id)
         )
         operator = op_result.scalar_one_or_none()
         if not operator:
@@ -616,7 +648,7 @@ class AdminService:
 
         # Check application exists
         app_result = await self.db.execute(
-            select(Application).where(Application.id == app_uuid)
+            select(Application).where(Application.id == application_id)
         )
         application = app_result.scalar_one_or_none()
         if not application:
@@ -626,8 +658,8 @@ class AdminService:
         auth_result = await self.db.execute(
             select(OperatorAppAuthorization).where(
                 and_(
-                    OperatorAppAuthorization.operator_id == op_uuid,
-                    OperatorAppAuthorization.application_id == app_uuid,
+                    OperatorAppAuthorization.operator_id == operator_id,
+                    OperatorAppAuthorization.application_id == application_id,
                     OperatorAppAuthorization.is_active == True
                 )
             )
@@ -639,57 +671,45 @@ class AdminService:
 
         # Create authorization
         authorization = OperatorAppAuthorization(
-            operator_id=op_uuid,
-            application_id=app_uuid,
+            operator_id=operator_id,
+            application_id=application_id,
             authorized_by=admin_id,
             is_active=True,
             authorized_at=datetime.now(timezone.utc),
-            expires_at=expires_at
+            expires_at=expires_at,
+            application_request_id=application_request_id,
         )
         self.db.add(authorization)
         await self.db.commit()
+
+        # Refresh with relationships loaded
         await self.db.refresh(authorization)
 
-        return {
-            "id": str(authorization.id),
-            "operator_id": str(authorization.operator_id),
-            "application_id": str(authorization.application_id),
-            "authorized_at": authorization.authorized_at,
-            "expires_at": authorization.expires_at,
-            "is_active": authorization.is_active,
-        }
+        return authorization
 
     async def revoke_authorization(
         self,
-        operator_id: str,
-        application_id: str
-    ) -> dict:
+        operator_id: PyUUID,
+        application_id: PyUUID,
+    ) -> OperatorAppAuthorization:
         """Revoke an application authorization for an operator.
 
         Args:
-            operator_id: Operator ID
-            application_id: Application ID
+            operator_id: Operator ID (UUID)
+            application_id: Application ID (UUID)
 
         Returns:
-            dict: Revoked authorization data
+            OperatorAppAuthorization: Revoked authorization model instance
 
         Raises:
             NotFoundException: If authorization not found
-            BadRequestException: If validation fails
         """
-        # Convert IDs to UUID
-        try:
-            op_uuid = PyUUID(operator_id)
-            app_uuid = PyUUID(application_id)
-        except ValueError:
-            raise BadRequestException("Invalid ID format")
-
         # Find active authorization
         result = await self.db.execute(
             select(OperatorAppAuthorization).where(
                 and_(
-                    OperatorAppAuthorization.operator_id == op_uuid,
-                    OperatorAppAuthorization.application_id == app_uuid,
+                    OperatorAppAuthorization.operator_id == operator_id,
+                    OperatorAppAuthorization.application_id == application_id,
                     OperatorAppAuthorization.is_active == True
                 )
             )
@@ -706,13 +726,7 @@ class AdminService:
         await self.db.commit()
         await self.db.refresh(authorization)
 
-        return {
-            "id": str(authorization.id),
-            "operator_id": str(authorization.operator_id),
-            "application_id": str(authorization.application_id),
-            "is_active": authorization.is_active,
-            "updated_at": authorization.updated_at,
-        }
+        return authorization
 
     # ==================== 运营点管理 ====================
 
