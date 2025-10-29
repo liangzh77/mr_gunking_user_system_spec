@@ -308,12 +308,12 @@
 ### 数据模型
 
 - [X] T125 [P] [US5] 创建AdminAccount模型 in backend/src/models/admin.py (管理员账户表) ✅ 2025-10-12
-- [ ] T126 [P] [US5] 创建ApplicationRequest模型 in backend/src/models/app_request.py (应用授权申请表)
+- [X] T126 [P] [US5] 创建ApplicationRequest模型 in backend/src/models/app_request.py (应用授权申请表)
 
 ### Pydantic Schemas (可并行)
 
 - [X] T127 [P] [US5] 创建管理员登录Schema in backend/src/schemas/admin.py (AdminLoginRequest, AdminLoginResponse等9个schemas) ✅ 2025-10-12
-- [ ] T128 [P] [US5] 创建运营商管理Schema in backend/src/schemas/admin/operator.py (CreateOperatorRequest, OperatorDetailResponse)
+- [X] T128 [P] [US5] 创建运营商管理Schema in backend/src/schemas/admin/operator.py (CreateOperatorRequest, OperatorDetailResponse)
 - [ ] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin/application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse)
 - [ ] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin/authorization.py (AuthorizeApplicationRequest, AuthorizationResponse)
 
@@ -477,26 +477,26 @@
 
 ### 数据模型
 
-- [ ] T209 [P] [US8] 创建MessageNotification模型 in backend/src/models/message.py (消息通知表)
+- [X] T209 [P] [US8] 创建MessageNotification模型 in backend/src/models/message.py (消息通知表)
 - [ ] T210 [P] [US8] 创建MessageReceipt模型 in backend/src/models/message_receipt.py (消息接收表，记录已读状态)
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T211 [P] [US8] 创建消息Schema in backend/src/schemas/message.py (MessageResponse, MessageListResponse)
+- [X] T211 [P] [US8] 创建消息Schema in backend/src/schemas/message.py (MessageResponse, MessageListResponse)
 - [ ] T212 [P] [US8] 创建公告Schema in backend/src/schemas/announcement.py (AnnouncementResponse)
 
 ### 业务服务
 
-- [ ] T213 [US8] 实现MessageService in backend/src/services/message.py (消息发送、余额不足提醒、价格调整通知)
+- [X] T213 [US8] 实现MessageService in backend/src/services/message.py (消息发送、余额不足提醒、价格调整通知)
 - [ ] T214 [US8] 实现NotificationService in backend/src/services/notification.py (消息推送、已读状态管理)
 
 ### API接口 (可并行)
 
-- [ ] T215 [P] [US8] 实现消息列表API in backend/src/api/v1/operators.py::get_messages (GET /v1/operators/me/messages)
-- [ ] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id})
-- [ ] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read)
-- [ ] T218 [P] [US8] 实现未读数量API in backend/src/api/v1/operators.py::get_unread_count (GET /v1/operators/me/messages/unread-count)
-- [ ] T219 [P] [US8] 实现批量标记已读API in backend/src/api/v1/operators.py::mark_all_read (POST /v1/operators/me/messages/mark-all-read)
+- [X] T215 [P] [US8] 实现消息列表API in backend/src/api/v1/operators.py::get_messages (GET /v1/operators/me/messages)
+- [X] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id})
+- [X] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read)
+- [X] T218 [P] [US8] 实现未读数量API in backend/src/api/v1/operators.py::get_unread_count (GET /v1/operators/me/messages/unread-count)
+- [X] T219 [P] [US8] 实现批量标记已读API in backend/src/api/v1/operators.py::mark_all_read (POST /v1/operators/me/messages/mark-all-read)
 
 ### 后台任务 (异步通知)
 
@@ -522,7 +522,7 @@
 - [X] T225 配置Pinia状态管理 in frontend/src/stores/ (auth, user, config)
 - [X] T226 配置Axios HTTP客户端 in frontend/src/utils/http.ts (拦截器、错误处理)
 - [ ] T227 [P] 实现通用组件 in frontend/src/components/ (LoadingSpinner, Pagination, DataTable, Chart)
-- [ ] T228 [P] 实现认证Guard in frontend/src/router/guards.ts (JWT验证、权限检查)
+- [X] T228 [P] 实现认证Guard in frontend/src/router/guards.ts (JWT验证、权限检查)
 
 ### 运营商端前端 (15个页面)
 
@@ -553,7 +553,7 @@
 - [X] T249 [P] 实现应用管理页 in frontend/src/pages/admin/Applications.vue
 - [X] T250 [P] 实现创建应用页 in frontend/src/pages/admin/CreateApplication.vue
 - [X] T251 [P] 实现授权申请审批页 in frontend/src/pages/admin/AppRequests.vue
-- [ ] T252 [P] 实现授权管理页 in frontend/src/pages/admin/Authorizations.vue
+- [X] T252 [P] 实现授权管理页 in frontend/src/pages/admin/Authorizations.vue
 - [ ] T253 [P] 实现系统公告页 in frontend/src/pages/admin/Announcements.vue
 
 ### 财务端前端 (5个页面)
@@ -575,25 +575,25 @@
 
 ### Python SDK
 
-- [ ] T260 实现Python SDK客户端 in sdk/python/mr_auth_sdk/client.py (API Key认证、HMAC签名、授权请求)
-- [ ] T261 [P] 实现Python SDK模型 in sdk/python/mr_auth_sdk/models.py
-- [ ] T262 [P] 实现Python SDK异常 in sdk/python/mr_auth_sdk/exceptions.py
-- [ ] T263 [P] 创建Python SDK示例 in sdk/python/examples/authorize_game.py
-- [ ] T264 [P] 实现Python SDK测试 in sdk/python/tests/test_client.py
+- [X] T260 实现Python SDK客户端 in sdk/python/mr_auth_sdk/client.py (API Key认证、HMAC签名、授权请求)
+- [X] T261 [P] 实现Python SDK模型 in sdk/python/mr_auth_sdk/models.py
+- [X] T262 [P] 实现Python SDK异常 in sdk/python/mr_auth_sdk/exceptions.py
+- [X] T263 [P] 创建Python SDK示例 in sdk/python/examples/authorize_game.py
+- [X] T264 [P] 实现Python SDK测试 in sdk/python/tests/test_client.py
 
 ### Node.js SDK
 
-- [ ] T265 [P] 实现Node.js SDK客户端 in sdk/nodejs/src/client.ts
-- [ ] T266 [P] 实现Node.js SDK类型定义 in sdk/nodejs/src/types.ts
-- [ ] T267 [P] 创建Node.js SDK示例 in sdk/nodejs/examples/authorize_game.js
-- [ ] T268 [P] 实现Node.js SDK测试 in sdk/nodejs/tests/client.test.ts
+- [X] T265 [P] 实现Node.js SDK客户端 in sdk/nodejs/src/client.ts
+- [X] T266 [P] 实现Node.js SDK类型定义 in sdk/nodejs/src/types.ts
+- [X] T267 [P] 创建Node.js SDK示例 in sdk/nodejs/examples/authorize_game.js
+- [X] T268 [P] 实现Node.js SDK测试 in sdk/nodejs/tests/client.test.ts
 
 ### C# SDK
 
-- [ ] T269 [P] 实现C# SDK客户端 in sdk/csharp/MRAuthSDK/MRAuthClient.cs
-- [ ] T270 [P] 实现C# SDK模型 in sdk/csharp/MRAuthSDK/Models/
-- [ ] T271 [P] 创建C# SDK示例 in sdk/csharp/Examples/AuthorizeGame.cs
-- [ ] T272 [P] 实现C# SDK测试 in sdk/csharp/Tests/MRAuthClientTests.cs
+- [X] T269 [P] 实现C# SDK客户端 in sdk/csharp/MRAuthSDK/MRAuthClient.cs
+- [X] T270 [P] 实现C# SDK模型 in sdk/csharp/MRAuthSDK/Models/
+- [X] T271 [P] 创建C# SDK示例 in sdk/csharp/Examples/AuthorizeGame.cs
+- [X] T272 [P] 实现C# SDK测试 in sdk/csharp/Tests/MRAuthClientTests.cs
 
 **Checkpoint**: SDK完成，头显Server可以集成
 
@@ -612,7 +612,7 @@
 ### 安全加固
 
 - [ ] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py (包含TLS 1.3配置验证，拒绝TLS 1.2及以下版本连接)
-- [ ] T277 [P] 实现敏感数据加密存储 (使用T026a的encryption.py工具类，对运营商API Key、支付平台密钥、JWT Secret进行AES-256-GCM加密后存储数据库)
+- [X] T277 [P] 实现敏感数据加密存储 (使用T026a的encryption.py工具类，对运营商API Key、支付平台密钥、JWT Secret进行AES-256-GCM加密后存储数据库)
 - [ ] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟)
 - [ ] T278a [P] 集成测试：异常IP检测与锁定 in backend/tests/integration/test_ip_detection.py (模拟暴力攻击场景：连续失败25次、切换6个API Key，验证账户锁定operator_accounts.is_locked=true、验证告警邮件发送、验证锁定后授权请求返回HTTP 403)
 - [ ] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑)
@@ -620,14 +620,14 @@
 ### 文档和部署
 
 - [ ] T279 [P] 更新API文档 in docs/api/ (Swagger UI)
-- [ ] T280 [P] 更新README in README.md (项目介绍、快速开始、部署指南)
-- [ ] T281 [P] 创建部署配置 in deploy/ (Dockerfile, docker-compose.prod.yml, Nginx配置)
-- [ ] T282 [P] 配置CI/CD流程 in .github/workflows/ci.yml (自动测试、构建、部署)
+- [X] T280 [P] 更新README in README.md (项目介绍、快速开始、部署指南)
+- [X] T281 [P] 创建部署配置 in deploy/ (Dockerfile, docker-compose.prod.yml, Nginx配置)
+- [X] T282 [P] 配置CI/CD流程 in .github/workflows/ci.yml (自动测试、构建、部署)
 
 ### 测试覆盖率
 
 - [ ] T283 [P] 补充单元测试达到80%覆盖率 in backend/tests/unit/
-- [ ] T284 [P] 实现性能测试 in backend/tests/performance/ (Locust压力测试)
+- [X] T284 [P] 实现性能测试 in backend/tests/performance/ (Locust压力测试)
 - [ ] T285 [P] 实现端到端测试 in frontend/tests/e2e/ (Playwright)
 
 ### 最终验证
@@ -636,7 +636,7 @@
 - [ ] T287 运行所有测试套件并生成报告
 - [ ] T288 代码审查和重构
 - [ ] T289 性能基准测试 in backend/tests/performance/test_benchmark.py (授权API P95 < 100ms满足NFR-001, 峰值吞吐量 ≥ 20 req/s满足NFR-002, 10万条记录导出<30秒满足SC-009/NFR-004, 系统可用性≥99.5%验证SC-011/NFR-005)
-- [ ] T289a [P] 编写性能基线测试 in backend/tests/performance/test_baseline.py (在优化前建立性能基线：当前授权API响应时间P50/P95/P99、数据库查询耗时、内存占用，优化后对比验证改进效果，遵循TDD原则不跳过测试)
+- [X] T289a [P] 编写性能基线测试 in backend/tests/performance/test_baseline.py (在优化前建立性能基线：当前授权API响应时间P50/P95/P99、数据库查询耗时、内存占用，优化后对比验证改进效果，遵循TDD原则不跳过测试)
 - [ ] T290 [P] 实现客户分类自动更新任务 in backend/src/tasks/tier_recalculation.py (使用APScheduler，每月1日凌晨2点根据上月消费额自动重新计算所有运营商客户分类：≥10000元→VIP、1000-10000元→普通、<1000元→试用，记录变更日志)
 
 **Checkpoint**: 项目完成，可以投入生产

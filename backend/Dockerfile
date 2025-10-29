@@ -1,43 +1,61 @@
 # =============================================================================
-# 后端生产环境 Dockerfile
+# Multi-stage Dockerfile for Production
 # =============================================================================
-# 多阶段构建，优化镜像大小和安全性
+# 阶段1: 构建阶段 - 编译依赖
+# 阶段2: 运行阶段 - 最小化镜像
+# 优化: 使用国内镜像源加速下载
 # =============================================================================
 
-# 构建阶段
-FROM python:3.12-slim as builder
+# ============== 阶段1: 构建阶段 ==============
+FROM python:3.12-slim AS builder
 
-WORKDIR /build
+# 使用阿里云镜像源加速apt (Debian 12 Bookworm)
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
-# Configure pip to use Aliyun mirror
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
-    pip config set install.trusted-host mirrors.aliyun.com
+# 设置工作目录
+WORKDIR /app
 
-# 安装编译依赖
+# 配置pip使用清华镜像加速
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 安装构建依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
+    build-essential \
     libpq-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装Python依赖到独立目录
-RUN pip install --no-cache-dir --user -r requirements.txt
+# 安装Python依赖到特定目录
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# 运行阶段
+# ============== 阶段2: 运行阶段 ==============
 FROM python:3.12-slim
+
+# 使用阿里云镜像源
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
+# 构建参数
+ARG BUILD_DATE
+ARG VERSION
+
+# 元数据标签
+LABEL maintainer="MR Game Ops Team" \
+      version="${VERSION}" \
+      build_date="${BUILD_DATE}" \
+      description="MR Game Ops Backend Service - Production"
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH=/root/.local/bin:$PATH
+    PATH="/usr/local/bin:$PATH"
 
 # 创建非root用户
 RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-WORKDIR /app
 
 # 安装运行时依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -45,25 +63,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# 设置工作目录
+WORKDIR /app
+
 # 从构建阶段复制Python包
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /install /usr/local
 
 # 复制应用代码
-COPY --chown=appuser:appuser . /app
+COPY --chown=appuser:appuser . .
 
 # 创建必要的目录
-RUN mkdir -p /var/log/mr_game_ops /var/www/mr_game_ops/uploads /var/www/mr_game_ops/invoices \
-    && chown -R appuser:appuser /var/log/mr_game_ops /var/www/mr_game_ops
+RUN mkdir -p /app/logs /app/uploads /app/invoices && \
+    chown -R appuser:appuser /app/logs /app/uploads /app/invoices
 
 # 切换到非root用户
 USER appuser
+
+# 暴露端口
+EXPOSE 8000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# 暴露端口
-EXPOSE 8000
-
-# 启动命令（由docker-compose覆盖）
-CMD ["gunicorn", "src.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+# 启动命令
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "warning"]

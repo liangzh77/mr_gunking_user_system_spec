@@ -7,8 +7,10 @@
 | 文件名 | 说明 |
 |--------|------|
 | `README.md` | 本文件 - 开发环境使用指南 |
-| `manage_accounts.sh` | 账户管理自动化脚本（适用于本地 docker-compose） |
+| `manage_accounts.sh` | 账户管理脚本（Linux/Mac） |
+| `manage_accounts.bat` | 账户管理脚本（Windows） |
 | `operators_example.csv` | 批量导入运营商的示例文件 |
+| `scripts/` | Python脚本目录（Windows版本使用） |
 
 ## 🔄 与生产环境的区别
 
@@ -32,18 +34,38 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### 2. 赋予脚本执行权限
+### 2. 选择对应平台的脚本
+
+#### Linux/Mac 用户
 
 ```bash
 cd docs/开发环境
 chmod +x manage_accounts.sh
+./manage_accounts.sh
+```
+
+#### Windows 用户
+
+```cmd
+cd docs\开发环境
+.\manage_accounts.bat
+```
+
+或在PowerShell中：
+```powershell
+cd docs\开发环境
+.\manage_accounts.bat
 ```
 
 ### 3. 运行脚本
 
 **交互式菜单模式：**
 ```bash
+# Linux/Mac
 ./manage_accounts.sh
+
+# Windows
+./manage_accounts.bat
 ```
 
 会显示如下菜单：
@@ -384,9 +406,51 @@ code manage_accounts.sh
 4. 测试新功能
 5. 更新本 README 文档
 
+## 🪟 Windows版本特别说明
+
+### 技术架构
+Windows版本(`manage_accounts.bat`)与Linux版本功能完全一致，但采用不同的技术实现：
+
+**参数传递方式：**
+- **Linux版本**: 使用Bash heredoc (`<< EOFPYTHON`)
+- **Windows版本**: 使用环境变量 + 独立Python脚本
+
+**脚本结构：**
+```
+manage_accounts.bat (主程序)
+  → 收集用户输入
+  → type scripts\*.py | docker exec -i -e VAR=value backend python3
+  → Python脚本从os.environ读取参数
+  → 执行数据库操作
+```
+
+**Python脚本列表：**
+- `list_accounts.py` - 查看所有账户
+- `create_admin_env.py` - 创建管理员
+- `create_operator_env.py` - 创建运营商（自动生成API密钥）
+- `create_finance_env.py` - 创建财务账户
+- `delete_account_env.py` - 删除账户
+- `reset_password_env.py` - 重置密码
+- `toggle_active_env.py` - 启用/禁用账户
+- `change_admin_role_env.py` - 修改管理员角色
+- `batch_create_operators.py` - 批量创建运营商
+
+### 中文显示问题
+如果出现中文乱码：
+1. 推荐在PowerShell中运行（支持UTF-8最佳）
+2. 或在CMD中手动设置编码：`chcp 65001`
+
+### 文件路径注意事项
+- 批量创建时，CSV文件路径支持相对路径和绝对路径
+- 如果路径包含空格，会自动处理（无需额外引号）
+
 ## 🎯 下一步
 
 - 熟悉各个功能的使用
 - 根据开发需要创建测试数据
 - 如有问题或建议，可以修改脚本或提交 Issue
 - 测试通过后，可参考生产环境部署指南进行部署
+
+---
+
+**Windows用户提示**: 详细的Windows使用说明请参阅 [README_Windows.md](./README_Windows.md)
