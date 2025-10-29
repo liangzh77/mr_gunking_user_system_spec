@@ -473,23 +473,23 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T207 [P] [US8] 契约测试：消息列表接口 in backend/tests/contract/test_messages.py (GET /v1/operators/me/messages)
-- [ ] T208 [P] [US8] 集成测试：消息通知流程 in backend/tests/integration/test_message_notification.py (发布公告 → 接收消息 → 标记已读)
+- [X] T207 [P] [US8] 契约测试：消息列表接口 in backend/tests/contract/test_messages.py (GET /v1/operators/me/messages) ✅ 2025-10-29
+- [X] T208 [P] [US8] 集成测试：消息通知流程 in backend/tests/integration/test_message_notification.py (发布公告 → 接收消息 → 标记已读) ✅ 2025-10-29
 
 ### 数据模型
 
 - [X] T209 [P] [US8] 创建MessageNotification模型 in backend/src/models/message.py (消息通知表)
-- [ ] T210 [P] [US8] 创建MessageReceipt模型 in backend/src/models/message_receipt.py (消息接收表，记录已读状态)
+- [X] T210 [P] [US8] 创建MessageReceipt模型 in backend/src/models/message_receipt.py (消息接收表，记录已读状态) ✅ 2025-10-29
 
 ### Pydantic Schemas (可并行)
 
 - [X] T211 [P] [US8] 创建消息Schema in backend/src/schemas/message.py (MessageResponse, MessageListResponse)
-- [ ] T212 [P] [US8] 创建公告Schema in backend/src/schemas/announcement.py (AnnouncementResponse)
+- [X] T212 [P] [US8] 创建公告Schema in backend/src/schemas/announcement.py (AnnouncementResponse) ✅ 2025-10-29
 
 ### 业务服务
 
 - [X] T213 [US8] 实现MessageService in backend/src/services/message.py (消息发送、余额不足提醒、价格调整通知)
-- [ ] T214 [US8] 实现NotificationService in backend/src/services/notification.py (消息推送、已读状态管理)
+- [X] T214 [US8] 实现NotificationService in backend/src/services/notification.py (消息推送、已读状态管理) ✅ 2025-10-29
 
 ### API接口 (可并行)
 
@@ -501,8 +501,8 @@
 
 ### 后台任务 (异步通知)
 
-- [ ] T220 [US8] 实现余额不足定时检查任务 in backend/src/tasks/balance_check.py (每小时检查余额<100元的运营商并发送提醒)
-- [ ] T221 [US8] 实现价格调整自动通知任务 in backend/src/tasks/price_change_notify.py (应用价格调整时自动通知所有授权运营商)
+- [X] T220 [US8] 实现余额不足定时检查任务 in backend/src/tasks/balance_check.py (每小时检查余额<100元的运营商并发送提醒) ✅ 2025-10-29
+- [X] T221 [US8] 实现价格调整自动通知任务 in backend/src/tasks/price_change_notify.py (应用价格调整时自动通知所有授权运营商) ✅ 2025-10-29
 
 ### 单元测试 (补充)
 
