@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....api.dependencies import CurrentUserToken, DatabaseSession
-from ....schemas.statistics.global import GlobalDashboardResponse
+from ....schemas.statistics.global_stats import GlobalDashboardResponse
 from ....schemas.common import SuccessResponse
 from ....services.global_statistics import GlobalStatisticsService
 from ....core import get_token_subject

@@ -459,7 +459,7 @@
 
 ### 单元测试 (补充)
 
-- [ ] T206 [P] [US7] GlobalStatisticsService单元测试 in backend/tests/unit/services/test_global_statistics_service.py
+- [X] T206 [P] [US7] GlobalStatisticsService单元测试 in backend/tests/unit/services/test_global_statistics_service.py ✅ 2025-10-29
 
 **Checkpoint**: User Story 1-7完成 - 数据统计人员可查看全局数据
 
