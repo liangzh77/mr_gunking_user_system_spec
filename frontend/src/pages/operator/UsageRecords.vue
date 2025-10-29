@@ -203,11 +203,13 @@ const loadRecords = async () => {
     }
 
     const response = await operatorStore.getUsageRecords(params)
-    records.value = response.items
-    pagination.value.total = response.total
+    records.value = response?.items || []
+    pagination.value.total = response?.total || 0
   } catch (error) {
     console.error('Load usage records error:', error)
     ElMessage.error('加载使用记录失败')
+    records.value = []
+    pagination.value.total = 0
   } finally {
     loading.value = false
   }
@@ -216,18 +218,22 @@ const loadRecords = async () => {
 // 加载运营点列表
 const loadSites = async () => {
   try {
-    sites.value = await operatorStore.getSites()
+    const response = await operatorStore.getSites()
+    sites.value = response || []
   } catch (error) {
     console.error('Load sites error:', error)
+    sites.value = []
   }
 }
 
 // 加载应用列表
 const loadApplications = async () => {
   try {
-    applications.value = await operatorStore.getAuthorizedApplications()
+    const response = await operatorStore.getAuthorizedApplications()
+    applications.value = response || []
   } catch (error) {
     console.error('Load applications error:', error)
+    applications.value = []
   }
 }
 

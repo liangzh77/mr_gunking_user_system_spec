@@ -249,11 +249,13 @@ const loadInvoices = async () => {
       page: pagination.value.page,
       page_size: pagination.value.page_size,
     })
-    invoices.value = response.items
-    pagination.value.total = response.total
+    invoices.value = response?.items || []
+    pagination.value.total = response?.total || 0
   } catch (error) {
     console.error('Load invoices error:', error)
     ElMessage.error('加载发票列表失败')
+    invoices.value = []
+    pagination.value.total = 0
   } finally {
     loading.value = false
   }
