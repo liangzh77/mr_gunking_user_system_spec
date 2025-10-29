@@ -145,8 +145,8 @@ services:
       - "443:443"
     volumes:
       - ./deploy/nginx-dev.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./deploy/21088616_mrgun.chu-jiao.com_nginx/mrgun.chu-jiao.com.pem:/etc/ssl/certs/mrgun.chu-jiao.com.pem:ro
-      - ./deploy/21088616_mrgun.chu-jiao.com_nginx/mrgun.chu-jiao.com.key:/etc/ssl/private/mrgun.chu-jiao.com.key:ro
+      - ./deploy/certs-dev/localhost.crt:/etc/ssl/certs/localhost.crt:ro
+      - ./deploy/certs-dev/localhost.key:/etc/ssl/private/localhost.key:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       - backend
