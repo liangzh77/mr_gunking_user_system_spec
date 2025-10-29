@@ -614,9 +614,9 @@
 
 - [ ] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py (包含TLS 1.3配置验证，拒绝TLS 1.2及以下版本连接)
 - [X] T277 [P] 实现敏感数据加密存储 (使用T026a的encryption.py工具类，对运营商API Key、支付平台密钥、JWT Secret进行AES-256-GCM加密后存储数据库)
-- [ ] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟)
+- [X] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟) ✅ 2025-10-29
 - [ ] T278a [P] 集成测试：异常IP检测与锁定 in backend/tests/integration/test_ip_detection.py (模拟暴力攻击场景：连续失败25次、切换6个API Key，验证账户锁定operator_accounts.is_locked=true、验证告警邮件发送、验证锁定后授权请求返回HTTP 403)
-- [ ] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑)
+- [X] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑) ✅ 2025-10-29
 
 ### 文档和部署
 
