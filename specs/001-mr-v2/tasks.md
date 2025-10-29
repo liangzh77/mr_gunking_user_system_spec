@@ -314,8 +314,8 @@
 
 - [X] T127 [P] [US5] 创建管理员登录Schema in backend/src/schemas/admin.py (AdminLoginRequest, AdminLoginResponse等9个schemas) ✅ 2025-10-12
 - [X] T128 [P] [US5] 创建运营商管理Schema in backend/src/schemas/admin/operator.py (CreateOperatorRequest, OperatorDetailResponse)
-- [ ] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin/application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse)
-- [ ] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin/authorization.py (AuthorizeApplicationRequest, AuthorizationResponse)
+- [X] T129 [P] [US5] 创建应用管理Schema in backend/src/schemas/admin_application.py (CreateApplicationRequest, UpdateApplicationRequest, ApplicationResponse, ApplicationListResponse等8个schemas) ✅ 2025-10-29
+- [X] T130 [P] [US5] 创建授权管理Schema in backend/src/schemas/admin_application.py (AuthorizeApplicationRequest, AuthorizationResponse, RevokeAuthorizationRequest, AuthorizationListResponse) ✅ 2025-10-29
 
 ### 业务服务
 
@@ -327,12 +327,13 @@
 
 - [X] T134 [P] [US5] 实现管理员认证API in backend/src/api/v1/admin_auth.py (5个端点: login/logout/me/refresh/change-password) ✅ 2025-10-12
 - [X] T136 [P] [US5] 实现运营商列表API in backend/src/api/v1/admin_operations.py::get_operators (GET /admin/admins/operators，已实现) ✅ 2025-10-17
-- [X] T141 [P] [US5] 实现创建应用API in backend/src/api/v1/admin_operations.py::create_application (POST /admin/admins/applications) ✅ 2025-10-17
-- [X] T142 [P] [US5] 实现应用列表API in backend/src/api/v1/admin_operations.py::get_applications (GET /admin/admins/applications，已实现) ✅ 2025-10-17
+- [X] T141 [P] [US5] 实现创建应用API in backend/src/api/v1/admin_operations.py::create_application (POST /admin/admins/applications，使用CreateApplicationRequest，自动生成app_code) ✅ 2025-10-29
+- [X] T141a [P] [US5] 实现更新应用API in backend/src/api/v1/admin_operations.py::update_application (PUT /admin/admins/applications/{app_id}，使用UpdateApplicationRequest，不含价格) ✅ 2025-10-29
+- [X] T142 [P] [US5] 实现应用列表API in backend/src/api/v1/admin_operations.py::get_applications (GET /admin/admins/applications，使用ApplicationListResponse) ✅ 2025-10-29
 - [X] T143 [P] [US5] 实现更新应用价格API in backend/src/api/v1/admin_operations.py::update_application_price (PUT /admin/admins/applications/{app_id}/price) ✅ 2025-10-17
 - [X] T144 [P] [US5] 实现更新玩家范围API in backend/src/api/v1/admin_operations.py::update_player_range (PUT /admin/admins/applications/{app_id}/player-range) ✅ 2025-10-17
-- [X] T145 [P] [US5] 实现授权应用API in backend/src/api/v1/admin_operations.py::authorize_application (POST /admin/admins/operators/{operator_id}/applications) ✅ 2025-10-17
-- [X] T146 [P] [US5] 实现撤销授权API in backend/src/api/v1/admin_operations.py::revoke_authorization (DELETE /admin/admins/operators/{operator_id}/applications/{app_id}) ✅ 2025-10-17
+- [X] T145 [P] [US5] 实现授权应用API in backend/src/api/v1/admin_operations.py::authorize_application (POST /admin/admins/operators/{operator_id}/applications，使用AuthorizeApplicationRequest和AuthorizationResponse) ✅ 2025-10-29
+- [X] T146 [P] [US5] 实现撤销授权API in backend/src/api/v1/admin_operations.py::revoke_authorization (DELETE /admin/admins/operators/{operator_id}/applications/{app_id}，使用AuthorizationResponse) ✅ 2025-10-29
 - [X] T147 [P] [US5] 实现查询授权申请列表API in backend/src/api/v1/admin_operations.py::get_application_requests (GET /admin/admins/applications/requests，已实现) ✅ 2025-10-17
 - [X] T148 [P] [US5] 实现审批授权申请API in backend/src/api/v1/admin_operations.py::review_application_request (POST /admin/admins/applications/requests/{request_id}/review，已实现) ✅ 2025-10-17
 - [X] T151 [US5] 注册管理员路由 in backend/src/api/v1/__init__.py (admin_operations_router已注册) ✅ 2025-10-17
@@ -433,32 +434,32 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T193 [P] [US7] 契约测试：全局统计仪表盘接口 in backend/tests/contract/test_global_dashboard.py (GET /v1/statistics/dashboard)
-- [ ] T194 [P] [US7] 契约测试：多维度分析接口 in backend/tests/contract/test_cross_analysis.py (GET /v1/statistics/cross-analysis)
-- [ ] T195 [P] [US7] 集成测试：全局统计查询 in backend/tests/integration/test_global_statistics.py
+- [X] T193 [P] [US7] 契约测试：全局统计仪表盘接口 in backend/tests/contract/test_global_dashboard.py (GET /v1/statistics/dashboard) ✅ 2025-10-29
+- [X] T194 [P] [US7] 契约测试：多维度分析接口 in backend/tests/contract/test_cross_analysis.py (GET /v1/statistics/cross-analysis) ✅ 2025-10-29
+- [X] T195 [P] [US7] 集成测试：全局统计查询 in backend/tests/integration/test_global_statistics.py ✅ 2025-10-29
 
 ### Pydantic Schemas (可并行)
 
-- [ ] T196 [P] [US7] 创建全局统计Schema in backend/src/schemas/statistics/global.py (GlobalDashboardResponse, CrossAnalysisRequest)
-- [ ] T197 [P] [US7] 创建玩家分布统计Schema in backend/src/schemas/statistics/player_distribution.py (PlayerDistributionResponse)
+- [X] T196 [P] [US7] 创建全局统计Schema in backend/src/schemas/statistics/global.py (GlobalDashboardResponse, CrossAnalysisRequest) ✅ 2025-10-29
+- [X] T197 [P] [US7] 创建玩家分布统计Schema in backend/src/schemas/statistics/player_distribution.py (PlayerDistributionResponse) ✅ 2025-10-29
 
 ### 业务服务
 
-- [ ] T198 [US7] 实现GlobalStatisticsService in backend/src/services/global_statistics.py (全局数据聚合、多维度交叉分析)
+- [X] T198 [US7] 实现GlobalStatisticsService in backend/src/services/global_statistics.py (全局数据聚合、多维度交叉分析) ✅ 2025-10-29
 
 ### API接口 (可并行)
 
-- [ ] T199 [P] [US7] 实现全局统计仪表盘API in backend/src/api/v1/statistics/dashboard.py::get_global_dashboard (GET /v1/statistics/dashboard)
-- [ ] T200 [P] [US7] 实现按应用统计API in backend/src/api/v1/statistics/applications.py::get_app_statistics (GET /v1/statistics/by-application)
-- [ ] T201 [P] [US7] 实现按运营点统计API in backend/src/api/v1/statistics/sites.py::get_site_statistics (GET /v1/statistics/by-site)
-- [ ] T202 [P] [US7] 实现玩家数量分布API in backend/src/api/v1/statistics/players.py::get_player_distribution (GET /v1/statistics/player-distribution)
-- [ ] T203 [P] [US7] 实现多维度交叉分析API in backend/src/api/v1/statistics/cross-analysis.py::cross_analysis (POST /v1/statistics/cross-analysis)
-- [ ] T204 [P] [US7] 实现导出全局报表API in backend/src/api/v1/statistics/export.py::export_global_report (GET /v1/statistics/export)
-- [ ] T205 [US7] 注册统计路由 in backend/src/main.py
+- [X] T199 [P] [US7] 实现全局统计仪表盘API in backend/src/api/v1/statistics/dashboard.py::get_global_dashboard (GET /v1/statistics/dashboard) ✅ 2025-10-29
+- [X] T200 [P] [US7] 实现按应用统计API in backend/src/api/v1/statistics/applications.py::get_app_statistics (GET /v1/statistics/by-application) ✅ 2025-10-29
+- [X] T201 [P] [US7] 实现按运营点统计API in backend/src/api/v1/statistics/sites.py::get_site_statistics (GET /v1/statistics/by-site) ✅ 2025-10-29
+- [X] T202 [P] [US7] 实现玩家数量分布API in backend/src/api/v1/statistics/players.py::get_player_distribution (GET /v1/statistics/player-distribution) ✅ 2025-10-29
+- [X] T203 [P] [US7] 实现多维度交叉分析API in backend/src/api/v1/statistics/cross-analysis.py::cross_analysis (POST /v1/statistics/cross-analysis) ✅ 2025-10-29
+- [X] T204 [P] [US7] 实现导出全局报表API in backend/src/api/v1/statistics/export.py::export_global_report (GET /v1/statistics/export) ✅ 2025-10-29
+- [X] T205 [US7] 注册统计路由 in backend/src/main.py ✅ 2025-10-29
 
 ### 单元测试 (补充)
 
-- [ ] T206 [P] [US7] GlobalStatisticsService单元测试 in backend/tests/unit/services/test_global_statistics_service.py
+- [X] T206 [P] [US7] GlobalStatisticsService单元测试 in backend/tests/unit/services/test_global_statistics_service.py ✅ 2025-10-29
 
 **Checkpoint**: User Story 1-7完成 - 数据统计人员可查看全局数据
 
@@ -472,41 +473,41 @@
 
 ### 测试任务 (TDD)
 
-- [ ] T207 [P] [US8] 契约测试：消息列表接口 in backend/tests/contract/test_messages.py (GET /v1/operators/me/messages)
-- [ ] T208 [P] [US8] 集成测试：消息通知流程 in backend/tests/integration/test_message_notification.py (发布公告 → 接收消息 → 标记已读)
+- [X] T207 [P] [US8] 契约测试：消息列表接口 in backend/tests/contract/test_messages.py (GET /v1/operators/me/messages) ✅ 2025-10-29
+- [X] T208 [P] [US8] 集成测试：消息通知流程 in backend/tests/integration/test_message_notification.py (发布公告 → 接收消息 → 标记已读) ✅ 2025-10-29
 
 ### 数据模型
 
 - [X] T209 [P] [US8] 创建MessageNotification模型 in backend/src/models/message.py (消息通知表)
-- [ ] T210 [P] [US8] 创建MessageReceipt模型 in backend/src/models/message_receipt.py (消息接收表，记录已读状态)
+- [X] T210 [P] [US8] 创建MessageReceipt模型 in backend/src/models/message_receipt.py (消息接收表，记录已读状态) ✅ 2025-10-29
 
 ### Pydantic Schemas (可并行)
 
 - [X] T211 [P] [US8] 创建消息Schema in backend/src/schemas/message.py (MessageResponse, MessageListResponse)
-- [ ] T212 [P] [US8] 创建公告Schema in backend/src/schemas/announcement.py (AnnouncementResponse)
+- [X] T212 [P] [US8] 创建公告Schema in backend/src/schemas/announcement.py (AnnouncementResponse) ✅ 2025-10-29
 
 ### 业务服务
 
 - [X] T213 [US8] 实现MessageService in backend/src/services/message.py (消息发送、余额不足提醒、价格调整通知)
-- [ ] T214 [US8] 实现NotificationService in backend/src/services/notification.py (消息推送、已读状态管理)
+- [X] T214 [US8] 实现NotificationService in backend/src/services/notification.py (消息推送、已读状态管理) ✅ 2025-10-29
 
 ### API接口 (可并行)
 
 - [X] T215 [P] [US8] 实现消息列表API in backend/src/api/v1/operators.py::get_messages (GET /v1/operators/me/messages)
-- [X] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id})
-- [X] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read)
+- [X] T216 [P] [US8] 实现消息详情API in backend/src/api/v1/operators.py::get_message (GET /v1/operators/me/messages/{message_id}) ✅ 2025-10-29
+- [X] T217 [P] [US8] 实现标记已读API in backend/src/api/v1/operators.py::mark_message_read (POST /v1/operators/me/messages/{message_id}/read) ✅ 2025-10-29
 - [X] T218 [P] [US8] 实现未读数量API in backend/src/api/v1/operators.py::get_unread_count (GET /v1/operators/me/messages/unread-count)
 - [X] T219 [P] [US8] 实现批量标记已读API in backend/src/api/v1/operators.py::mark_all_read (POST /v1/operators/me/messages/mark-all-read)
 
 ### 后台任务 (异步通知)
 
-- [ ] T220 [US8] 实现余额不足定时检查任务 in backend/src/tasks/balance_check.py (每小时检查余额<100元的运营商并发送提醒)
-- [ ] T221 [US8] 实现价格调整自动通知任务 in backend/src/tasks/price_change_notify.py (应用价格调整时自动通知所有授权运营商)
+- [X] T220 [US8] 实现余额不足定时检查任务 in backend/src/tasks/balance_check.py (每小时检查余额<100元的运营商并发送提醒) ✅ 2025-10-29
+- [X] T221 [US8] 实现价格调整自动通知任务 in backend/src/tasks/price_change_notify.py (应用价格调整时自动通知所有授权运营商) ✅ 2025-10-29
 
 ### 单元测试 (补充)
 
-- [ ] T222 [P] [US8] MessageService单元测试 in backend/tests/unit/services/test_message_service.py
-- [ ] T223 [P] [US8] NotificationService单元测试 in backend/tests/unit/services/test_notification_service.py
+- [X] T222 [P] [US8] MessageService单元测试 in backend/tests/unit/services/test_message_service.py ✅ 2025-10-29
+- [X] T223 [P] [US8] NotificationService单元测试 in backend/tests/unit/services/test_notification_service.py ✅ 2025-10-29
 
 **Checkpoint**: 所有8个用户故事完成 - 系统功能完整
 
@@ -611,11 +612,11 @@
 
 ### 安全加固
 
-- [ ] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py (包含TLS 1.3配置验证，拒绝TLS 1.2及以下版本连接)
+- [X] T276 [P] 实现HTTPS强制重定向 in backend/src/main.py (包含TLS 1.3配置验证，拒绝TLS 1.2及以下版本连接) ✅ 2025-10-29
 - [X] T277 [P] 实现敏感数据加密存储 (使用T026a的encryption.py工具类，对运营商API Key、支付平台密钥、JWT Secret进行AES-256-GCM加密后存储数据库)
-- [ ] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟)
-- [ ] T278a [P] 集成测试：异常IP检测与锁定 in backend/tests/integration/test_ip_detection.py (模拟暴力攻击场景：连续失败25次、切换6个API Key，验证账户锁定operator_accounts.is_locked=true、验证告警邮件发送、验证锁定后授权请求返回HTTP 403)
-- [ ] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑)
+- [X] T278 [P] 实现异常IP检测服务 in backend/src/services/security/ip_monitor.py (实现FR-056检测规则：单IP 5分钟内失败>20次、1分钟内使用不同API Key>5个，检测触发后自动锁定关联账户operator_accounts.is_locked=true并发送告警邮件给管理员，响应时间<1分钟) ✅ 2025-10-29
+- [X] T278a [P] 集成测试：异常IP检测与锁定 in backend/tests/integration/test_ip_detection.py (模拟暴力攻击场景：连续失败25次、切换6个API Key，验证账户锁定operator_accounts.is_locked=true、验证告警邮件发送、验证锁定后授权请求返回HTTP 403) ✅ 2025-10-29
+- [X] T278b [P] 单元测试：IP检测规则引擎 in backend/tests/unit/services/test_ip_monitor.py (验证失败计数器、API Key追踪、锁定触发逻辑) ✅ 2025-10-29
 
 ### 文档和部署
 
