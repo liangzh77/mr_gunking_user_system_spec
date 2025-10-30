@@ -116,7 +116,7 @@ restart_services() {
 
     # 重启Docker容器
     cd /opt/mr-game-ops
-    docker-compose -f docker-compose.prod.yml restart nginx
+    docker-compose -f docker-compose.yml restart nginx
 
     # 启动系统Nginx
     systemctl start nginx

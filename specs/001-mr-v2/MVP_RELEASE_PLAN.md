@@ -127,7 +127,7 @@ VALUES (
 
 #### Task 3: 配置生产环境
 
-**3.1 更新docker-compose.prod.yml**
+**3.1 更新docker-compose.yml**
 
 检查并更新生产环境配置:
 
@@ -368,7 +368,7 @@ fi
 git pull origin 001-mr-v2
 
 # 构建并启动
-docker-compose -f docker-compose.prod.yml up -d --build
+docker-compose -f docker-compose.yml up -d --build
 
 # 运行数据库迁移
 docker-compose exec backend alembic upgrade head
@@ -461,20 +461,20 @@ git checkout 001-mr-v2
 git pull origin 001-mr-v2
 
 # 3. 构建并启动生产环境
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d --build
+docker-compose -f docker-compose.yml down
+docker-compose -f docker-compose.yml up -d --build
 
 # 4. 运行数据库迁移
-docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker-compose -f docker-compose.yml exec backend alembic upgrade head
 
 # 5. 导入种子数据 (仅首次部署)
-docker-compose -f docker-compose.prod.yml exec backend python scripts/seed_data.py
+docker-compose -f docker-compose.yml exec backend python scripts/seed_data.py
 
 # 6. 健康检查
 ./scripts/health_check.sh
 
 # 7. 查看日志
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml logs -f
 ```
 
 **8.3 回滚计划**
@@ -482,14 +482,14 @@ docker-compose -f docker-compose.prod.yml logs -f
 如果发现严重问题:
 ```bash
 # 停止新版本
-docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.yml down
 
 # 恢复数据库备份
 docker exec mr_game_ops_db psql -U mr_admin -d mr_game_ops < /backups/postgres/mr_game_ops_YYYYMMDD_HHMMSS.sql
 
 # 切换到上一个稳定版本
 git checkout <previous-stable-commit>
-docker-compose -f docker-compose.prod.yml up -d --build
+docker-compose -f docker-compose.yml up -d --build
 ```
 
 ---

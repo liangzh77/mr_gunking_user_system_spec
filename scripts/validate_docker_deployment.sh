@@ -58,7 +58,7 @@ fi
 
 COMPOSE_FILE="docker-compose.yml"
 if [ "$ENV" == "prod" ]; then
-    COMPOSE_FILE="docker-compose.prod.yml"
+    COMPOSE_FILE="docker-compose.yml"
 fi
 
 log_info "开始验证 ${ENV} 环境的Docker部署配置"

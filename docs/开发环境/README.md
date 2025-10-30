@@ -17,7 +17,7 @@
 | 项目 | 开发环境 | 生产环境 |
 |------|---------|---------|
 | 容器名称 | `mr_game_ops_backend` | `mr_game_ops_backend_prod` |
-| Docker Compose 文件 | `docker-compose.yml` | `docker-compose.prod.yml` |
+| Docker Compose 文件 | `docker-compose.yml` | `docker-compose.yml` |
 | 数据库 | 本地测试数据 | 生产真实数据 |
 | 端口 | 前端 5173，后端 8000 | 前端 80，后端 8000 |
 | 使用场景 | 开发、测试、调试 | 生产部署 |

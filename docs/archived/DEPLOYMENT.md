@@ -170,22 +170,22 @@ vim mr_game_ops.conf
 # 返回项目根目录
 cd ../..
 
-# 设置环境变量（用于docker-compose.prod.yml）
+# 设置环境变量（用于docker-compose.yml）
 export POSTGRES_PASSWORD=YOUR_STRONG_DB_PASSWORD
 export REDIS_PASSWORD=YOUR_STRONG_REDIS_PASSWORD
 export VERSION=1.0.0
 
 # 构建镜像
-docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.yml build
 
 # 启动服务
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 查看服务状态
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 
 # 查看日志
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml logs -f
 ```
 
 ### 4. 初始化数据库
@@ -430,8 +430,8 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 
 ```bash
 # Docker部署
-docker-compose -f docker-compose.prod.yml logs -f backend
-docker-compose -f docker-compose.prod.yml logs -f frontend
+docker-compose -f docker-compose.yml logs -f backend
+docker-compose -f docker-compose.yml logs -f frontend
 
 # 传统部署
 tail -f /var/log/mr_game_ops/app.log
@@ -581,7 +581,7 @@ df -h
 free -h
 
 # 检查Docker容器状态（Docker部署）
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 
 # 测试HTTPS
 curl -I https://yourdomain.com
@@ -705,10 +705,10 @@ CREATE INDEX idx_usage_record_time ON usage_records(usage_time);
 git pull origin production
 
 # 2. 构建新镜像
-docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.yml build
 
 # 3. 滚动更新
-docker-compose -f docker-compose.prod.yml up -d --no-deps --build backend
+docker-compose -f docker-compose.yml up -d --no-deps --build backend
 
 # 4. 运行数据库迁移
 docker exec -it mr_game_ops_backend_prod alembic upgrade head
@@ -725,7 +725,7 @@ docker images | grep mr_game_ops_backend
 
 # 2. 回滚到指定版本
 docker tag mr_game_ops_backend:1.0.0 mr_game_ops_backend:latest
-docker-compose -f docker-compose.prod.yml up -d --no-deps backend
+docker-compose -f docker-compose.yml up -d --no-deps backend
 
 # 3. 回滚数据库（如需要）
 docker exec -it mr_game_ops_backend_prod alembic downgrade -1

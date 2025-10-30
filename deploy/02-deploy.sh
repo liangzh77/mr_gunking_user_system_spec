@@ -149,19 +149,19 @@ deploy_services() {
 
     # 停止可能运行的服务
     log_info "停止现有服务..."
-    docker-compose -f docker-compose.prod.yml down || true
+    docker-compose -f docker-compose.yml down || true
 
     # 拉取最新镜像
     log_info "拉取最新Docker镜像..."
-    docker-compose -f docker-compose.prod.yml pull
+    docker-compose -f docker-compose.yml pull
 
     # 构建应用镜像
     log_info "构建应用镜像..."
-    docker-compose -f docker-compose.prod.yml build --no-cache
+    docker-compose -f docker-compose.yml build --no-cache
 
     # 启动服务
     log_info "启动服务..."
-    docker-compose -f docker-compose.prod.yml up -d
+    docker-compose -f docker-compose.yml up -d
 
     # 等待服务启动
     log_info "等待服务启动..."
@@ -169,7 +169,7 @@ deploy_services() {
 
     # 检查服务状态
     log_info "检查服务状态..."
-    docker-compose -f docker-compose.prod.yml ps
+    docker-compose -f docker-compose.yml ps
 
     log_success "服务部署完成"
 }
@@ -293,10 +293,10 @@ show_deployment_info() {
     echo "💾 备份目录: /opt/mr-game-ops/backups"
     echo
     echo "🔧 管理命令:"
-    echo "  查看服务状态: cd /opt/mr-game-ops && docker-compose -f docker-compose.prod.yml ps"
-    echo "  查看日志: cd /opt/mr-game-ops && docker-compose -f docker-compose.prod.yml logs -f"
-    echo "  重启服务: cd /opt/mr-game-ops && docker-compose -f docker-compose.prod.yml restart"
-    echo "  停止服务: cd /opt/mr-game-ops && docker-compose -f docker-compose.prod.yml down"
+    echo "  查看服务状态: cd /opt/mr-game-ops && docker-compose -f docker-compose.yml ps"
+    echo "  查看日志: cd /opt/mr-game-ops && docker-compose -f docker-compose.yml logs -f"
+    echo "  重启服务: cd /opt/mr-game-ops && docker-compose -f docker-compose.yml restart"
+    echo "  停止服务: cd /opt/mr-game-ops && docker-compose -f docker-compose.yml down"
     echo
     echo "⚠️  重要提醒:"
     echo "1. 请修改 .env.prod 中的所有默认密码和密钥"

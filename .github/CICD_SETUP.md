@@ -308,9 +308,9 @@ deploy-production:
       ssh -o StrictHostKeyChecking=no ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} << 'EOF'
         cd /opt/mr-game-ops
         git pull origin main
-        docker-compose -f docker-compose.prod.yml pull
-        docker-compose -f docker-compose.prod.yml up -d --no-deps backend
-        docker-compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
+        docker-compose -f docker-compose.yml pull
+        docker-compose -f docker-compose.yml up -d --no-deps backend
+        docker-compose -f docker-compose.yml exec -T backend alembic upgrade head
       EOF
 ```
 

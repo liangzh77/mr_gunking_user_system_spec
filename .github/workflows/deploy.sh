@@ -23,7 +23,7 @@ ENVIRONMENT=$3
 BRANCH=${4:-main}
 PROJECT_DIR="/opt/mr_gunking_user_system_spec"
 BACKUP_DIR="/var/backups/mr_game_ops"
-COMPOSE_FILE="docker-compose.prod.yml"
+COMPOSE_FILE="docker-compose.yml"
 
 # 检查参数
 if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$ENVIRONMENT" ]; then

@@ -63,7 +63,7 @@ export POSTGRES_PASSWORD=YOUR_DB_PASSWORD
 export REDIS_PASSWORD=YOUR_REDIS_PASSWORD
 
 # 启动
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 初始化数据库
 docker exec -it mr_game_ops_backend_prod alembic upgrade head
@@ -74,7 +74,7 @@ docker exec -it mr_game_ops_backend_prod python init_data.py
 
 ```bash
 # 检查服务
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 
 # 测试健康检查
 curl http://localhost:8000/health
@@ -125,10 +125,10 @@ curl https://yourdomain.com
 
 ```bash
 # 查看日志
-docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.yml logs -f backend
 
 # 重启服务
-docker-compose -f docker-compose.prod.yml restart backend
+docker-compose -f docker-compose.yml restart backend
 
 # 查看资源使用
 docker stats
@@ -157,8 +157,8 @@ docker exec mr_game_ops_db_prod psql -U mr_admin -d mr_game_ops -c "SELECT count
 git pull origin production
 
 # 重新构建并更新
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml build
+docker-compose -f docker-compose.yml up -d
 
 # 运行迁移
 docker exec -it mr_game_ops_backend_prod alembic upgrade head
@@ -172,7 +172,7 @@ docker exec -it mr_game_ops_backend_prod alembic upgrade head
 
 ```bash
 # 检查服务状态
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 
 # 查看资源使用
 docker stats
@@ -180,7 +180,7 @@ free -h
 df -h
 
 # 重启服务
-docker-compose -f docker-compose.prod.yml restart
+docker-compose -f docker-compose.yml restart
 ```
 
 ### 数据库性能问题
@@ -215,7 +215,7 @@ docker exec mr_game_ops_redis_prod redis-cli -a YOUR_PASSWORD FLUSHDB
 ### 后端Worker数量
 
 ```bash
-# 编辑docker-compose.prod.yml
+# 编辑docker-compose.yml
 WORKERS: "4"  # 推荐: (CPU核心数 * 2) + 1
 ```
 
@@ -230,7 +230,7 @@ DATABASE_MAX_OVERFLOW=10   # 增加至20
 ### Redis内存限制
 
 ```bash
-# 编辑docker-compose.prod.yml
+# 编辑docker-compose.yml
 --maxmemory 512mb  # 根据可用内存调整
 ```
 

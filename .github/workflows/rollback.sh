@@ -54,7 +54,7 @@ log_success() { echo -e "\${GREEN}✅ \$1\${NC}"; }
 log_warning() { echo -e "\${YELLOW}⚠️  \$1\${NC}"; }
 
 PROJECT_DIR="/opt/mr_gunking_user_system_spec"
-COMPOSE_FILE="docker-compose.prod.yml"
+COMPOSE_FILE="docker-compose.yml"
 BACKUP_DIR="/var/backups/mr_game_ops"
 
 cd \$PROJECT_DIR

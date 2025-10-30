@@ -74,7 +74,7 @@ def main():
         log_error("无效的环境参数。使用方法: python validate_docker_deployment.py [dev|prod]")
         sys.exit(1)
 
-    compose_file = "docker-compose.yml" if env == "dev" else "docker-compose.prod.yml"
+    compose_file = "docker-compose.yml" if env == "dev" else "docker-compose.yml"
 
     log_info(f"开始验证 {env} 环境的Docker部署配置")
     log_info(f"使用配置文件: {compose_file}")
@@ -343,7 +343,7 @@ def main():
         print("     export REDIS_PASSWORD=<strong_password>")
         print("  2. 修改 backend/.env.production 中的所有密钥")
         print("  3. 配置SSL证书到 nginx/ssl/ 目录")
-        print("  4. 启动服务: docker-compose -f docker-compose.prod.yml up -d")
+        print("  4. 启动服务: docker-compose -f docker-compose.yml up -d")
 
     print("\n提示:")
     print("  - 完整部署文档: docs/DEPLOYMENT.md")

@@ -99,8 +99,8 @@ Write-Host "     cp -r /root/mr-game-ops-upload/* /opt/mr-game-ops/" -Foreground
 Write-Host ""
 Write-Host "  3. Build and start frontend:" -ForegroundColor White
 Write-Host "     cd /opt/mr-game-ops" -ForegroundColor White
-Write-Host "     docker compose -f docker-compose.prod.yml build frontend" -ForegroundColor White
-Write-Host "     docker compose -f docker-compose.prod.yml up -d" -ForegroundColor White
+Write-Host "     docker compose -f docker-compose.yml build frontend" -ForegroundColor White
+Write-Host "     docker compose -f docker-compose.yml up -d" -ForegroundColor White
 Write-Host ""
 
 pause

@@ -209,12 +209,12 @@ start_services() {
     # 停止现有服务
     print_info "停止现有服务..."
     docker-compose -f docker-compose.yml down 2>/dev/null || true
-    docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+    docker-compose -f docker-compose.yml down 2>/dev/null || true
 
     # 启动开发环境或生产环境
     if [ "$1" = "production" ]; then
         print_info "启动生产环境服务..."
-        docker-compose -f docker-compose.prod.yml up -d
+        docker-compose -f docker-compose.yml up -d
 
         # 等待服务启动
         print_info "等待服务启动..."
@@ -222,11 +222,11 @@ start_services() {
 
         # 检查服务状态
         print_info "检查服务状态..."
-        docker-compose -f docker-compose.prod.yml ps
+        docker-compose -f docker-compose.yml ps
 
         # 运行数据库迁移
         print_info "运行数据库迁移..."
-        docker-compose -f docker-compose.prod.yml exec -T backend python -m alembic upgrade head
+        docker-compose -f docker-compose.yml exec -T backend python -m alembic upgrade head
 
         print_success "生产环境服务启动完成"
         print_info "访问地址:"
@@ -298,16 +298,16 @@ show_deployment_info() {
 
     print_info "📊 服务状态:"
     if [ "$1" = "production" ]; then
-        docker-compose -f docker-compose.prod.yml ps
+        docker-compose -f docker-compose.yml ps
     else
         docker-compose -f docker-compose.yml ps
     fi
 
     print_info "🔧 管理命令:"
     if [ "$1" = "production" ]; then
-        echo "  查看日志: docker-compose -f docker-compose.prod.yml logs [service]"
-        echo "  重启服务: docker-compose -f docker-compose.prod.yml restart [service]"
-        echo "  停止服务: docker-compose -f docker-compose.prod.yml down"
+        echo "  查看日志: docker-compose -f docker-compose.yml logs [service]"
+        echo "  重启服务: docker-compose -f docker-compose.yml restart [service]"
+        echo "  停止服务: docker-compose -f docker-compose.yml down"
     else
         echo "  查看日志: docker-compose -f docker-compose.yml logs [service]"
         echo "  重启服务: docker-compose -f docker-compose.yml restart [service]"
@@ -358,7 +358,7 @@ clean_resources() {
 
     # 停止所有服务
     docker-compose -f docker-compose.yml down 2>/dev/null || true
-    docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+    docker-compose -f docker-compose.yml down 2>/dev/null || true
 
     # 删除Docker镜像
     docker rmi mr_game_ops_backend:latest 2>/dev/null || true
