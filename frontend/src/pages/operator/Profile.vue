@@ -22,7 +22,7 @@
               {{ authStore.profile?.phone }}
             </el-descriptions-item>
             <el-descriptions-item label="公司名称">
-              {{ authStore.profile?.company_name || '未填写' }}
+              {{ authStore.profile?.name || '未填写' }}
             </el-descriptions-item>
             <el-descriptions-item label="客户等级">
               <el-tag :type="tierTagType" size="small">{{ tierLabel }}</el-tag>
@@ -33,7 +33,7 @@
           </el-descriptions>
 
           <div style="margin-top: 16px">
-            <el-button type="primary" @click="dialogVisible = true">编辑信息</el-button>
+            <el-button type="primary" @click="handleEdit">编辑信息</el-button>
           </div>
         </el-card>
       </el-col>
@@ -65,7 +65,7 @@
       v-model="dialogVisible"
       title="编辑个人信息"
       width="500px"
-      @close="resetForm"
+      @close="handleDialogClose"
     >
       <el-form
         ref="formRef"
@@ -79,8 +79,8 @@
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="profileForm.phone" />
         </el-form-item>
-        <el-form-item label="公司名称" prop="company_name">
-          <el-input v-model="profileForm.company_name" />
+        <el-form-item label="公司名称" prop="name">
+          <el-input v-model="profileForm.name" />
         </el-form-item>
       </el-form>
 
@@ -107,7 +107,7 @@ const formRef = ref<FormInstance>()
 const profileForm = reactive({
   email: '',
   phone: '',
-  company_name: '',
+  name: '',
 })
 
 const rules: FormRules = {
@@ -155,8 +155,19 @@ const resetForm = () => {
   if (authStore.profile) {
     profileForm.email = authStore.profile.email
     profileForm.phone = authStore.profile.phone
-    profileForm.company_name = authStore.profile.company_name || ''
+    profileForm.name = authStore.profile.name || ''
   }
+}
+
+// 打开编辑对话框
+const handleEdit = () => {
+  resetForm()  // 先填充表单数据
+  dialogVisible.value = true  // 再打开对话框
+}
+
+// 对话框关闭时重置表单
+const handleDialogClose = () => {
+  formRef.value?.resetFields()
 }
 
 const handleUpdate = async () => {

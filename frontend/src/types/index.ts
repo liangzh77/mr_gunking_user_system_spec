@@ -25,7 +25,7 @@ export interface OperatorProfile {
   username: string
   email: string
   phone: string
-  company_name?: string
+  name: string  // 真实姓名或公司名
   customer_tier: 'trial' | 'regular' | 'vip'
   balance: string
   total_spent: string
