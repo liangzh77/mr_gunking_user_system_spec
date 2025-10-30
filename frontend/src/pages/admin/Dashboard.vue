@@ -2,7 +2,7 @@
   <div class="dashboard">
     <el-row :gutter="20">
       <el-col :span="6">
-        <el-card class="stat-card" v-loading="loading">
+        <el-card class="stat-card" v-loading="loading" @click="$router.push('/admin/operators')">
           <div class="stat-icon" style="background-color: #409eff">
             <el-icon :size="32"><UserFilled /></el-icon>
           </div>
@@ -14,7 +14,7 @@
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card">
+        <el-card class="stat-card" @click="$router.push('/admin/applications')">
           <div class="stat-icon" style="background-color: #67c23a">
             <el-icon :size="32"><Grid /></el-icon>
           </div>
@@ -26,7 +26,7 @@
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card" v-loading="loading">
+        <el-card class="stat-card" v-loading="loading" @click="$router.push('/admin/transactions')">
           <div class="stat-icon" style="background-color: #e6a23c">
             <el-icon :size="32"><List /></el-icon>
           </div>
@@ -38,7 +38,7 @@
       </el-col>
 
       <el-col :span="6">
-        <el-card class="stat-card" v-loading="loading">
+        <el-card class="stat-card" v-loading="loading" @click="$router.push('/admin/usage-stats')">
           <div class="stat-icon" style="background-color: #f56c6c">
             <el-icon :size="32"><Money /></el-icon>
           </div>
