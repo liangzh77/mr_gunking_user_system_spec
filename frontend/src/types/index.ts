@@ -272,7 +272,7 @@ export interface Site {
   site_id: string
   operator_id: string
   operator_name?: string  // 所属运营商名称（管理后台返回）
-  site_name: string
+  name: string  // 运营点名称（后端返回name而非site_name）
   address: string
   contact_person: string
   contact_phone: string

@@ -24,7 +24,7 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="site_name" label="运营点名称" min-width="150" />
+        <el-table-column prop="name" label="运营点名称" min-width="150" />
         <el-table-column prop="address" label="地址" min-width="200" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="所属运营商" min-width="150" />
@@ -177,30 +177,12 @@ const formatDateTime = (datetime: string) => {
 const loadSites = async () => {
   loading.value = true
   try {
-    // TODO: 调用管理后台的运营点API
-    // sites.value = await adminAuthStore.getOperatorSites()
-    // 临时模拟数据
-    sites.value = [
-      {
-        site_id: '1',
-        site_name: '测试运营点1',
-        address: '北京市朝阳区xxx',
-        contact_person: '张三',
-        contact_phone: '13800138001',
-        created_at: new Date().toISOString(),
-      },
-      {
-        site_id: '2',
-        site_name: '测试运营点2',
-        address: '上海市浦东新区xxx',
-        contact_person: '李四',
-        contact_phone: '13800138002',
-        created_at: new Date().toISOString(),
-      },
-    ]
+    const response = await adminStore.getSites({ page: 1, page_size: 100 })
+    sites.value = response?.items || []
   } catch (error) {
     console.error('Load operator sites error:', error)
     ElMessage.error('加载运营点列表失败')
+    sites.value = []
   } finally {
     loading.value = false
   }
@@ -234,7 +216,7 @@ const handleCreate = () => {
 const handleEdit = (site: Site) => {
   editingSite.value = site
   formData.value = {
-    name: site.site_name,
+    name: site.name,
     address: site.address,
     description: site.description || '',
     operator_id: site.operator_id || '',
@@ -284,13 +266,11 @@ const handleSubmit = async () => {
   try {
     if (editingSite.value) {
       // 更新运营点
-      // TODO: 调用管理后台的更新运营点API
-      // await adminAuthStore.updateOperatorSite(editingSite.value.site_id, formData.value)
+      await adminStore.updateSite(editingSite.value.site_id, formData.value)
       ElMessage.success('运营点更新成功')
     } else {
       // 创建运营点
-      // TODO: 调用管理后台的创建运营点API
-      // await adminAuthStore.createOperatorSite(formData.value)
+      await adminStore.createSite(formData.value)
       ElMessage.success('运营点创建成功')
     }
 

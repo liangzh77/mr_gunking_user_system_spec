@@ -240,6 +240,51 @@ export const useAdminStore = defineStore('admin', () => {
     return response.data
   }
 
+  // ==================== 运营点管理 ====================
+
+  /**
+   * 获取运营点列表
+   */
+  async function getSites(params?: PaginationParams): Promise<PaginationResponse<any>> {
+    const response = await http.get('/admins/sites', { params })
+    return response.data
+  }
+
+  /**
+   * 创建运营点
+   */
+  async function createSite(data: {
+    name: string
+    address: string
+    description?: string
+    operator_id: string
+    contact_person?: string
+    contact_phone?: string
+    server_identifier?: string
+  }): Promise<any> {
+    const response = await http.post('/admins/sites', data)
+    return response.data
+  }
+
+  /**
+   * 更新运营点
+   */
+  async function updateSite(
+    siteId: string,
+    data: {
+      name?: string
+      address?: string
+      description?: string
+      contact_person?: string
+      contact_phone?: string
+      server_identifier?: string
+      is_active?: boolean
+    }
+  ): Promise<any> {
+    const response = await http.put(`/admins/sites/${siteId}`, data)
+    return response.data
+  }
+
   return {
     isLoading,
     // 运营商管理
@@ -261,5 +306,9 @@ export const useAdminStore = defineStore('admin', () => {
     revokeAuthorization,
     // 统计
     getDashboardStats,
+    // 运营点管理
+    getSites,
+    createSite,
+    updateSite,
   }
 })
