@@ -289,6 +289,7 @@ class AdminService:
         items = [
             {
                 "id": str(op.id),
+                "operator_id": str(op.id),  # 添加operator_id字段用于与Site模型的外键匹配
                 "username": op.username,
                 "full_name": op.full_name,
                 "email": op.email,
