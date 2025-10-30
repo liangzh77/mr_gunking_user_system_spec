@@ -24,7 +24,7 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="name" label="运营点名称" min-width="150" />
+        <el-table-column prop="site_name" label="运营点名称" min-width="150" />
         <el-table-column prop="address" label="地址" min-width="200" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="所属运营商" min-width="150" />
@@ -125,10 +125,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useAdminStore } from '@/stores/admin'
 import type { Site, Operator } from '@/types'
 import dayjs from 'dayjs'
 
 const adminAuthStore = useAdminAuthStore()
+const adminStore = useAdminStore()
 
 const loading = ref(false)
 const sites = ref<Site[]>([])
@@ -207,28 +209,12 @@ const loadSites = async () => {
 // 加载运营商列表
 const loadOperators = async () => {
   try {
-    // TODO: 调用管理后台的运营商API
-    // operators.value = await adminAuthStore.getOperators()
-    // 临时模拟数据
-    operators.value = [
-      {
-        id: '1',
-        operator_id: '1',
-        full_name: '张三',
-        username: 'zhangsan',
-        email: 'zhangsan@example.com',
-      },
-      {
-        id: '2',
-        operator_id: '2',
-        full_name: '李四',
-        username: 'lisi',
-        email: 'lisi@example.com',
-      },
-    ]
+    const response = await adminStore.getOperators({ page: 1, page_size: 1000 })
+    operators.value = response?.items || []
   } catch (error) {
     console.error('Load operators error:', error)
     ElMessage.error('加载运营商列表失败')
+    operators.value = []
   }
 }
 
@@ -248,7 +234,7 @@ const handleCreate = () => {
 const handleEdit = (site: Site) => {
   editingSite.value = site
   formData.value = {
-    name: site.name,
+    name: site.site_name,
     address: site.address,
     description: site.description || '',
     operator_id: site.operator_id || '',

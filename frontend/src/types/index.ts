@@ -271,10 +271,12 @@ export interface AdminProfile {
 export interface Site {
   site_id: string
   operator_id: string
+  operator_name?: string  // 所属运营商名称（管理后台返回）
   site_name: string
   address: string
   contact_person: string
   contact_phone: string
+  description?: string  // 运营点描述
   is_active: boolean
   created_at: string
   updated_at: string
