@@ -104,7 +104,7 @@
 - [X] T031 [P] [US1] 集成测试：余额不足场景 in backend/tests/integration/test_insufficient_balance.py
 - [X] T032 [P] [US1] 集成测试：会话ID幂等性 in backend/tests/integration/test_session_idempotency.py (防重复扣费)
 - [X] T033 [P] [US1] 集成测试：玩家数量范围验证 in backend/tests/integration/test_player_count_validation.py ✅ 2025-10-14 (8/8测试通过)
-- [X] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：格式错误、operatorId不匹配、时间戳过期超过5分钟、随机数不足16位等场景，验证返回HTTP 400及详细错误信息)
+- [X] T033a [P] [US1] 集成测试：会话ID格式验证 in backend/tests/integration/test_session_id_validation.py (测试FR-061：空字符串、超长字符串（>255字符）、重复会话ID等场景，验证返回HTTP 400及详细错误信息。推荐使用UUID v4格式确保唯一性）
 - [X] T034 [P] [US1] 集成测试：并发扣费冲突处理 in backend/tests/integration/test_concurrent_billing.py
 
 ### 数据模型 (可并行)

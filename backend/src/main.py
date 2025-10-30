@@ -156,6 +156,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # await initialize_performance_system(app, performance_config)
         # logger.info("performance_system_initialized", status=get_performance_status())
 
+        # Start task scheduler
+        from .tasks import start_scheduler
+        await start_scheduler()
+        logger.info("task_scheduler_started")
+
         # Application ready
         logger.info("application_ready")
 
@@ -167,6 +172,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("application_shutdown_started")
+
+    try:
+        # Stop task scheduler
+        from .tasks import stop_scheduler
+        await stop_scheduler()
+        logger.info("task_scheduler_stopped")
+    except Exception as e:
+        logger.error("task_scheduler_stop_failed", error=str(e), exc_info=True)
 
     try:
         # Close Redis cache

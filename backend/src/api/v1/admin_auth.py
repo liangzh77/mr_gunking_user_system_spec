@@ -15,7 +15,7 @@ from ...schemas.admin import (
 from ...schemas.common import MessageResponse
 from ...services.admin_auth import AdminAuthService
 
-router = APIRouter(prefix="/admin", tags=["Admin Authentication"])
+router = APIRouter(prefix="/admins/auth", tags=["Admin Authentication"])
 
 
 @router.post(

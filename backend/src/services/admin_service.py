@@ -12,12 +12,15 @@ from sqlalchemy import select, and_, desc, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import BadRequestException, NotFoundException
+from ..core import BadRequestException, NotFoundException, get_logger
 from ..models.app_request import ApplicationRequest
 from ..models.authorization import OperatorAppAuthorization
 from ..models.application import Application
 from ..models.operator import OperatorAccount
 from ..schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
+from ..services.notification import NotificationService
+
+logger = get_logger(__name__)
 
 
 class AdminService:
@@ -539,12 +542,52 @@ class AdminService:
         if not app:
             raise NotFoundException("Application not found")
 
+        # 保存旧价格用于通知
+        old_price = app.price_per_player
+        new_price_decimal = Decimal(str(new_price))
+
+        # 检查价格是否真的改变
+        if old_price == new_price_decimal:
+            return {
+                "id": str(app.id),
+                "app_code": app.app_code,
+                "app_name": app.app_name,
+                "price_per_player": float(app.price_per_player),
+                "updated_at": app.updated_at,
+            }
+
         # Update price
-        app.price_per_player = Decimal(str(new_price))
+        app.price_per_player = new_price_decimal
         app.updated_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(app)
+
+        # 发送价格调整通知给所有授权该应用的运营商
+        try:
+            notification_service = NotificationService(self.db)
+            notification_result = await notification_service.send_price_change_notification(
+                application_id=app.id,
+                app_name=app.app_name,
+                old_price=old_price,
+                new_price=new_price_decimal
+            )
+            logger.info(
+                "price_change_notification_sent",
+                application_id=str(app.id),
+                app_name=app.app_name,
+                old_price=float(old_price),
+                new_price=float(new_price_decimal),
+                notification_result=notification_result
+            )
+        except Exception as e:
+            # 通知发送失败不应影响价格更新
+            logger.error(
+                "price_change_notification_failed",
+                application_id=str(app.id),
+                error=str(e),
+                exc_info=True
+            )
 
         return {
             "id": str(app.id),
@@ -1118,4 +1161,163 @@ class AdminService:
             "api_key": operator.api_key,  # Return the actual API key for display
             "created_at": operator.created_at,
             "updated_at": operator.updated_at
+        }
+
+    async def update_operator(
+        self,
+        operator_id: PyUUID,
+        full_name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        customer_tier: str | None = None,
+        is_active: bool | None = None,
+    ) -> dict:
+        """Update operator account information.
+
+        Args:
+            operator_id: Operator ID to update
+            full_name: New full name (optional)
+            email: New email (optional)
+            phone: New phone (optional)
+            customer_tier: New customer tier (optional)
+            is_active: New active status (optional)
+
+        Returns:
+            dict: Updated operator data
+
+        Raises:
+            NotFoundException: If operator not found
+            BadRequestException: If validation fails
+        """
+        # Get operator
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Validate customer tier if provided
+        if customer_tier and customer_tier not in ["vip", "standard", "trial"]:
+            raise BadRequestException("Invalid customer tier. Must be 'vip', 'standard', or 'trial'")
+
+        # Update fields
+        if full_name is not None:
+            operator.full_name = full_name
+        if email is not None:
+            operator.email = email
+        if phone is not None:
+            operator.phone = phone
+        if customer_tier is not None:
+            operator.customer_tier = customer_tier
+        if is_active is not None:
+            operator.is_active = is_active
+
+        operator.updated_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(operator)
+
+        # Return updated operator data
+        return {
+            "id": str(operator.id),
+            "username": operator.username,
+            "full_name": operator.full_name,
+            "email": operator.email,
+            "phone": operator.phone,
+            "api_key": operator.api_key,  # 返回API密钥
+            "customer_tier": operator.customer_tier,
+            "balance": float(operator.balance),
+            "is_active": operator.is_active,
+            "is_locked": operator.is_locked,
+            "locked_reason": operator.locked_reason,
+            "locked_at": operator.locked_at,
+            "last_login_at": operator.last_login_at,
+            "last_login_ip": operator.last_login_ip,
+            "created_at": operator.created_at,
+            "updated_at": operator.updated_at
+        }
+
+    async def delete_operator(
+        self,
+        operator_id: PyUUID,
+    ) -> dict:
+        """Delete operator account (soft delete).
+
+        Args:
+            operator_id: Operator ID to delete
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            NotFoundException: If operator not found
+            BadRequestException: If operator has active sessions or positive balance
+        """
+        # Get operator
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Check if operator has positive balance
+        if operator.balance > 0:
+            raise BadRequestException(
+                f"Cannot delete operator with positive balance. Current balance: ¥{float(operator.balance):.2f}"
+            )
+
+        # Soft delete
+        operator.deleted_at = datetime.utcnow()
+        operator.updated_at = datetime.utcnow()
+
+        await self.db.commit()
+
+        return {
+            "success": True,
+            "message": f"Operator '{operator.username}' deleted successfully"
+        }
+
+    async def get_operator_api_key(self, operator_id: PyUUID) -> dict:
+        """Get operator API key.
+
+        Args:
+            operator_id: Operator ID
+
+        Returns:
+            dict: Operator API key information
+
+        Raises:
+            NotFoundException: If operator not found
+        """
+        # Query operator with API key
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+
+        if not operator:
+            raise NotFoundException(f"Operator {operator_id} not found")
+
+        return {
+            "operator_id": operator.id,
+            "username": operator.username,
+            "api_key": operator.api_key,
+            "created_at": operator.created_at
         }

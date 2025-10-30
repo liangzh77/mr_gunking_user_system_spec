@@ -15,8 +15,8 @@ from uuid import UUID as PyUUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.operator_account import OperatorAccount
-from ..models.operator_app_authorization import OperatorAppAuthorization
+from ..models.operator import OperatorAccount
+from ..models.authorization import OperatorAppAuthorization
 from ..services.message_service import MessageService
 
 
@@ -153,7 +153,7 @@ class NotificationService:
 
         # 构建通知内容
         title = f"应用价格调整通知 - {app_name}"
-        content = f"您授权使用的应用"{app_name}"价格已调整。\n\n"
+        content = f"您授权使用的应用'{app_name}'价格已调整。\n\n"
         content += f"原价格: ¥{old_price:.2f}/人\n"
         content += f"新价格: ¥{new_price:.2f}/人\n\n"
 
@@ -209,7 +209,7 @@ class NotificationService:
             days_remaining: 剩余天数
         """
         title = f"应用授权即将到期 - {app_name}"
-        content = f"您授权使用的应用"{app_name}"即将到期。\n\n"
+        content = f"您授权使用的应用'{app_name}'即将到期。\n\n"
         content += f"到期时间: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
         content += f"剩余天数: {days_remaining}天\n\n"
         content += f"到期后将无法继续使用该应用，请及时续期。"

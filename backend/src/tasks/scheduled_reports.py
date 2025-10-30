@@ -14,8 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.session import get_async_session
-from src.services.finance_dashboard_service import FinanceDashboardService
+from src.db.session import get_db_context
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ class ScheduledReportGenerator:
 
     def __init__(self, scheduler: AsyncIOScheduler):
         self.scheduler = scheduler
-        self.dashboard_service = FinanceDashboardService()
 
     def setup_jobs(self):
         """配置所有定时任务"""
@@ -64,8 +62,8 @@ class ScheduledReportGenerator:
             yesterday = datetime.utcnow().date() - timedelta(days=1)
             
             logger.info(f"开始生成日报: {yesterday}")
-            
-            async for session in get_async_session():
+
+            async with get_db_context() as session:
                 # 获取昨日收入统计
                 revenue_data = await self._get_revenue_summary(
                     session, yesterday, yesterday
@@ -98,8 +96,8 @@ class ScheduledReportGenerator:
             start_date = today - timedelta(days=7)
             
             logger.info(f"开始生成周报: {start_date} 至 {today}")
-            
-            async for session in get_async_session():
+
+            async with get_db_context() as session:
                 revenue_data = await self._get_revenue_summary(
                     session, start_date, today
                 )
@@ -131,8 +129,8 @@ class ScheduledReportGenerator:
             end_date = today.replace(day=1) - timedelta(days=1)
             
             logger.info(f"开始生成月报: {start_date} 至 {end_date}")
-            
-            async for session in get_async_session():
+
+            async with get_db_context() as session:
                 revenue_data = await self._get_revenue_summary(
                     session, start_date, end_date
                 )

@@ -226,7 +226,7 @@ POST /v1/auth/game/authorize
 X-Api-Key: a1b2c3d4...（64位）
 X-Signature: Jz3kL9mN2pQ5rS8tU1vW4xY7zA+bC/dE=
 X-Timestamp: 1704067200
-X-Session-ID: op_12345_1704067200_a1b2c3d4e5f6g7h8
+X-Session-ID: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 ```
 
 **签名计算**：
@@ -447,7 +447,7 @@ sequenceDiagram
 
 ### Q1: 如何处理会话ID冲突？
 
-会话ID格式必须包含运营商ID前缀：`{operatorId}_{timestamp}_{random16}`
+推荐使用UUID v4格式（如`7c9e6679-7425-40de-944b-e07fc1f90ae7`）确保全局唯一性。系统验证长度1-255字符和数据库唯一约束。
 
 ### Q2: 游戏中途崩溃如何处理？
 

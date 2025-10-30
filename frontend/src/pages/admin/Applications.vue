@@ -35,7 +35,6 @@
         :data="applications"
         stripe
         style="width: 100%"
-        @row-click="handleRowClick"
       >
         <el-table-column prop="app_name" label="应用名称" width="200" />
         <el-table-column prop="description" label="描述" min-width="250" />
@@ -55,12 +54,11 @@
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" text @click.stop="handleEdit(row)">
               编辑
             </el-button>
-            <el-button size="small" text @click.stop="viewDetails(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -77,35 +75,6 @@
         @current-change="handleSearch"
       />
     </el-card>
-
-    <!-- 详情对话框 -->
-    <el-dialog v-model="detailsVisible" title="应用详情" width="600px">
-      <el-descriptions v-if="currentApplication" :column="2" border>
-        <el-descriptions-item label="应用名称" :span="2">
-          {{ currentApplication.app_name }}
-        </el-descriptions-item>
-        <el-descriptions-item label="描述" :span="2">
-          {{ currentApplication.description }}
-        </el-descriptions-item>
-        <el-descriptions-item label="单价">
-          ¥{{ Number(currentApplication.price_per_player || 0).toFixed(2) }} / 人
-        </el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag v-if="currentApplication.is_active" type="success" size="small">启用</el-tag>
-          <el-tag v-else type="info" size="small">禁用</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ formatDate(currentApplication.created_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="更新时间">
-          {{ formatDate(currentApplication.updated_at) }}
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <template #footer>
-        <el-button @click="detailsVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 编辑对话框 -->
     <el-dialog
@@ -218,8 +187,6 @@ interface Application {
 
 const loading = ref(false)
 const applications = ref<Application[]>([])
-const detailsVisible = ref(false)
-const currentApplication = ref<Application | null>(null)
 const searchKeyword = ref('')
 
 // 编辑相关
@@ -270,17 +237,6 @@ const fetchApplications = async () => {
 const handleSearch = () => {
   pagination.page = 1
   fetchApplications()
-}
-
-// 查看详情
-const viewDetails = (row: Application) => {
-  currentApplication.value = row
-  detailsVisible.value = true
-}
-
-// 行点击
-const handleRowClick = (row: Application) => {
-  viewDetails(row)
 }
 
 // 格式化日期
@@ -417,14 +373,6 @@ onMounted(() => {
   color: #909399;
   margin-top: 4px;
   line-height: 1.4;
-}
-
-:deep(.el-table__row) {
-  cursor: pointer;
-}
-
-:deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
 }
 
 :deep(.el-input-number) {

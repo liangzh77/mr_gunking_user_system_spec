@@ -746,8 +746,8 @@ async def test_game_authorization():
     print("测试游戏授权流程")
     print("========================================\n")
 
-    # 生成会话ID (格式: {operatorId}_{timestamp}_{random})
-    session_id = f"{OPERATOR_ID}_{int(time.time())}_{uuid4().hex[:16]}"
+    # 生成会话ID (推荐使用UUID v4格式，确保全局唯一性)
+    session_id = str(uuid4())
 
     # 请求参数
     method = "POST"
@@ -1044,11 +1044,212 @@ npm install vue-router@4
 npm run dev
 ```
 
-### 5. 集成支付平台 (测试环境)
+### 5. 集成支付平台沙盒环境 (测试充值功能)
 
-- 申请微信支付和支付宝测试账号
-- 配置支付回调URL (使用ngrok或本地测试工具)
-- 实现支付回调处理逻辑
+#### 5.1 微信支付沙盒配置
+
+**申请沙盒账号**:
+1. 访问微信支付商户平台: https://pay.weixin.qq.com/
+2. 登录商户账号 → 开发配置 → 沙箱环境
+3. 获取沙箱参数：
+   - AppID: `wx1234567890abcdef` (示例)
+   - 商户号(MchID): `1234567890`
+   - API密钥: 32位密钥
+
+**配置`.env`文件**:
+```env
+# 微信支付沙盒配置
+WECHAT_PAY_APP_ID=wx1234567890abcdef       # 沙箱AppID
+WECHAT_PAY_MCH_ID=1234567890                # 沙箱商户号
+WECHAT_PAY_API_KEY=your_32_char_api_key     # 沙箱API密钥
+WECHAT_PAY_SANDBOX=true                     # 启用沙箱模式
+WECHAT_PAY_NOTIFY_URL=https://your-domain.com/api/v1/payment/wechat/callback
+```
+
+**本地测试回调URL配置**（使用ngrok）:
+```bash
+# 安装ngrok
+# Windows: choco install ngrok
+# macOS: brew install ngrok
+# Linux: sudo snap install ngrok
+
+# 启动ngrok隧道 (映射本地8000端口)
+ngrok http 8000
+
+# 复制生成的HTTPS URL（如 https://abc123.ngrok.io）
+# 更新.env中的WECHAT_PAY_NOTIFY_URL为:
+# https://abc123.ngrok.io/api/v1/payment/wechat/callback
+```
+
+**测试沙盒支付**:
+```bash
+# 微信支付沙盒测试金额对应不同的支付结果:
+# 0.01元 → 支付成功
+# 0.02元 → 支付中
+# 0.03元 → 支付转入退款
+# 0.04元 → 支付关闭
+# 0.05元 → 支付未支付
+```
+
+#### 5.2 支付宝沙盒配置
+
+**申请沙盒账号**:
+1. 访问支付宝开放平台: https://open.alipay.com/
+2. 登录账号 → 开发者中心 → 研发服务 → 沙箱环境
+3. 获取沙箱参数：
+   - AppID: `2021001234567890` (示例)
+   - 网关地址: `https://openapi.alipaydev.com/gateway.do`
+   - 沙箱账号: 买家/卖家测试账号
+
+**生成应用密钥对**:
+```bash
+# 下载支付宝密钥生成工具
+# https://opendocs.alipay.com/common/02kipk
+
+# 生成RSA2密钥对 (推荐2048位)
+# 将生成的私钥和公钥保存到backend/keys/目录
+
+# 创建密钥目录
+mkdir -p backend/keys
+
+# 保存私钥
+vim backend/keys/alipay_private_key.pem
+# 粘贴生成的私钥内容
+
+# 将应用公钥上传到支付宝开放平台
+# 然后下载支付宝公钥
+vim backend/keys/alipay_public_key.pem
+# 粘贴支付宝公钥内容
+```
+
+**配置`.env`文件**:
+```env
+# 支付宝沙盒配置
+ALIPAY_APP_ID=2021001234567890
+ALIPAY_GATEWAY=https://openapi.alipaydev.com/gateway.do  # 沙箱网关
+ALIPAY_PRIVATE_KEY_PATH=./keys/alipay_private_key.pem
+ALIPAY_PUBLIC_KEY_PATH=./keys/alipay_public_key.pem
+ALIPAY_SANDBOX=true  # 启用沙箱模式
+ALIPAY_NOTIFY_URL=https://your-domain.com/api/v1/payment/alipay/callback
+```
+
+**测试沙盒支付**:
+```bash
+# 支付宝沙箱提供测试账号:
+# 买家账号: wbauwy0524@sandbox.com (登录密码: 111111, 支付密码: 111111)
+# 卖家账号: wmcfvl1086@sandbox.com
+
+# 测试流程:
+# 1. 在运营商Web端发起充值请求
+# 2. 选择支付宝支付
+# 3. 使用沙箱买家账号登录支付
+# 4. 验证支付回调是否正常触发
+# 5. 检查运营商余额是否正确增加
+```
+
+#### 5.3 验证支付配置
+
+创建测试脚本 `backend/scripts/test_payment_config.py`:
+```python
+"""验证支付沙盒配置"""
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def check_payment_config():
+    """检查支付配置完整性"""
+    errors = []
+
+    # 检查微信支付配置
+    wechat_required = [
+        "WECHAT_PAY_APP_ID",
+        "WECHAT_PAY_MCH_ID",
+        "WECHAT_PAY_API_KEY",
+        "WECHAT_PAY_NOTIFY_URL"
+    ]
+
+    for key in wechat_required:
+        value = os.getenv(key)
+        if not value or value.startswith("your"):
+            errors.append(f"❌ 微信支付: {key} 未配置或使用默认值")
+        else:
+            print(f"✅ 微信支付: {key} = {value[:10]}...")
+
+    # 检查支付宝配置
+    alipay_app_id = os.getenv("ALIPAY_APP_ID")
+    if not alipay_app_id or alipay_app_id.startswith("2021"):
+        errors.append("❌ 支付宝: ALIPAY_APP_ID 未配置或使用示例值")
+    else:
+        print(f"✅ 支付宝: ALIPAY_APP_ID = {alipay_app_id}")
+
+    # 检查支付宝密钥文件
+    private_key_path = os.getenv("ALIPAY_PRIVATE_KEY_PATH", "./keys/alipay_private_key.pem")
+    public_key_path = os.getenv("ALIPAY_PUBLIC_KEY_PATH", "./keys/alipay_public_key.pem")
+
+    if not Path(private_key_path).exists():
+        errors.append(f"❌ 支付宝: 私钥文件不存在: {private_key_path}")
+    else:
+        print(f"✅ 支付宝: 私钥文件存在")
+
+    if not Path(public_key_path).exists():
+        errors.append(f"❌ 支付宝: 公钥文件不存在: {public_key_path}")
+    else:
+        print(f"✅ 支付宝: 公钥文件存在")
+
+    # 输出结果
+    print("\n" + "="*50)
+    if errors:
+        print("配置检查失败，需要修复以下问题:")
+        for error in errors:
+            print(error)
+        return False
+    else:
+        print("✅ 支付配置检查通过！")
+        return True
+
+if __name__ == "__main__":
+    check_payment_config()
+```
+
+运行验证脚本:
+```bash
+cd backend
+python scripts/test_payment_config.py
+```
+
+#### 5.4 支付回调测试
+
+**测试微信支付回调**:
+```bash
+# 模拟微信支付回调 (POST /api/v1/payment/wechat/callback)
+curl -X POST http://localhost:8000/api/v1/payment/wechat/callback \
+  -H "Content-Type: application/xml" \
+  -d '<xml>
+  <appid><![CDATA[wx1234567890abcdef]]></appid>
+  <mch_id><![CDATA[1234567890]]></mch_id>
+  <out_trade_no><![CDATA[order_123456789]]></out_trade_no>
+  <result_code><![CDATA[SUCCESS]]></result_code>
+  <total_fee>100</total_fee>
+</xml>'
+```
+
+**测试支付宝回调**:
+```bash
+# 模拟支付宝回调 (POST /api/v1/payment/alipay/callback)
+curl -X POST http://localhost:8000/api/v1/payment/alipay/callback \
+  -d "notify_time=2024-01-01+12:00:00" \
+  -d "notify_type=trade_status_sync" \
+  -d "trade_status=TRADE_SUCCESS" \
+  -d "out_trade_no=order_123456789" \
+  -d "total_amount=1.00"
+```
+
+**常见问题**:
+1. **回调URL无法访问**: 确保ngrok隧道运行中，URL配置正确
+2. **签名验证失败**: 检查密钥文件路径和内容是否正确
+3. **支付成功但余额未增加**: 检查后端日志，确认回调处理逻辑正确执行
 
 ### 6. 部署到生产环境
 
@@ -1309,7 +1510,7 @@ if __name__ == "__main__":
     body = {
         "app_code": "space_adventure",
         "player_count": 5,
-        "session_id": "550e8400_1728540000_a1b2c3d4",
+        "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
         "site_id": "660e8400-e29b-41d4-a716-446655440001"
     }
 
@@ -1360,7 +1561,7 @@ const timestamp = Math.floor(Date.now() / 1000);
 const body = {
   app_code: "space_adventure",
   player_count: 5,
-  session_id: "550e8400_1728540000_a1b2c3d4",
+  session_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   site_id: "660e8400-e29b-41d4-a716-446655440001"
 };
 
@@ -1432,7 +1633,7 @@ class Program
         {
             app_code = "space_adventure",
             player_count = 5,
-            session_id = "550e8400_1728540000_a1b2c3d4",
+            session_id = "7c9e6679-7425-40de-944b-e07fc1f90ae7",
             site_id = "660e8400-e29b-41d4-a716-446655440001"
         };
 

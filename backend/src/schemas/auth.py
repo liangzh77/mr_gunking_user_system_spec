@@ -5,7 +5,10 @@
 2. 运营商登录 (T058): /auth/operators/login
 
 关键验证:
-- session_id格式: {operatorId}_{timestamp}_{random16}
+- session_id格式 (FR-061): {operatorId}_{13位毫秒时间戳}_{16位随机字符}
+  * operatorId必须匹配请求的运营商ID
+  * timestamp为13位Unix毫秒时间戳，在当前时间前后5分钟内
+  * random为16位字母数字字符
 - player_count范围: 1-100
 - 金额字段使用字符串(避免浮点精度问题)
 - JWT Token格式: Bearer {token}
@@ -268,9 +271,9 @@ class GameAuthorizeData(BaseModel):
 
     session_id: str = Field(
         ...,
-        description="会话ID",
-        pattern=r'^[a-zA-Z0-9\-]+_\d+_[a-zA-Z0-9]{16}$',
-        examples=["op_12345_1704067200_a1b2c3d4e5f6g7h8"]
+        description="会话ID (格式: {operatorId}_{13位毫秒时间戳}_{16位随机字符})",
+        pattern=r'^[a-zA-Z0-9\-]+_\d{13}_[a-zA-Z0-9]{16}$',
+        examples=["op_12345_1704067200000_a1b2c3d4e5f6g7h8"]
     )
 
     app_name: str = Field(
@@ -316,11 +319,11 @@ class GameAuthorizeData(BaseModel):
     @field_validator('session_id')
     @classmethod
     def validate_session_id_format(cls, v: str) -> str:
-        """验证session_id格式: {operatorId}_{timestamp}_{random16}"""
-        pattern = r'^[a-zA-Z0-9\-]+_\d+_[a-zA-Z0-9]{16}$'
+        """验证session_id格式: {operatorId}_{13位毫秒时间戳}_{16位随机字符}"""
+        pattern = r'^[a-zA-Z0-9\-]+_\d{13}_[a-zA-Z0-9]{16}$'
         if not re.match(pattern, v):
             raise ValueError(
-                f"session_id格式错误,应为: {{operatorId}}_{{timestamp}}_{{random16}}, 当前值: {v}"
+                f"session_id格式错误,应为: {{operatorId}}_{{13位毫秒时间戳}}_{{16位随机字符}}, 当前值: {v}"
             )
         return v
 

@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
 from ...schemas.admin import ApplicationRequestReviewRequest
-from ...schemas.admin_operator import CreateOperatorRequest, OperatorDetailResponse
+from ...schemas.admin_operator import (
+    CreateOperatorRequest,
+    UpdateOperatorRequest,
+    OperatorDetailResponse,
+    OperatorApiKeyResponse,
+)
 from ...schemas.admin_application import (
     CreateApplicationRequest,
     UpdateApplicationRequest,
@@ -112,6 +117,149 @@ async def get_operators(
         page=page,
         page_size=page_size
     )
+
+
+@router.put(
+    "/operators/{operator_id}",
+    response_model=OperatorDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Operator",
+    description="Update operator account information",
+)
+async def update_operator(
+    operator_id: str,
+    operator_data: UpdateOperatorRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> OperatorDetailResponse:
+    """Update operator account information.
+
+    Args:
+        operator_id: Operator ID
+        operator_data: Operator update data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        OperatorDetailResponse: Updated operator data
+    """
+    from uuid import UUID
+
+    try:
+        op_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
+
+    admin_id = get_token_subject(token)
+
+    # 权限检查：需要编辑运营商权限
+    await AdminPermissionChecker.require_permission(
+        db, admin_id, "operator:edit"
+    )
+
+    service = AdminService(db)
+
+    operator_dict = await service.update_operator(
+        operator_id=op_uuid,
+        full_name=operator_data.full_name,
+        email=operator_data.email,
+        phone=operator_data.phone,
+        customer_tier=operator_data.customer_tier,
+        is_active=operator_data.is_active,
+    )
+
+    return OperatorDetailResponse.model_validate(operator_dict)
+
+
+@router.delete(
+    "/operators/{operator_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Delete Operator",
+    description="Delete operator account (soft delete)",
+)
+async def delete_operator(
+    operator_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> MessageResponse:
+    """Delete operator account.
+
+    Args:
+        operator_id: Operator ID
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        MessageResponse: Success message
+    """
+    from uuid import UUID
+
+    try:
+        op_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
+
+    admin_id = get_token_subject(token)
+
+    # 权限检查：需要删除运营商权限
+    await AdminPermissionChecker.require_permission(
+        db, admin_id, "operator:delete"
+    )
+
+    service = AdminService(db)
+
+    result = await service.delete_operator(operator_id=op_uuid)
+
+    return MessageResponse(
+        success=result["success"],
+        message=result["message"]
+    )
+
+
+@router.get(
+    "/operators/{operator_id}/api-key",
+    response_model=OperatorApiKeyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Operator API Key",
+    description="Get operator API key (admin only, requires operator:view permission)",
+)
+async def get_operator_api_key(
+    operator_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> OperatorApiKeyResponse:
+    """Get operator API key.
+
+    Args:
+        operator_id: Operator ID
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        OperatorApiKeyResponse: Operator API key information
+    """
+    from uuid import UUID
+
+    try:
+        op_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
+
+    admin_id = get_token_subject(token)
+
+    # 权限检查：需要查看运营商权限
+    await AdminPermissionChecker.require_permission(
+        db, admin_id, "operator:view"
+    )
+
+    service = AdminService(db)
+    api_key_info = await service.get_operator_api_key(operator_id=op_uuid)
+
+    return OperatorApiKeyResponse.model_validate(api_key_info)
 
 
 @router.get(

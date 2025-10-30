@@ -31,6 +31,13 @@ from ..models.site import OperationSite
 from ..models.transaction import TransactionRecord
 from ..models.usage_record import UsageRecord
 from ..core.utils.db_lock import select_for_update
+from ..services.notification import NotificationService
+from ..core import get_logger
+
+logger = get_logger(__name__)
+
+# 余额预警阈值（与balance_check任务保持一致）
+BALANCE_THRESHOLD = Decimal("100.00")
 
 
 class BillingService:
@@ -206,6 +213,9 @@ class BillingService:
             # STEP 7: 提交事务
             await self.db.commit()
 
+            # STEP 8: 检查余额并发送低余额通知（如果需要）
+            await self._check_and_notify_low_balance(operator_id, balance_after)
+
             return usage_record, transaction_record, balance_after
 
         except HTTPException:
@@ -292,3 +302,41 @@ class BillingService:
         total = price_per_player * player_count
         # 确保精度为2位小数
         return total.quantize(Decimal('0.01'))
+
+    async def _check_and_notify_low_balance(
+        self,
+        operator_id: UUID,
+        current_balance: Decimal
+    ) -> None:
+        """检查余额并发送低余额通知
+
+        如果余额低于阈值（100元），发送通知给运营商。
+        使用独立的数据库会话，避免影响主事务。
+
+        Args:
+            operator_id: 运营商ID
+            current_balance: 当前余额
+        """
+        if current_balance < BALANCE_THRESHOLD:
+            try:
+                # 使用NotificationService发送通知
+                notification_service = NotificationService(self.db)
+                await notification_service.send_low_balance_notification(
+                    operator_id=operator_id,
+                    current_balance=current_balance,
+                    threshold=BALANCE_THRESHOLD
+                )
+                logger.info(
+                    "low_balance_notification_sent",
+                    operator_id=str(operator_id),
+                    balance=float(current_balance),
+                    threshold=float(BALANCE_THRESHOLD)
+                )
+            except Exception as e:
+                # 通知发送失败不应影响主业务流程
+                logger.error(
+                    "low_balance_notification_failed",
+                    operator_id=str(operator_id),
+                    error=str(e),
+                    exc_info=True
+                )
