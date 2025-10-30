@@ -1,14 +1,31 @@
 <template>
   <div class="authorizations-page">
-    <!-- 页面标题 -->
     <el-card class="header-card">
       <div class="header-content">
         <div class="title-section">
           <el-icon :size="24"><Key /></el-icon>
-          <h2>授权管理</h2>
+          <h2>应用授权管理</h2>
         </div>
         <div class="actions-section">
-          <el-button type="primary" @click="handleRefresh">
+          <el-button
+            v-if="selectedOperator && !isEditing"
+            type="primary"
+            @click="handleEdit"
+          >
+            <el-icon><Edit /></el-icon>
+            编辑授权
+          </el-button>
+          <template v-if="isEditing">
+            <el-button type="success" @click="handleSaveEdit">
+              <el-icon><Check /></el-icon>
+              保存
+            </el-button>
+            <el-button @click="handleCancelEdit">
+              <el-icon><Close /></el-icon>
+              取消
+            </el-button>
+          </template>
+          <el-button @click="handleRefresh">
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
@@ -16,391 +33,684 @@
       </div>
     </el-card>
 
-    <!-- 搜索筛选 -->
-    <el-card class="filter-card" style="margin-top: 20px">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
-        <el-form-item label="运营商">
+    <el-card class="main-content" style="margin-top: 20px">
+      <el-row :gutter="20">
+        <!-- 左侧：运营商列表 -->
+        <el-col :span="8">
+          <div class="section-title">
+            <el-icon><UserFilled /></el-icon>
+            <span>运营商列表</span>
+          </div>
           <el-input
-            v-model="filterForm.search"
-            placeholder="搜索运营商用户名或名称"
+            v-model="operatorSearch"
+            placeholder="搜索运营商名称或用户名"
             clearable
-            style="width: 250px"
-            @change="handleSearch"
+            style="margin: 16px 0"
+            @input="handleOperatorSearch"
           >
             <template #prefix>
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 运营商授权列表 -->
-    <el-card class="list-card" style="margin-top: 20px">
-      <el-table
-        v-loading="loading"
-        :data="operators"
-        stripe
-        style="width: 100%"
-      >
-        <el-table-column prop="username" label="用户名" width="150" />
-        <el-table-column prop="full_name" label="运营商名称" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column prop="phone" label="电话" width="130" />
-        <el-table-column label="已授权应用" min-width="200">
-          <template #default="{ row }">
-            <el-tag
-              v-for="auth in row.authorizations || []"
-              :key="auth.id"
-              type="success"
-              style="margin-right: 5px"
-              closable
-              @close="handleRevokeAuth(row.id, auth.application_id)"
+          <div class="operator-list">
+            <div
+              v-for="operator in filteredOperators"
+              :key="operator.id"
+              :class="['operator-item', { active: selectedOperator?.id === operator.id }]"
+              @click="handleSelectOperator(operator)"
             >
-              {{ auth.application_name }}
-            </el-tag>
-            <span v-if="!row.authorizations || row.authorizations.length === 0" style="color: #999">
-              暂无授权
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleAuthorize(row)">
-              <el-icon><Plus /></el-icon>
-              授权应用
-            </el-button>
-            <el-button type="info" size="small" text @click="handleViewDetail(row)">
-              详情
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 空状态 -->
-      <div v-if="!loading && operators.length === 0" class="empty-state">
-        <el-empty description="暂无运营商数据" />
-      </div>
-
-      <!-- 分页 -->
-      <el-pagination
-        v-if="total > 0"
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        style="margin-top: 20px; text-align: right"
-      />
-    </el-card>
-
-    <!-- 授权对话框 -->
-    <el-dialog
-      v-model="authorizeDialogVisible"
-      title="授权应用"
-      width="600px"
-      @close="handleAuthorizeDialogClose"
-    >
-      <el-form
-        ref="authorizeFormRef"
-        :model="authorizeForm"
-        :rules="authorizeRules"
-        label-width="100px"
-      >
-        <el-form-item label="运营商">
-          <el-input :value="currentOperator?.full_name" disabled />
-        </el-form-item>
-
-        <el-form-item label="选择应用" prop="application_id">
-          <el-select
-            v-model="authorizeForm.application_id"
-            placeholder="请选择要授权的应用"
-            style="width: 100%"
-            filterable
-          >
-            <el-option
-              v-for="app in availableApplications"
-              :key="app.id"
-              :label="`${app.name} (${app.game_name})`"
-              :value="app.id"
-            >
-              <div style="display: flex; justify-content: space-between;">
-                <span>{{ app.name }}</span>
-                <span style="color: #999; font-size: 12px">{{ app.game_name }}</span>
+              <div class="operator-info">
+                <div class="operator-name">{{ operator.full_name }}</div>
+                <div class="operator-username">@{{ operator.username }}</div>
               </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
+              <div class="operator-meta">
+                <el-tag :type="getCategoryType(operator.category)" size="small">
+                  {{ getCategoryLabel(operator.category) }}
+                </el-tag>
+                <div class="authorized-count">
+                  已授权: {{ getAuthorizedCount(operator.id) }}
+                </div>
+              </div>
+            </div>
+            <el-empty
+              v-if="filteredOperators.length === 0"
+              description="暂无运营商"
+              :image-size="80"
+            />
+          </div>
+        </el-col>
 
-        <el-form-item label="过期时间">
-          <el-date-picker
-            v-model="authorizeForm.expires_at"
-            type="datetime"
-            placeholder="选择过期时间(可选)"
-            style="width: 100%"
-            :disabled-date="disabledDate"
-          />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="authorizeDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="authorizing" @click="handleConfirmAuthorize">
-          确认授权
-        </el-button>
-      </template>
-    </el-dialog>
+        <!-- 右侧：应用列表 -->
+        <el-col :span="16">
+          <div class="section-title">
+            <el-icon><Grid /></el-icon>
+            <span>应用列表</span>
+            <span v-if="selectedOperator" class="selected-operator-info">
+              当前选中: {{ selectedOperator.full_name }}
+            </span>
+            <span v-else class="empty-operator-hint">
+              (选择运营商以高亮已授权应用)
+            </span>
+          </div>
+          <div class="application-list">
+            <el-input
+              v-model="appSearch"
+              placeholder="搜索应用名称"
+              clearable
+              style="margin: 16px 0"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <div class="app-grid">
+              <div
+                v-for="app in filteredApplications"
+                :key="app.id"
+                :class="[
+                  'app-card',
+                  {
+                    authorized: selectedOperator && isAuthorized(app.id),
+                    selected: isEditing && editingAuthorizations.has(app.id),
+                    disabled: !selectedOperator
+                  }
+                ]"
+                @click="handleAppClick(app)"
+              >
+                <div class="app-header">
+                  <div class="app-name">{{ app.app_name }}</div>
+                  <el-icon
+                    v-if="selectedOperator && isAuthorized(app.id)"
+                    :size="20"
+                    color="#67c23a"
+                    class="authorized-icon"
+                  >
+                    <CircleCheckFilled />
+                  </el-icon>
+                </div>
+                <div class="app-code">代码: {{ app.app_code }}</div>
+                <div v-if="app.description" class="app-description">{{ app.description }}</div>
+                <div class="app-price">¥{{ app.price_per_player }}/人</div>
+                <div v-if="isEditing && selectedOperator" class="app-checkbox">
+                  <el-checkbox
+                    :model-value="editingAuthorizations.has(app.id)"
+                    @change="handleAppToggle(app.id, $event)"
+                    @click.stop
+                  />
+                </div>
+              </div>
+            </div>
+            <el-empty
+              v-if="filteredApplications.length === 0"
+              description="暂无应用"
+              :image-size="80"
+            />
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Key, Refresh, Search, Plus } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Key,
+  Edit,
+  Check,
+  Close,
+  Refresh,
+  Search,
+  UserFilled,
+  Grid,
+  CircleCheckFilled
+} from '@element-plus/icons-vue'
 import http from '@/utils/http'
 
-// 数据定义
+// 类型定义
+interface Operator {
+  id: string
+  username: string
+  full_name: string
+  email: string
+  phone: string
+  category: string
+  balance: string
+}
+
+interface Application {
+  id: string
+  app_name: string
+  app_code: string
+  description?: string
+  price_per_player: string
+}
+
+interface Authorization {
+  operator_id: string
+  application_id: string
+}
+
+// 数据状态
 const loading = ref(false)
-const operators = ref<any[]>([])
-const applications = ref<any[]>([])
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(20)
+const operators = ref<Operator[]>([])
+const applications = ref<Application[]>([])
+const authorizations = ref<Authorization[]>([])
+const selectedOperator = ref<Operator | null>(null)
+const isEditing = ref(false)
+const editingAuthorizations = ref<Set<string>>(new Set())
 
-// 筛选表单
-const filterForm = reactive({
-  search: ''
-})
+// 搜索
+const operatorSearch = ref('')
+const appSearch = ref('')
 
-// 授权对话框
-const authorizeDialogVisible = ref(false)
-const authorizing = ref(false)
-const currentOperator = ref<any>(null)
-const authorizeFormRef = ref<FormInstance>()
-const authorizeForm = reactive({
-  application_id: '',
-  expires_at: null as Date | null
-})
+// 计算属性：过滤后的运营商列表
+const filteredOperators = computed(() => {
+  if (!operatorSearch.value) return operators.value
 
-const authorizeRules: FormRules = {
-  application_id: [
-    { required: true, message: '请选择要授权的应用', trigger: 'change' }
-  ]
-}
-
-// 计算可用应用(排除已授权的)
-const availableApplications = computed(() => {
-  if (!currentOperator.value) return applications.value
-
-  const authorizedAppIds = (currentOperator.value.authorizations || []).map(
-    (auth: any) => auth.application_id
+  const keyword = operatorSearch.value.toLowerCase()
+  return operators.value.filter(
+    (op) =>
+      op.full_name.toLowerCase().includes(keyword) ||
+      op.username.toLowerCase().includes(keyword)
   )
-
-  return applications.value.filter(app => !authorizedAppIds.includes(app.id))
 })
 
-// 禁用过去的日期
-const disabledDate = (time: Date) => {
-  return time.getTime() < Date.now() - 8.64e7
-}
+// 计算属性：过滤后的应用列表
+const filteredApplications = computed(() => {
+  if (!appSearch.value) return applications.value
+
+  const keyword = appSearch.value.toLowerCase()
+  return applications.value.filter(
+    (app) =>
+      app.app_name.toLowerCase().includes(keyword) ||
+      app.app_code.toLowerCase().includes(keyword) ||
+      (app.description && app.description.toLowerCase().includes(keyword))
+  )
+})
 
 // 加载运营商列表
 const loadOperators = async () => {
   try {
     loading.value = true
-    const params: any = {
-      page: currentPage.value,
-      page_size: pageSize.value
-    }
-
-    if (filterForm.search) {
-      params.search = filterForm.search
-    }
-
-    const response = await http.get('/admins/operators', { params })
-
+    const response = await http.get('/admins/operators', {
+      params: { page: 1, page_size: 100 }
+    })
     operators.value = response.data.items
-    total.value = response.data.total
 
-    // 为每个运营商加载授权信息
-    await loadAuthorizationsForOperators()
+    // 为所有运营商加载授权信息
+    await loadAllOperatorsAuthorizations()
   } catch (error: any) {
+    console.error('Failed to load operators:', error)
     ElMessage.error(error.response?.data?.detail || '加载运营商列表失败')
   } finally {
     loading.value = false
   }
 }
 
-// 为运营商加载授权信息(通过应用列表推断)
-const loadAuthorizationsForOperators = async () => {
-  // 注意: 这是一个简化实现
-  // 实际应该有专门的API返回每个运营商的授权列表
-  // 这里我们暂时不显示已授权应用,在实际使用时需要后端支持
-  operators.value.forEach(op => {
-    op.authorizations = []
-  })
+// 加载所有运营商的授权信息
+const loadAllOperatorsAuthorizations = async () => {
+  try {
+    // 清空现有授权数据
+    authorizations.value = []
+
+    // 并行加载所有运营商的授权信息
+    const authPromises = operators.value.map(async (operator) => {
+      try {
+        const response = await http.get(`/admins/operators/${operator.id}/applications`)
+        const authorizedAppIds: string[] = response.data
+
+        // 将授权信息添加到数组
+        for (const appId of authorizedAppIds) {
+          authorizations.value.push({
+            operator_id: operator.id,
+            application_id: appId
+          })
+        }
+      } catch (error) {
+        console.error(`Failed to load authorizations for operator ${operator.id}:`, error)
+      }
+    })
+
+    await Promise.all(authPromises)
+  } catch (error: any) {
+    console.error('Failed to load all authorizations:', error)
+  }
 }
 
 // 加载应用列表
 const loadApplications = async () => {
   try {
-    const response = await http.get('/admins/applications', { params: { page: 1, page_size: 100 } })
+    const response = await http.get('/admins/applications', {
+      params: { page: 1, page_size: 100 }
+    })
     applications.value = response.data.items
   } catch (error: any) {
+    console.error('Failed to load applications:', error)
     ElMessage.error(error.response?.data?.detail || '加载应用列表失败')
   }
 }
 
-// 刷新
-const handleRefresh = () => {
-  loadOperators()
+
+// 判断应用是否已授权给当前选中的运营商
+const isAuthorized = (appId: string): boolean => {
+  if (!selectedOperator.value) return false
+  return authorizations.value.some(
+    (auth) => auth.operator_id === selectedOperator.value!.id && auth.application_id === appId
+  )
 }
 
-// 搜索
-const handleSearch = () => {
-  currentPage.value = 1
-  loadOperators()
+// 获取运营商已授权的应用数量
+const getAuthorizedCount = (operatorId: string): number => {
+  return authorizations.value.filter((auth) => auth.operator_id === operatorId).length
 }
 
-// 重置
-const handleReset = () => {
-  filterForm.search = ''
-  handleSearch()
+// 获取客户分类标签
+const getCategoryLabel = (category: string): string => {
+  const labels: Record<string, string> = {
+    trial: '试用',
+    normal: '普通',
+    vip: 'VIP'
+  }
+  return labels[category] || category
 }
 
-// 分页
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-  loadOperators()
+// 获取客户分类标签类型
+const getCategoryType = (category: string): string => {
+  const types: Record<string, string> = {
+    trial: 'info',
+    normal: '',
+    vip: 'warning'
+  }
+  return types[category] || ''
 }
 
-const handleSizeChange = (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1
-  loadOperators()
+// 选择运营商
+const handleSelectOperator = async (operator: Operator) => {
+  selectedOperator.value = operator
+  isEditing.value = false
+  editingAuthorizations.value.clear()
+
+  // 加载该运营商的授权应用
+  await loadOperatorAuthorizations(operator.id)
 }
 
-// 授权应用
-const handleAuthorize = (operator: any) => {
-  currentOperator.value = operator
-  authorizeForm.application_id = ''
-  authorizeForm.expires_at = null
-  authorizeDialogVisible.value = true
-}
-
-// 确认授权
-const handleConfirmAuthorize = async () => {
-  if (!authorizeFormRef.value) return
-
-  await authorizeFormRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    try {
-      authorizing.value = true
-
-      await http.post(`/admins/operators/${currentOperator.value.id}/applications`, {
-        application_id: authorizeForm.application_id,
-        expires_at: authorizeForm.expires_at?.toISOString()
-      })
-
-      ElMessage.success('授权成功')
-      authorizeDialogVisible.value = false
-      loadOperators() // 刷新列表
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.detail || '授权失败')
-    } finally {
-      authorizing.value = false
-    }
-  })
-}
-
-// 撤销授权
-const handleRevokeAuth = async (operatorId: string, appId: string) => {
+// 加载特定运营商的授权应用
+const loadOperatorAuthorizations = async (operatorId: string) => {
   try {
-    await ElMessageBox.confirm(
-      '确定要撤销该应用的授权吗?撤销后运营商将无法继续使用该应用。',
-      '确认撤销',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
+    const response = await http.get(`/admins/operators/${operatorId}/applications`)
+    const authorizedAppIds: string[] = response.data
+
+    // 清除该运营商的旧授权记录
+    authorizations.value = authorizations.value.filter(
+      (auth) => auth.operator_id !== operatorId
     )
 
-    await http.delete(`/admins/operators/${operatorId}/applications/${appId}`)
-    ElMessage.success('授权已撤销')
-    loadOperators() // 刷新列表
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.detail || '撤销授权失败')
+    // 添加新的授权记录
+    for (const appId of authorizedAppIds) {
+      authorizations.value.push({
+        operator_id: operatorId,
+        application_id: appId
+      })
     }
+  } catch (error: any) {
+    console.error('Failed to load operator authorizations:', error)
+    // 不显示错误消息，静默失败
   }
 }
 
-// 查看详情
-const handleViewDetail = (operator: any) => {
-  ElMessage.info('查看运营商详情功能待实现')
-  // TODO: 跳转到运营商详情页或弹出详情对话框
+// 运营商搜索
+const handleOperatorSearch = () => {
+  // 搜索逻辑在 computed 中处理
 }
 
-// 关闭授权对话框
-const handleAuthorizeDialogClose = () => {
-  authorizeFormRef.value?.resetFields()
+// 进入编辑模式
+const handleEdit = () => {
+  if (!selectedOperator.value) return
+
+  isEditing.value = true
+  // 初始化编辑状态：将当前已授权的应用加入编辑集合
+  editingAuthorizations.value = new Set(
+    authorizations.value
+      .filter((auth) => auth.operator_id === selectedOperator.value!.id)
+      .map((auth) => auth.application_id)
+  )
+}
+
+// 应用点击事件
+const handleAppClick = (app: Application) => {
+  if (!isEditing.value) return
+  handleAppToggle(app.id, !editingAuthorizations.value.has(app.id))
+}
+
+// 切换应用授权状态（编辑模式）
+const handleAppToggle = (appId: string, checked: boolean) => {
+  if (!isEditing.value) return
+
+  if (checked) {
+    editingAuthorizations.value.add(appId)
+  } else {
+    editingAuthorizations.value.delete(appId)
+  }
+}
+
+// 保存编辑
+const handleSaveEdit = async () => {
+  if (!selectedOperator.value) return
+
+  try {
+    loading.value = true
+
+    // 获取当前已授权的应用ID集合
+    const currentAuthorized = new Set(
+      authorizations.value
+        .filter((auth) => auth.operator_id === selectedOperator.value!.id)
+        .map((auth) => auth.application_id)
+    )
+
+    // 计算需要新增的授权
+    const toAdd = Array.from(editingAuthorizations.value).filter((id) => !currentAuthorized.has(id))
+
+    // 计算需要撤销的授权
+    const toRemove = Array.from(currentAuthorized).filter(
+      (id) => !editingAuthorizations.value.has(id)
+    )
+
+    // 执行新增授权
+    for (const appId of toAdd) {
+      await http.post(`/admins/operators/${selectedOperator.value.id}/applications`, {
+        operator_id: selectedOperator.value.id,
+        application_id: appId
+      })
+    }
+
+    // 执行撤销授权
+    for (const appId of toRemove) {
+      await http.delete(`/admins/operators/${selectedOperator.value.id}/applications/${appId}`)
+    }
+
+    ElMessage.success('授权更新成功')
+
+    // 更新本地授权状态
+    // 添加新授权
+    for (const appId of toAdd) {
+      authorizations.value.push({
+        operator_id: selectedOperator.value.id,
+        application_id: appId
+      })
+    }
+    // 移除撤销的授权
+    authorizations.value = authorizations.value.filter(
+      (auth) =>
+        !(auth.operator_id === selectedOperator.value!.id && toRemove.includes(auth.application_id))
+    )
+
+    // 退出编辑模式
+    isEditing.value = false
+  } catch (error: any) {
+    console.error('Failed to save authorizations:', error)
+    ElMessage.error(error.response?.data?.detail || '授权更新失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 取消编辑
+const handleCancelEdit = () => {
+  isEditing.value = false
+  editingAuthorizations.value.clear()
+}
+
+// 刷新
+const handleRefresh = async () => {
+  await Promise.all([loadOperators(), loadApplications()])
+  ElMessage.success('刷新成功')
 }
 
 // 初始化
-onMounted(() => {
-  loadOperators()
-  loadApplications()
+onMounted(async () => {
+  await Promise.all([loadOperators(), loadApplications()])
 })
 </script>
 
 <style scoped lang="scss">
 .authorizations-page {
   padding: 20px;
-}
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
 
-.header-card {
-  .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .title-section {
+  .header-card {
+    .header-content {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 12px;
 
-      h2 {
-        margin: 0;
-        font-size: 20px;
-        font-weight: 600;
+      .title-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        h2 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 600;
+        }
+      }
+
+      .actions-section {
+        display: flex;
+        gap: 10px;
       }
     }
+  }
 
-    .actions-section {
+  .main-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.el-card__body) {
+      height: 100%;
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+    }
+
+    .el-row {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .el-col {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
   }
-}
 
-.filter-card {
-  .filter-form {
-    margin-bottom: 0;
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e4e7ed;
+
+    .selected-operator-info {
+      margin-left: auto;
+      font-size: 14px;
+      font-weight: normal;
+      color: #409eff;
+    }
+
+    .empty-operator-hint {
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: normal;
+      color: #909399;
+      font-style: italic;
+    }
   }
-}
 
-.list-card {
-  .empty-state {
-    padding: 40px 0;
+  .operator-list {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 16px;
+
+    .operator-item {
+      padding: 16px;
+      border: 1px solid #e4e7ed;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+
+      &:hover {
+        border-color: #409eff;
+        background-color: #f0f9ff;
+      }
+
+      &.active {
+        border-color: #409eff;
+        background-color: #ecf5ff;
+        box-shadow: 0 2px 12px rgba(64, 158, 255, 0.3);
+      }
+
+      .operator-info {
+        margin-bottom: 8px;
+
+        .operator-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: #303133;
+          margin-bottom: 4px;
+        }
+
+        .operator-username {
+          font-size: 12px;
+          color: #909399;
+        }
+      }
+
+      .operator-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .authorized-count {
+          font-size: 12px;
+          color: #67c23a;
+          font-weight: 500;
+        }
+      }
+    }
+  }
+
+  .application-list {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 16px;
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+
+      .app-card {
+        position: relative;
+        padding: 20px;
+        border: 2px solid #e4e7ed;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        background-color: #fff;
+
+        &:hover {
+          border-color: #409eff;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        &.authorized {
+          border-color: #67c23a;
+          background-color: #f0f9ff;
+
+          .app-header .app-name {
+            color: #67c23a;
+          }
+        }
+
+        &.selected {
+          border-color: #409eff;
+          background-color: #ecf5ff;
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+        }
+
+        &.disabled {
+          cursor: default;
+          opacity: 0.8;
+
+          &:hover {
+            border-color: #e4e7ed;
+            transform: none;
+            box-shadow: none;
+          }
+        }
+
+        .app-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+
+          .app-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #303133;
+          }
+
+          .authorized-icon {
+            flex-shrink: 0;
+          }
+        }
+
+        .app-code {
+          font-size: 13px;
+          color: #606266;
+          margin-bottom: 4px;
+        }
+
+        .app-description {
+          font-size: 12px;
+          color: #909399;
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .app-price {
+          font-size: 14px;
+          color: #f56c6c;
+          font-weight: 600;
+        }
+
+        .app-checkbox {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+        }
+      }
+    }
+  }
+
+  .empty-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 </style>
