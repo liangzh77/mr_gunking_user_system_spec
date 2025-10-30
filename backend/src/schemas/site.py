@@ -23,6 +23,7 @@ class SiteUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100, description="运营点名称")
     address: Optional[str] = Field(None, min_length=5, max_length=200, description="运营点地址")
     description: Optional[str] = Field(None, max_length=500, description="运营点描述")
+    operator_id: Optional[UUID] = Field(None, description="所属运营商ID")
     contact_person: Optional[str] = Field(None, max_length=64, description="现场负责人")
     contact_phone: Optional[str] = Field(None, max_length=32, description="现场联系电话")
     server_identifier: Optional[str] = Field(None, max_length=128, description="头显Server设备标识符")

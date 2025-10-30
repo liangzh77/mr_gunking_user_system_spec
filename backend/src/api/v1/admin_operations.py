@@ -652,6 +652,50 @@ async def revoke_authorization(
     )
 
 
+@router.get(
+    "/operators/{operator_id}/applications",
+    response_model=list,
+    status_code=status.HTTP_200_OK,
+    summary="Get Operator Authorized Applications",
+    description="Get list of applications authorized for an operator",
+)
+async def get_operator_applications(
+    operator_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> list:
+    """Get authorized applications for an operator.
+
+    Args:
+        operator_id: Operator ID (UUID string)
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        list: List of authorized application IDs
+    """
+    from uuid import UUID
+    from sqlalchemy import select
+    from ...models.authorization import OperatorAppAuthorization
+
+    try:
+        operator_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
+
+    # Query authorized applications for this operator
+    stmt = select(OperatorAppAuthorization.application_id).where(
+        OperatorAppAuthorization.operator_id == operator_uuid,
+        OperatorAppAuthorization.is_active == True
+    )
+    result = await db.execute(stmt)
+    app_ids = result.scalars().all()
+
+    # Convert UUIDs to strings
+    return [str(app_id) for app_id in app_ids]
+
+
 # ==================== Dashboard Statistics API ====================
 
 @router.get(

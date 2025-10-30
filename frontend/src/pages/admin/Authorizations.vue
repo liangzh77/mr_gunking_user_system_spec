@@ -88,11 +88,11 @@
             <span v-if="selectedOperator" class="selected-operator-info">
               当前选中: {{ selectedOperator.full_name }}
             </span>
+            <span v-else class="empty-operator-hint">
+              (选择运营商以高亮已授权应用)
+            </span>
           </div>
-          <div v-if="!selectedOperator" class="empty-placeholder">
-            <el-empty description="请先选择一个运营商" :image-size="120" />
-          </div>
-          <div v-else class="application-list">
+          <div class="application-list">
             <el-input
               v-model="appSearch"
               placeholder="搜索应用名称"
@@ -110,16 +110,17 @@
                 :class="[
                   'app-card',
                   {
-                    authorized: isAuthorized(app.id),
-                    selected: isEditing && editingAuthorizations.has(app.id)
+                    authorized: selectedOperator && isAuthorized(app.id),
+                    selected: isEditing && editingAuthorizations.has(app.id),
+                    disabled: !selectedOperator
                   }
                 ]"
                 @click="handleAppClick(app)"
               >
                 <div class="app-header">
-                  <div class="app-name">{{ app.name }}</div>
+                  <div class="app-name">{{ app.app_name }}</div>
                   <el-icon
-                    v-if="isAuthorized(app.id)"
+                    v-if="selectedOperator && isAuthorized(app.id)"
                     :size="20"
                     color="#67c23a"
                     class="authorized-icon"
@@ -127,10 +128,10 @@
                     <CircleCheckFilled />
                   </el-icon>
                 </div>
-                <div class="app-game">{{ app.game_name }}</div>
-                <div class="app-code">{{ app.app_code }}</div>
-                <div class="app-price">¥{{ app.price_per_hour }}/小时</div>
-                <div v-if="isEditing" class="app-checkbox">
+                <div class="app-code">代码: {{ app.app_code }}</div>
+                <div v-if="app.description" class="app-description">{{ app.description }}</div>
+                <div class="app-price">¥{{ app.price_per_player }}/人</div>
+                <div v-if="isEditing && selectedOperator" class="app-checkbox">
                   <el-checkbox
                     :model-value="editingAuthorizations.has(app.id)"
                     @change="handleAppToggle(app.id, $event)"
@@ -180,10 +181,10 @@ interface Operator {
 
 interface Application {
   id: string
-  name: string
+  app_name: string
   app_code: string
-  game_name: string
-  price_per_hour: string
+  description?: string
+  price_per_player: string
 }
 
 interface Authorization {
@@ -223,9 +224,9 @@ const filteredApplications = computed(() => {
   const keyword = appSearch.value.toLowerCase()
   return applications.value.filter(
     (app) =>
-      app.name.toLowerCase().includes(keyword) ||
-      app.game_name.toLowerCase().includes(keyword) ||
-      app.app_code.toLowerCase().includes(keyword)
+      app.app_name.toLowerCase().includes(keyword) ||
+      app.app_code.toLowerCase().includes(keyword) ||
+      (app.description && app.description.toLowerCase().includes(keyword))
   )
 })
 
@@ -237,11 +238,44 @@ const loadOperators = async () => {
       params: { page: 1, page_size: 100 }
     })
     operators.value = response.data.items
+
+    // 为所有运营商加载授权信息
+    await loadAllOperatorsAuthorizations()
   } catch (error: any) {
     console.error('Failed to load operators:', error)
     ElMessage.error(error.response?.data?.detail || '加载运营商列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 加载所有运营商的授权信息
+const loadAllOperatorsAuthorizations = async () => {
+  try {
+    // 清空现有授权数据
+    authorizations.value = []
+
+    // 并行加载所有运营商的授权信息
+    const authPromises = operators.value.map(async (operator) => {
+      try {
+        const response = await http.get(`/admins/operators/${operator.id}/applications`)
+        const authorizedAppIds: string[] = response.data
+
+        // 将授权信息添加到数组
+        for (const appId of authorizedAppIds) {
+          authorizations.value.push({
+            operator_id: operator.id,
+            application_id: appId
+          })
+        }
+      } catch (error) {
+        console.error(`Failed to load authorizations for operator ${operator.id}:`, error)
+      }
+    })
+
+    await Promise.all(authPromises)
+  } catch (error: any) {
+    console.error('Failed to load all authorizations:', error)
   }
 }
 
@@ -258,17 +292,6 @@ const loadApplications = async () => {
   }
 }
 
-// 加载授权关系
-const loadAuthorizations = async () => {
-  try {
-    // 注意：由于没有统一的授权列表接口，我们需要为每个运营商查询授权关系
-    // 为了性能考虑，我们暂时不在初始化时加载，而是在选择运营商时按需加载
-    authorizations.value = []
-  } catch (error: any) {
-    console.error('Failed to load authorizations:', error)
-    authorizations.value = []
-  }
-}
 
 // 判断应用是否已授权给当前选中的运营商
 const isAuthorized = (appId: string): boolean => {
@@ -304,10 +327,37 @@ const getCategoryType = (category: string): string => {
 }
 
 // 选择运营商
-const handleSelectOperator = (operator: Operator) => {
+const handleSelectOperator = async (operator: Operator) => {
   selectedOperator.value = operator
   isEditing.value = false
   editingAuthorizations.value.clear()
+
+  // 加载该运营商的授权应用
+  await loadOperatorAuthorizations(operator.id)
+}
+
+// 加载特定运营商的授权应用
+const loadOperatorAuthorizations = async (operatorId: string) => {
+  try {
+    const response = await http.get(`/admins/operators/${operatorId}/applications`)
+    const authorizedAppIds: string[] = response.data
+
+    // 清除该运营商的旧授权记录
+    authorizations.value = authorizations.value.filter(
+      (auth) => auth.operator_id !== operatorId
+    )
+
+    // 添加新的授权记录
+    for (const appId of authorizedAppIds) {
+      authorizations.value.push({
+        operator_id: operatorId,
+        application_id: appId
+      })
+    }
+  } catch (error: any) {
+    console.error('Failed to load operator authorizations:', error)
+    // 不显示错误消息，静默失败
+  }
 }
 
 // 运营商搜索
@@ -370,6 +420,7 @@ const handleSaveEdit = async () => {
     // 执行新增授权
     for (const appId of toAdd) {
       await http.post(`/admins/operators/${selectedOperator.value.id}/applications`, {
+        operator_id: selectedOperator.value.id,
         application_id: appId
       })
     }
@@ -413,13 +464,13 @@ const handleCancelEdit = () => {
 
 // 刷新
 const handleRefresh = async () => {
-  await Promise.all([loadOperators(), loadApplications(), loadAuthorizations()])
+  await Promise.all([loadOperators(), loadApplications()])
   ElMessage.success('刷新成功')
 }
 
 // 初始化
 onMounted(async () => {
-  await Promise.all([loadOperators(), loadApplications(), loadAuthorizations()])
+  await Promise.all([loadOperators(), loadApplications()])
 })
 </script>
 
@@ -494,6 +545,14 @@ onMounted(async () => {
       font-size: 14px;
       font-weight: normal;
       color: #409eff;
+    }
+
+    .empty-operator-hint {
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: normal;
+      color: #909399;
+      font-style: italic;
     }
   }
 
@@ -591,6 +650,17 @@ onMounted(async () => {
           box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
         }
 
+        &.disabled {
+          cursor: default;
+          opacity: 0.8;
+
+          &:hover {
+            border-color: #e4e7ed;
+            transform: none;
+            box-shadow: none;
+          }
+        }
+
         .app-header {
           display: flex;
           align-items: center;
@@ -608,17 +678,17 @@ onMounted(async () => {
           }
         }
 
-        .app-game {
-          font-size: 14px;
+        .app-code {
+          font-size: 13px;
           color: #606266;
           margin-bottom: 4px;
         }
 
-        .app-code {
+        .app-description {
           font-size: 12px;
           color: #909399;
-          font-family: monospace;
           margin-bottom: 8px;
+          line-height: 1.4;
         }
 
         .app-price {

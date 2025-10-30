@@ -92,9 +92,9 @@
           >
             <el-option
               v-for="operator in operators"
-              :key="operator.operator_id"
+              :key="operator.id"
               :label="operator.full_name"
-              :value="operator.operator_id"
+              :value="operator.id"
             />
           </el-select>
         </el-form-item>
@@ -178,7 +178,11 @@ const loadSites = async () => {
   loading.value = true
   try {
     const response = await adminStore.getSites({ page: 1, page_size: 100 })
-    sites.value = response?.items || []
+    const items = response?.items || []
+    // 按照运营商名称排序
+    sites.value = items.sort((a, b) => {
+      return (a.operator_name || '').localeCompare(b.operator_name || '', 'zh-CN')
+    })
   } catch (error) {
     console.error('Load operator sites error:', error)
     ElMessage.error('加载运营点列表失败')

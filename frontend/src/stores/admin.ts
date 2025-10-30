@@ -275,6 +275,7 @@ export const useAdminStore = defineStore('admin', () => {
       name?: string
       address?: string
       description?: string
+      operator_id?: string
       contact_person?: string
       contact_phone?: string
       server_identifier?: string

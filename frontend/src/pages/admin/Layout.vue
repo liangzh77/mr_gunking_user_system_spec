@@ -41,10 +41,14 @@
             <el-icon><Collection /></el-icon>
             <span>应用列表</span>
           </el-menu-item>
-          <el-menu-item index="/admin/app-requests">
+          <el-menu-item index="/admin/authorizations">
+            <el-icon><Key /></el-icon>
+            <span>授权应用</span>
+          </el-menu-item>
+          <!-- <el-menu-item index="/admin/app-requests">
             <el-icon><Document /></el-icon>
             <span>授权申请</span>
-          </el-menu-item>
+          </el-menu-item> -->
         </el-sub-menu>
 
         <el-sub-menu index="finance">
@@ -145,6 +149,7 @@ import {
   Grid,
   Collection,
   Document,
+  Key,
   Wallet,
   List,
   RefreshLeft,
@@ -175,6 +180,7 @@ const breadcrumbMap: Record<string, string> = {
   '/admin/operators': '运营商列表',
   '/admin/operator-sites': '运营点管理',
   '/admin/applications': '应用列表',
+  '/admin/authorizations': '授权应用',
   '/admin/app-requests': '授权申请',
   '/admin/transactions': '交易记录',
   '/admin/refunds': '退款审核',
