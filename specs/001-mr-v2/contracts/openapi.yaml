@@ -199,7 +199,7 @@ components:
         - X-Api-Key: 运营商API Key
         - X-Signature: Base64编码的HMAC签名
         - X-Timestamp: Unix时间戳（秒），服务端验证时间差不超过5分钟
-        - X-Session-ID: 会话ID，格式：{operatorId}_{timestamp}_{random16}
+        - X-Session-ID: 会话ID（任意唯一字符串，长度1-255字符，推荐UUID v4格式）
 
     BearerAuth:
       type: http

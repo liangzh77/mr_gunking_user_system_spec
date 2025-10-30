@@ -273,8 +273,8 @@ class AuthService:
 
         格式规则: {operatorId}_{timestamp}_{random16}
         - operatorId: 必须与当前运营商ID匹配
-        - timestamp: Unix时间戳(秒)，不能早于当前时间5分钟以上
-        - random16: 16位随机字符串
+        - timestamp: 13位Unix毫秒时间戳，且在当前时间前后5分钟内
+        - random16: 16位字母数字随机字符串
 
         Args:
             session_id: 会话ID
@@ -286,8 +286,8 @@ class AuthService:
         import re
         from datetime import datetime, timedelta
 
-        # 验证基本格式
-        pattern = r'^([a-zA-Z0-9\-]+)_(\d+)_([a-zA-Z0-9]{16})$'
+        # 验证基本格式（timestamp必须为13位数字）
+        pattern = r'^([a-zA-Z0-9\-]+)_(\d{13})_([a-zA-Z0-9]{16})$'
         match = re.match(pattern, session_id)
 
         if not match:
@@ -319,23 +319,30 @@ class AuthService:
                 }
             )
 
-        # 验证时间戳(不能早于当前时间5分钟以上)
+        # 验证时间戳(13位毫秒时间戳，必须在当前时间前后5分钟内)
         try:
-            session_timestamp = int(timestamp_str)
-            current_timestamp = int(datetime.utcnow().timestamp())
-            time_diff = current_timestamp - session_timestamp
+            session_timestamp_ms = int(timestamp_str)  # 毫秒时间戳
+            current_timestamp_ms = int(datetime.utcnow().timestamp() * 1000)  # 转换为毫秒
+            time_diff_ms = abs(current_timestamp_ms - session_timestamp_ms)  # 使用绝对值检查前后
+            max_allowed_ms = 5 * 60 * 1000  # 5分钟 = 300000毫秒
 
-            if time_diff > 300:  # 5分钟 = 300秒
+            if time_diff_ms > max_allowed_ms:
+                # 判断是过去还是未来
+                if session_timestamp_ms < current_timestamp_ms:
+                    error_msg = "会话ID时间戳已过期(超过5分钟)"
+                else:
+                    error_msg = "会话ID时间戳在未来(超过5分钟)"
+
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={
-                        "error_code": "SESSION_ID_EXPIRED",
-                        "message": "会话ID时间戳已过期(超过5分钟)",
+                        "error_code": "SESSION_ID_TIMESTAMP_OUT_OF_RANGE",
+                        "message": error_msg,
                         "details": {
-                            "session_timestamp": session_timestamp,
-                            "current_timestamp": current_timestamp,
-                            "time_diff_seconds": time_diff,
-                            "max_allowed_seconds": 300
+                            "session_timestamp_ms": session_timestamp_ms,
+                            "current_timestamp_ms": current_timestamp_ms,
+                            "time_diff_ms": time_diff_ms,
+                            "max_allowed_ms": max_allowed_ms
                         }
                     }
                 )
@@ -344,7 +351,7 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error_code": "INVALID_SESSION_ID_TIMESTAMP",
-                    "message": "会话ID中的时间戳格式错误"
+                    "message": "会话ID中的时间戳格式错误（必须为13位数字）"
                 }
             )
 

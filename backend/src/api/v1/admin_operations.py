@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
 from ...schemas.admin import ApplicationRequestReviewRequest
-from ...schemas.admin_operator import CreateOperatorRequest, UpdateOperatorRequest, OperatorDetailResponse
+from ...schemas.admin_operator import (
+    CreateOperatorRequest,
+    UpdateOperatorRequest,
+    OperatorDetailResponse,
+    OperatorApiKeyResponse,
+)
 from ...schemas.admin_application import (
     CreateApplicationRequest,
     UpdateApplicationRequest,
@@ -212,6 +217,49 @@ async def delete_operator(
         success=result["success"],
         message=result["message"]
     )
+
+
+@router.get(
+    "/operators/{operator_id}/api-key",
+    response_model=OperatorApiKeyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Operator API Key",
+    description="Get operator API key (admin only, requires operator:view permission)",
+)
+async def get_operator_api_key(
+    operator_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> OperatorApiKeyResponse:
+    """Get operator API key.
+
+    Args:
+        operator_id: Operator ID
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        OperatorApiKeyResponse: Operator API key information
+    """
+    from uuid import UUID
+
+    try:
+        op_uuid = UUID(operator_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid operator ID format")
+
+    admin_id = get_token_subject(token)
+
+    # 权限检查：需要查看运营商权限
+    await AdminPermissionChecker.require_permission(
+        db, admin_id, "operator:view"
+    )
+
+    service = AdminService(db)
+    api_key_info = await service.get_operator_api_key(operator_id=op_uuid)
+
+    return OperatorApiKeyResponse.model_validate(api_key_info)
 
 
 @router.get(

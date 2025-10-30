@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.operator import OperatorAccount
 from ..models.message import OperatorMessage
 from ..services.notification import NotificationService
-from ..db.session import get_async_session
+from ..db.session import get_db_context
 from ..core import get_logger
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ async def check_low_balance_and_notify():
     2. 检查是否在冷却期内（24小时内是否已发送过余额提醒）
     3. 发送余额不足提醒通知
     """
-    async with get_async_session() as db:
+    async with get_db_context() as db:
         try:
             # 查询余额低于阈值的运营商
             result = await db.execute(

@@ -144,3 +144,16 @@ class ResetApiKeyResponse(BaseModel):
     operator_id: UUID = Field(description="运营商ID")
     new_api_key: str = Field(description="新的API Key")
     message: str = Field(description="操作结果消息")
+
+
+class OperatorApiKeyResponse(BaseModel):
+    """Operator API key response schema."""
+
+    operator_id: UUID = Field(description="运营商ID")
+    username: str = Field(description="运营商用户名")
+    api_key: str = Field(description="API Key")
+    created_at: datetime = Field(description="账户创建时间")
+
+    class Config:
+        """Pydantic config."""
+        from_attributes = True

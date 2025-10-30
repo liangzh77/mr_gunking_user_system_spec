@@ -11,11 +11,17 @@ from uuid import UUID as PyUUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import BadRequestException, NotFoundException
+from ..core import BadRequestException, NotFoundException, get_logger
 from ..models.operator import OperatorAccount
 from ..models.transaction import TransactionRecord
 from ..models.finance import FinanceOperationLog
 from ..schemas.finance import RechargeResponse
+from ..services.notification import NotificationService
+
+logger = get_logger(__name__)
+
+# 余额预警阈值（与balance_check任务和BillingService保持一致）
+BALANCE_THRESHOLD = Decimal("100.00")
 
 
 class FinanceRechargeService:
@@ -135,6 +141,9 @@ class FinanceRechargeService:
             # 提交事务
             await self.db.commit()
 
+            # 检查余额并发送低余额通知（如果充值后仍低于阈值）
+            await self._check_and_notify_low_balance(operator.id, balance_after)
+
             # 构建响应
             return RechargeResponse(
                 transaction_id=str(transaction.id),
@@ -206,3 +215,41 @@ class FinanceRechargeService:
             }
             for operator in operators
         ]
+
+    async def _check_and_notify_low_balance(
+        self,
+        operator_id: PyUUID,
+        current_balance: Decimal
+    ) -> None:
+        """检查余额并发送低余额通知
+
+        充值后如果余额仍低于阈值（100元），发送通知提醒运营商继续充值。
+
+        Args:
+            operator_id: 运营商ID
+            current_balance: 当前余额
+        """
+        if current_balance < BALANCE_THRESHOLD:
+            try:
+                # 使用NotificationService发送通知
+                notification_service = NotificationService(self.db)
+                await notification_service.send_low_balance_notification(
+                    operator_id=operator_id,
+                    current_balance=current_balance,
+                    threshold=BALANCE_THRESHOLD
+                )
+                logger.info(
+                    "low_balance_notification_sent_after_recharge",
+                    operator_id=str(operator_id),
+                    balance=float(current_balance),
+                    threshold=float(BALANCE_THRESHOLD),
+                    message="充值后余额仍低于阈值，已发送通知"
+                )
+            except Exception as e:
+                # 通知发送失败不应影响主业务流程
+                logger.error(
+                    "low_balance_notification_failed",
+                    operator_id=str(operator_id),
+                    error=str(e),
+                    exc_info=True
+                )

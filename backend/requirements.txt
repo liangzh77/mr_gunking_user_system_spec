@@ -32,6 +32,9 @@ redis==5.0.1
 structlog==23.2.0
 prometheus-client==0.19.0
 
+# Task Scheduler
+apscheduler==3.10.4
+
 # File Processing
 aiofiles==23.2.1
 openpyxl==3.1.2

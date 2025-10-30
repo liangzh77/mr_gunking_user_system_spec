@@ -17,7 +17,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
   async function login(credentials: AdminLoginRequest): Promise<AdminLoginResponse> {
     isLoading.value = true
     try {
-      const response = await http.post<AdminLoginResponse>('/admin/login', credentials)
+      const response = await http.post<AdminLoginResponse>('/admins/auth/login', credentials)
       const loginResponse = response.data
 
       // 直接提取数据（后端不包装在 data 字段中）
@@ -53,7 +53,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
   // 登出
   async function logout(): Promise<void> {
     try {
-      await http.post('/admin/logout')
+      await http.post('/admins/auth/logout')
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
@@ -71,7 +71,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     if (!isAuthenticated.value) return
 
     try {
-      const response = await http.get<AdminProfile>('/admin/me')
+      const response = await http.get<AdminProfile>('/admins/auth/me')
       profile.value = response.data
     } catch (error) {
       console.error('Fetch profile error:', error)
@@ -80,7 +80,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
 
   // 修改密码
   async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    await http.post('/admin/change-password', {
+    await http.post('/admins/auth/change-password', {
       old_password: oldPassword,
       new_password: newPassword,
     })

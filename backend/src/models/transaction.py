@@ -12,6 +12,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
@@ -31,6 +32,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from ..db.base import Base
+
+
+class TransactionType(str, Enum):
+    """交易类型枚举"""
+    RECHARGE = "recharge"      # 充值
+    CONSUMPTION = "consumption"  # 消费
+    REFUND = "refund"          # 退款
+
+
+class TransactionStatus(str, Enum):
+    """交易/订单状态枚举"""
+    PENDING = "pending"        # 待支付/处理中
+    PROCESSING = "processing"  # 处理中(用于支付对账)
+    SUCCESS = "success"        # 已成功
+    FAILED = "failed"          # 失败
+    EXPIRED = "expired"        # 已过期
 
 
 class TransactionRecord(Base):

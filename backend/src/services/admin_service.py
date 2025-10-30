@@ -12,12 +12,15 @@ from sqlalchemy import select, and_, desc, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import BadRequestException, NotFoundException
+from ..core import BadRequestException, NotFoundException, get_logger
 from ..models.app_request import ApplicationRequest
 from ..models.authorization import OperatorAppAuthorization
 from ..models.application import Application
 from ..models.operator import OperatorAccount
 from ..schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
+from ..services.notification import NotificationService
+
+logger = get_logger(__name__)
 
 
 class AdminService:
@@ -539,12 +542,52 @@ class AdminService:
         if not app:
             raise NotFoundException("Application not found")
 
+        # 保存旧价格用于通知
+        old_price = app.price_per_player
+        new_price_decimal = Decimal(str(new_price))
+
+        # 检查价格是否真的改变
+        if old_price == new_price_decimal:
+            return {
+                "id": str(app.id),
+                "app_code": app.app_code,
+                "app_name": app.app_name,
+                "price_per_player": float(app.price_per_player),
+                "updated_at": app.updated_at,
+            }
+
         # Update price
-        app.price_per_player = Decimal(str(new_price))
+        app.price_per_player = new_price_decimal
         app.updated_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(app)
+
+        # 发送价格调整通知给所有授权该应用的运营商
+        try:
+            notification_service = NotificationService(self.db)
+            notification_result = await notification_service.send_price_change_notification(
+                application_id=app.id,
+                app_name=app.app_name,
+                old_price=old_price,
+                new_price=new_price_decimal
+            )
+            logger.info(
+                "price_change_notification_sent",
+                application_id=str(app.id),
+                app_name=app.app_name,
+                old_price=float(old_price),
+                new_price=float(new_price_decimal),
+                notification_result=notification_result
+            )
+        except Exception as e:
+            # 通知发送失败不应影响价格更新
+            logger.error(
+                "price_change_notification_failed",
+                application_id=str(app.id),
+                error=str(e),
+                exc_info=True
+            )
 
         return {
             "id": str(app.id),
@@ -1244,4 +1287,37 @@ class AdminService:
         return {
             "success": True,
             "message": f"Operator '{operator.username}' deleted successfully"
+        }
+
+    async def get_operator_api_key(self, operator_id: PyUUID) -> dict:
+        """Get operator API key.
+
+        Args:
+            operator_id: Operator ID
+
+        Returns:
+            dict: Operator API key information
+
+        Raises:
+            NotFoundException: If operator not found
+        """
+        # Query operator with API key
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+
+        if not operator:
+            raise NotFoundException(f"Operator {operator_id} not found")
+
+        return {
+            "operator_id": operator.id,
+            "username": operator.username,
+            "api_key": operator.api_key,
+            "created_at": operator.created_at
         }

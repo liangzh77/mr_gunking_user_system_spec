@@ -59,11 +59,12 @@ paths:
         - name: X-Session-ID
           in: header
           required: true
-          description: 会话ID，格式：{operatorId}_{timestamp}_{random16}
+          description: 会话ID（任意唯一字符串，长度1-255字符，推荐使用UUID v4格式）
           schema:
             type: string
-            pattern: '^[a-zA-Z0-9]+_\d+_[a-zA-Z0-9]{16}$'
-            example: "op_12345_1704067200_a1b2c3d4e5f6g7h8"
+            minLength: 1
+            maxLength: 255
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
       requestBody:
         required: true
         content:
@@ -123,7 +124,7 @@ paths:
                       session_id:
                         type: string
                         description: 会话ID
-                        example: "op_12345_1704067200_a1b2c3d4e5f6g7h8"
+                        example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
                       app_name:
                         type: string
                         description: 应用名称

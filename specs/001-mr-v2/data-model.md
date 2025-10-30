@@ -322,7 +322,7 @@ stateDiagram-v2
 | 字段名 | 类型 | 约束 | 默认值 | 说明 |
 |--------|------|------|--------|------|
 | id | UUID | PK | uuid_generate_v4() | 主键 |
-| session_id | VARCHAR(128) | NOT NULL, UNIQUE | - | 游戏会话ID（防重复扣费） |
+| session_id | VARCHAR(128) | NOT NULL, UNIQUE | - | 游戏会话ID（防重复扣费），长度1-255字符，推荐使用UUID v4格式 |
 | operator_id | UUID | FK, NOT NULL | - | 运营商ID |
 | site_id | UUID | FK, NOT NULL | - | 运营点ID |
 | application_id | UUID | FK, NOT NULL | - | 应用ID |
@@ -368,7 +368,7 @@ stateDiagram-v2
 ```json
 {
   "id": "aa0e8400-e29b-41d4-a716-446655440005",
-  "session_id": "550e8400_1728540000_a1b2c3d4e5f6g7h8",
+  "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "operator_id": "550e8400-e29b-41d4-a716-446655440000",
   "site_id": "660e8400-e29b-41d4-a716-446655440001",
   "application_id": "770e8400-e29b-41d4-a716-446655440002",
@@ -973,7 +973,7 @@ CREATE TABLE api_key_usage_logs_2025_10 PARTITION OF api_key_usage_logs
   "request_payload": {
     "app_code": "space_adventure_2024",
     "player_count": 5,
-    "session_id": "550e8400_1728540000_a1b2c3d4e5f6g7h8"
+    "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
   },
   "response_time_ms": 156,
   "created_at": "2025-10-10T14:30:00+08:00"
