@@ -72,7 +72,7 @@ export const useOperatorStore = defineStore('operator', () => {
 
   async function getSites(): Promise<OperationSite[]> {
     const response = await http.get('/operators/me/sites')
-    return response.data.sites || []
+    return response.data.data?.sites || []
   }
 
   async function getSite(siteId: string): Promise<OperationSite> {

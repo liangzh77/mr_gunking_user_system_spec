@@ -125,10 +125,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useAdminStore } from '@/stores/admin'
 import type { Site, Operator } from '@/types'
 import dayjs from 'dayjs'
 
 const adminAuthStore = useAdminAuthStore()
+const adminStore = useAdminStore()
 
 const loading = ref(false)
 const sites = ref<Site[]>([])
@@ -175,30 +177,12 @@ const formatDateTime = (datetime: string) => {
 const loadSites = async () => {
   loading.value = true
   try {
-    // TODO: 调用管理后台的运营点API
-    // sites.value = await adminAuthStore.getOperatorSites()
-    // 临时模拟数据
-    sites.value = [
-      {
-        site_id: '1',
-        site_name: '测试运营点1',
-        address: '北京市朝阳区xxx',
-        contact_person: '张三',
-        contact_phone: '13800138001',
-        created_at: new Date().toISOString(),
-      },
-      {
-        site_id: '2',
-        site_name: '测试运营点2',
-        address: '上海市浦东新区xxx',
-        contact_person: '李四',
-        contact_phone: '13800138002',
-        created_at: new Date().toISOString(),
-      },
-    ]
+    const response = await adminStore.getSites({ page: 1, page_size: 100 })
+    sites.value = response?.items || []
   } catch (error) {
     console.error('Load operator sites error:', error)
     ElMessage.error('加载运营点列表失败')
+    sites.value = []
   } finally {
     loading.value = false
   }
@@ -207,28 +191,12 @@ const loadSites = async () => {
 // 加载运营商列表
 const loadOperators = async () => {
   try {
-    // TODO: 调用管理后台的运营商API
-    // operators.value = await adminAuthStore.getOperators()
-    // 临时模拟数据
-    operators.value = [
-      {
-        id: '1',
-        operator_id: '1',
-        full_name: '张三',
-        username: 'zhangsan',
-        email: 'zhangsan@example.com',
-      },
-      {
-        id: '2',
-        operator_id: '2',
-        full_name: '李四',
-        username: 'lisi',
-        email: 'lisi@example.com',
-      },
-    ]
+    const response = await adminStore.getOperators({ page: 1, page_size: 100 })
+    operators.value = response?.items || []
   } catch (error) {
     console.error('Load operators error:', error)
     ElMessage.error('加载运营商列表失败')
+    operators.value = []
   }
 }
 
@@ -298,13 +266,11 @@ const handleSubmit = async () => {
   try {
     if (editingSite.value) {
       // 更新运营点
-      // TODO: 调用管理后台的更新运营点API
-      // await adminAuthStore.updateOperatorSite(editingSite.value.site_id, formData.value)
+      await adminStore.updateSite(editingSite.value.site_id, formData.value)
       ElMessage.success('运营点更新成功')
     } else {
       // 创建运营点
-      // TODO: 调用管理后台的创建运营点API
-      // await adminAuthStore.createOperatorSite(formData.value)
+      await adminStore.createSite(formData.value)
       ElMessage.success('运营点创建成功')
     }
 

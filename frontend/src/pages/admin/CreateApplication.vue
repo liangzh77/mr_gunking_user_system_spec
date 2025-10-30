@@ -15,17 +15,6 @@
         label-width="120px"
         style="max-width: 600px"
       >
-        <el-form-item label="应用代码" prop="app_code">
-          <el-input
-            v-model="formData.app_code"
-            placeholder="请输入应用代码（英文、数字、下划线）"
-            clearable
-            maxlength="32"
-            show-word-limit
-          />
-          <div class="form-tip">应用的唯一标识，创建后不可修改</div>
-        </el-form-item>
-
         <el-form-item label="应用名称" prop="app_name">
           <el-input
             v-model="formData.app_name"
@@ -104,7 +93,6 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 
 interface ApplicationFormData {
-  app_code: string
   app_name: string
   description: string
   price_per_player: number
@@ -113,26 +101,12 @@ interface ApplicationFormData {
 }
 
 const formData = reactive<ApplicationFormData>({
-  app_code: '',
   app_name: '',
   description: '',
   price_per_player: 1.0,
   min_players: 1,
   max_players: 20,
 })
-
-// 应用代码验证规则
-const validateAppCode = (_rule: any, value: string, callback: any) => {
-  if (!value) {
-    callback(new Error('请输入应用代码'))
-  } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
-    callback(new Error('应用代码只能包含英文、数字和下划线'))
-  } else if (value.length < 3) {
-    callback(new Error('应用代码长度不能少于3个字符'))
-  } else {
-    callback()
-  }
-}
 
 // 玩家数量范围验证
 const validatePlayerRange = (_rule: any, value: number, callback: any) => {
@@ -146,9 +120,6 @@ const validatePlayerRange = (_rule: any, value: number, callback: any) => {
 }
 
 const rules: FormRules = {
-  app_code: [
-    { required: true, validator: validateAppCode, trigger: 'blur' },
-  ],
   app_name: [
     { required: true, message: '请输入应用名称', trigger: 'blur' },
     { min: 2, max: 64, message: '应用名称长度在2-64个字符', trigger: 'blur' },
@@ -188,10 +159,9 @@ const handleSubmit = async () => {
       loading.value = true
 
       await http.post('/admins/applications', {
-        app_code: formData.app_code,
         app_name: formData.app_name,
         description: formData.description || undefined,
-        price_per_player: formData.price_per_player,
+        unit_price: formData.price_per_player.toString(),
         min_players: formData.min_players,
         max_players: formData.max_players,
       })
@@ -214,7 +184,6 @@ const handleSubmit = async () => {
 // 重置表单
 const handleReset = () => {
   formRef.value?.resetFields()
-  formData.app_code = ''
   formData.app_name = ''
   formData.description = ''
   formData.price_per_player = 1.0
