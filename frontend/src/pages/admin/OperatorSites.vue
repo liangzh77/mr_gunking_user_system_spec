@@ -209,7 +209,7 @@ const loadSites = async () => {
 // 加载运营商列表
 const loadOperators = async () => {
   try {
-    const response = await adminStore.getOperators({ page: 1, page_size: 1000 })
+    const response = await adminStore.getOperators({ page: 1, page_size: 100 })
     operators.value = response?.items || []
   } catch (error) {
     console.error('Load operators error:', error)
