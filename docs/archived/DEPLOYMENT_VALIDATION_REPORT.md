@@ -87,12 +87,12 @@
 
 ---
 
-### 2. 生产环境 (docker-compose.prod.yml)
+### 2. 生产环境 (docker-compose.yml)
 
 #### 2.1 配置文件验证
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| docker-compose.prod.yml语法 | ✅ 通过 | 配置文件语法正确 |
+| docker-compose.yml语法 | ✅ 通过 | 配置文件语法正确 |
 | .env.production模板 | ✅ 通过 | 生产环境配置模板完整 |
 
 #### 2.2 服务配置（生产模式）
@@ -211,7 +211,7 @@
 
 #### Docker配置
 - [x] docker-compose.yml
-- [x] docker-compose.prod.yml
+- [x] docker-compose.yml
 - [x] backend/Dockerfile
 - [x] backend/Dockerfile.dev
 - [x] frontend/Dockerfile
@@ -363,11 +363,11 @@ python scripts/validate_docker_deployment.py prod
 
 # Docker配置检查
 docker-compose config
-docker-compose -f docker-compose.prod.yml config
+docker-compose -f docker-compose.yml config
 
 # 语法检查
 docker-compose -f docker-compose.yml config > /dev/null
-docker-compose -f docker-compose.prod.yml config > /dev/null
+docker-compose -f docker-compose.yml config > /dev/null
 ```
 
 ### B. 常用部署命令
@@ -381,9 +381,9 @@ docker-compose down
 # 生产环境
 export POSTGRES_PASSWORD=<password>
 export REDIS_PASSWORD=<password>
-docker-compose -f docker-compose.prod.yml up -d
-docker-compose -f docker-compose.prod.yml ps
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml up -d
+docker-compose -f docker-compose.yml ps
+docker-compose -f docker-compose.yml logs -f
 ```
 
 ### C. 问题排查

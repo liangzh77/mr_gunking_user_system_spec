@@ -54,7 +54,7 @@ sudo certbot renew --dry-run
 sudo certbot renew
 
 # 设置自动更新（添加到crontab）
-0 2 * * * /usr/bin/certbot renew --quiet && docker-compose -f /path/to/docker-compose.prod.yml restart nginx
+0 2 * * * /usr/bin/certbot renew --quiet && docker-compose -f /path/to/docker-compose.yml restart nginx
 ```
 
 ## 安全注意事项

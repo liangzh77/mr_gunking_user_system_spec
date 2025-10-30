@@ -226,10 +226,10 @@ $env:POSTGRES_PASSWORD="你的数据库密码"
 $env:REDIS_PASSWORD="你的Redis密码"
 
 # 启动服务
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 查看状态
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 ```
 
 ### 步骤11：初始化数据库
@@ -273,7 +273,7 @@ Invoke-WebRequest -Uri http://localhost:8000/health
 
 **解决：**
 ```yaml
-# docker-compose.prod.yml中
+# docker-compose.yml中
 volumes:
   - C:/mr_game_ops/backend:/app  # 使用正斜杠
   # 而不是 C:\mr_game_ops\backend:/app
@@ -311,7 +311,7 @@ Restart-Service com.docker.service
 # 停止IIS
 Stop-Service W3SVC
 
-# 或修改docker-compose.prod.yml使用其他端口
+# 或修改docker-compose.yml使用其他端口
 ports:
   - "8080:80"   # HTTP
   - "8443:443"  # HTTPS
@@ -325,13 +325,13 @@ ports:
 
 ```powershell
 # 查看所有服务日志
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml logs -f
 
 # 查看特定服务
-docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.yml logs -f backend
 
 # 导出日志
-docker-compose -f docker-compose.prod.yml logs > logs.txt
+docker-compose -f docker-compose.yml logs > logs.txt
 ```
 
 ### 数据库备份
@@ -387,16 +387,16 @@ Set-NetAdapterAdvancedProperty -Name "Ethernet" -DisplayName "Jumbo Packet" -Dis
 
 ```powershell
 # 启动服务
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 停止服务
-docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.yml down
 
 # 重启服务
-docker-compose -f docker-compose.prod.yml restart
+docker-compose -f docker-compose.yml restart
 
 # 查看状态
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 
 # 查看资源使用
 docker stats
@@ -405,12 +405,12 @@ docker stats
 docker exec -it mr_game_ops_backend_prod bash
 
 # 查看日志
-docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.yml logs -f backend
 
 # 更新部署
 git pull
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml build
+docker-compose -f docker-compose.yml up -d
 docker exec mr_game_ops_backend_prod alembic upgrade head
 ```
 
@@ -432,7 +432,7 @@ docker exec mr_game_ops_db_prod pg_dump -U mr_admin mr_game_ops > database_expor
 ```bash
 # 在Linux服务器上
 # 按照 docs/DEPLOYMENT.md 部署
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 恢复数据
 cat database_export.sql | docker exec -i mr_game_ops_db_prod psql -U mr_admin mr_game_ops

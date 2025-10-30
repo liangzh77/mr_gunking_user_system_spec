@@ -96,7 +96,7 @@ MISSING_FILES=()
 
 [ ! -d "$SOURCE_DIR/backend" ] && MISSING_FILES+=("backend/")
 [ ! -d "$SOURCE_DIR/deploy" ] && MISSING_FILES+=("deploy/")
-[ ! -f "$SOURCE_DIR/deploy/docker-compose.prod.yml" ] && MISSING_FILES+=("deploy/docker-compose.prod.yml")
+[ ! -f "$SOURCE_DIR/deploy/docker-compose.yml" ] && MISSING_FILES+=("deploy/docker-compose.yml")
 [ ! -f "$SOURCE_DIR/deploy/.env.prod" ] && MISSING_FILES+=("deploy/.env.prod")
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
@@ -233,7 +233,7 @@ fi
 if [ -d "$SOURCE_DIR/deploy" ]; then
     print_info "复制deploy配置..."
     cp -f "$SOURCE_DIR/deploy/.env.prod" "$APP_DIR/" || error_exit ".env.prod复制失败"
-    cp -f "$SOURCE_DIR/deploy/docker-compose.prod.yml" "$APP_DIR/" || error_exit "docker-compose.prod.yml复制失败"
+    cp -f "$SOURCE_DIR/deploy/docker-compose.yml" "$APP_DIR/" || error_exit "docker-compose.yml复制失败"
 
     # 复制nginx配置（如果存在）
     if [ -d "$SOURCE_DIR/deploy/config/nginx" ]; then
@@ -246,7 +246,7 @@ fi
 
 # 修复换行符问题（Windows -> Linux）
 sed -i 's/\r$//' "$APP_DIR/.env.prod" 2>/dev/null || true
-sed -i 's/\r$//' "$APP_DIR/docker-compose.prod.yml" 2>/dev/null || true
+sed -i 's/\r$//' "$APP_DIR/docker-compose.yml" 2>/dev/null || true
 
 # 创建.env文件
 cp -f "$APP_DIR/.env.prod" "$APP_DIR/.env"
@@ -421,7 +421,7 @@ cd "$APP_DIR"
 
 # 停止旧容器
 print_info "停止旧容器..."
-docker compose -f docker-compose.prod.yml down -v 2>/dev/null || true
+docker compose -f docker-compose.yml down -v 2>/dev/null || true
 print_success "旧容器已停止"
 
 echo ""
@@ -433,7 +433,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  构建Backend..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if ! docker compose -f docker-compose.prod.yml build backend; then
+if ! docker compose -f docker-compose.yml build backend; then
     echo ""
     print_error "Backend构建失败"
     echo ""
@@ -453,7 +453,7 @@ echo ""
 print_info "启动所有服务..."
 echo ""
 
-if ! docker compose -f docker-compose.prod.yml up -d; then
+if ! docker compose -f docker-compose.yml up -d; then
     error_exit "服务启动失败"
 fi
 
@@ -481,7 +481,7 @@ echo "║                    容器运行状态                                 
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 
 # 健康检查
 echo ""
@@ -569,19 +569,19 @@ echo ""
 echo "🔧 常用管理命令"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  查看服务状态:"
-echo "    cd $APP_DIR && docker compose -f docker-compose.prod.yml ps"
+echo "    cd $APP_DIR && docker compose -f docker-compose.yml ps"
 echo ""
 echo "  查看所有日志:"
-echo "    docker compose -f $APP_DIR/docker-compose.prod.yml logs -f"
+echo "    docker compose -f $APP_DIR/docker-compose.yml logs -f"
 echo ""
 echo "  查看后端日志:"
 echo "    docker logs mr_game_ops_backend_prod -f"
 echo ""
 echo "  重启所有服务:"
-echo "    docker compose -f $APP_DIR/docker-compose.prod.yml restart"
+echo "    docker compose -f $APP_DIR/docker-compose.yml restart"
 echo ""
 echo "  停止所有服务:"
-echo "    docker compose -f $APP_DIR/docker-compose.prod.yml down"
+echo "    docker compose -f $APP_DIR/docker-compose.yml down"
 echo ""
 echo "  进入后端容器:"
 echo "    docker exec -it mr_game_ops_backend_prod bash"
@@ -624,7 +624,7 @@ else
     echo "     检查 $APP_DIR/.env.prod 中的Redis密码"
     echo ""
     echo "  4. 查看完整日志:"
-    echo "     docker compose -f $APP_DIR/docker-compose.prod.yml logs"
+    echo "     docker compose -f $APP_DIR/docker-compose.yml logs"
 fi
 
 echo ""

@@ -260,13 +260,13 @@ else
     echo -e "${RED}✗ 部分服务存在问题，请检查日志${NC}"
     echo ""
     echo "查看详细日志:"
-    echo "  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml logs"
+    echo "  docker compose -f /opt/mr-game-ops/docker-compose.yml logs"
     echo ""
 fi
 
 echo "📝 完整日志命令:"
 echo "  cd /opt/mr-game-ops"
-echo "  docker compose -f docker-compose.prod.yml logs -f [服务名]"
+echo "  docker compose -f docker-compose.yml logs -f [服务名]"
 echo ""
 echo "可用服务名: postgres, redis, backend, frontend, nginx, prometheus, grafana"
 echo ""

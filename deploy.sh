@@ -39,8 +39,8 @@ check_prerequisites() {
         exit 1
     fi
     
-    if [ ! -f "docker-compose.prod.yml" ]; then
-        log_error "docker-compose.prod.yml 文件不存在！"
+    if [ ! -f "docker-compose.yml" ]; then
+        log_error "docker-compose.yml 文件不存在！"
         exit 1
     fi
     
@@ -76,7 +76,7 @@ build_images() {
     export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
     export VERSION=${VERSION:-1.0.0}
     
-    docker-compose -f docker-compose.prod.yml build --no-cache
+    docker-compose -f docker-compose.yml build --no-cache
     
     if [ $? -eq 0 ]; then
         log_info "镜像构建成功 ✓"
@@ -90,7 +90,7 @@ build_images() {
 stop_old_containers() {
     log_info "停止旧容器..."
     
-    docker-compose -f docker-compose.prod.yml down
+    docker-compose -f docker-compose.yml down
     
     log_info "旧容器已停止 ✓"
 }
@@ -99,7 +99,7 @@ stop_old_containers() {
 start_new_containers() {
     log_info "启动新容器..."
     
-    docker-compose -f docker-compose.prod.yml up -d
+    docker-compose -f docker-compose.yml up -d
     
     if [ $? -eq 0 ]; then
         log_info "新容器启动成功 ✓"
@@ -153,7 +153,7 @@ health_check() {
 # 显示服务状态
 show_status() {
     log_info "服务状态："
-    docker-compose -f docker-compose.prod.yml ps
+    docker-compose -f docker-compose.yml ps
 }
 
 # 清理未使用的镜像
@@ -166,7 +166,7 @@ cleanup() {
 # 回滚函数
 rollback() {
     log_error "部署失败，执行回滚..."
-    docker-compose -f docker-compose.prod.yml down
+    docker-compose -f docker-compose.yml down
     # 这里可以添加恢复旧版本的逻辑
     log_warn "请手动检查并恢复服务"
     exit 1
@@ -205,8 +205,8 @@ main() {
         echo "前端访问地址: http://localhost"
         echo "后端API地址: http://localhost/api/v1"
         echo ""
-        echo "查看日志: docker-compose -f docker-compose.prod.yml logs -f"
-        echo "停止服务: docker-compose -f docker-compose.prod.yml down"
+        echo "查看日志: docker-compose -f docker-compose.yml logs -f"
+        echo "停止服务: docker-compose -f docker-compose.yml down"
         echo ""
     else
         rollback

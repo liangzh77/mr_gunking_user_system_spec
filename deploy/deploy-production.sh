@@ -178,7 +178,7 @@ print_step "【步骤6/10】复制部署文件到应用目录..."
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 复制docker-compose配置
-cp "$SCRIPT_DIR/docker-compose.prod.yml" /opt/mr-game-ops/
+cp "$SCRIPT_DIR/docker-compose.yml" /opt/mr-game-ops/
 print_success "Docker Compose配置文件已复制"
 
 # 复制环境变量配置
@@ -249,14 +249,14 @@ source .env.prod
 set +a
 
 # 停止可能存在的旧容器
-docker compose -f docker-compose.prod.yml down -v > /dev/null 2>&1 || true
+docker compose -f docker-compose.yml down -v > /dev/null 2>&1 || true
 
 # 构建并启动容器
 print_step "构建Docker镜像（请稍候）..."
-docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.yml build --no-cache
 
 print_step "启动所有服务..."
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # 等待容器启动
 print_step "等待服务启动（60秒）..."
@@ -271,7 +271,7 @@ print_step "【步骤9/10】验证部署..."
 
 echo ""
 echo "容器状态:"
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 
 echo ""
 echo "正在检查各服务健康状态..."
@@ -362,10 +362,10 @@ echo "  Prometheus:    http://$SERVER_IP:9090"
 echo ""
 echo "🔧 常用管理命令:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  查看服务状态:  cd /opt/mr-game-ops && docker compose -f docker-compose.prod.yml ps"
-echo "  查看日志:      cd /opt/mr-game-ops && docker compose -f docker-compose.prod.yml logs -f"
-echo "  重启服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.prod.yml restart"
-echo "  停止服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.prod.yml down"
+echo "  查看服务状态:  cd /opt/mr-game-ops && docker compose -f docker-compose.yml ps"
+echo "  查看日志:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml logs -f"
+echo "  重启服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml restart"
+echo "  停止服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml down"
 echo "  手动备份:      /opt/mr-game-ops/scripts/backup.sh"
 echo ""
 echo "⚠️  下一步操作:"
@@ -376,5 +376,5 @@ echo "  3. 初始化数据库并创建管理员账户"
 echo "  4. 测试所有功能是否正常"
 echo ""
 echo "📞 如遇问题，请查看日志:"
-echo "  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml logs"
+echo "  docker compose -f /opt/mr-game-ops/docker-compose.yml logs"
 echo ""

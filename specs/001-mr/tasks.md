@@ -621,7 +621,7 @@
 
 - [ ] T279 [P] 更新API文档 in docs/api/ (Swagger UI)
 - [ ] T280 [P] 更新README in README.md (项目介绍、快速开始、部署指南)
-- [ ] T281 [P] 创建部署配置 in deploy/ (Dockerfile, docker-compose.prod.yml, Nginx配置)
+- [ ] T281 [P] 创建部署配置 in deploy/ (Dockerfile, docker-compose.yml, Nginx配置)
 - [ ] T282 [P] 配置CI/CD流程 in .github/workflows/ci.yml (自动测试、构建、部署)
 
 ### 测试覆盖率

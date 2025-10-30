@@ -154,13 +154,13 @@ export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 export VERSION=1.0.0
 
 # 2. 构建镜像
-docker-compose -f docker-compose.prod.yml build --no-cache
+docker-compose -f docker-compose.yml build --no-cache
 
 # 3. 启动服务
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 # 4. 查看日志
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml logs -f
 ```
 
 ---
@@ -170,7 +170,7 @@ docker-compose -f docker-compose.prod.yml logs -f
 ### 1. 检查容器状态
 
 ```bash
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.yml ps
 ```
 
 所有容器应显示为 `Up` 状态。
@@ -230,14 +230,14 @@ ab -n 100 -c 10 http://localhost/api/v1/health
 
 ```bash
 # 查看所有服务日志
-docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.yml logs -f
 
 # 查看特定服务日志
-docker-compose -f docker-compose.prod.yml logs -f backend
-docker-compose -f docker-compose.prod.yml logs -f frontend
+docker-compose -f docker-compose.yml logs -f backend
+docker-compose -f docker-compose.yml logs -f frontend
 
 # 查看最近100行日志
-docker-compose -f docker-compose.prod.yml logs --tail=100 backend
+docker-compose -f docker-compose.yml logs --tail=100 backend
 ```
 
 ### 数据库备份
@@ -358,7 +358,7 @@ docker exec mr_game_ops_redis_prod redis-cli info stats
 
 ```bash
 # 临时修改日志级别
-docker-compose -f docker-compose.prod.yml exec backend \
+docker-compose -f docker-compose.yml exec backend \
   /bin/bash -c 'export LOG_LEVEL=DEBUG && uvicorn src.main:app --reload'
 ```
 
@@ -372,7 +372,7 @@ docker-compose -f docker-compose.prod.yml exec backend \
 
 ```bash
 # 1. 停止当前服务
-docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.yml down
 
 # 2. 切换到上一个稳定版本
 git checkout <上一个稳定版本的commit>
@@ -433,10 +433,10 @@ find backend/logs -name "*.log" -mtime +30 -delete
 
 ```bash
 # 停止所有服务
-docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.yml down
 
 # 停止并删除卷（⚠️ 会删除所有数据）
-docker-compose -f docker-compose.prod.yml down -v
+docker-compose -f docker-compose.yml down -v
 ```
 
 ---

@@ -136,7 +136,7 @@ fi
 
 # 修复Windows换行符
 sed -i 's/\r$//' .env.prod 2>/dev/null || true
-sed -i 's/\r$//' docker-compose.prod.yml 2>/dev/null || true
+sed -i 's/\r$//' docker-compose.yml 2>/dev/null || true
 
 # 创建.env文件
 if [ ! -f .env ]; then
@@ -259,12 +259,12 @@ cd /opt/mr-game-ops
 
 # 清理旧容器
 echo "  清理旧容器..."
-docker compose -f docker-compose.prod.yml down -v 2>/dev/null || true
+docker compose -f docker-compose.yml down -v 2>/dev/null || true
 
 # 构建应用
 echo "  构建后端应用（需要5-10分钟）..."
 echo "  正在安装Python依赖包..."
-docker compose -f docker-compose.prod.yml build backend
+docker compose -f docker-compose.yml build backend
 
 if [ $? -ne 0 ]; then
     print_error "后端构建失败"
@@ -283,7 +283,7 @@ print_success "应用构建完成"
 # 启动服务
 echo ""
 echo "  启动所有服务..."
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 print_success "服务启动命令已执行"
 
@@ -306,7 +306,7 @@ echo "╔═══════════════════════�
 echo "║                    容器运行状态                                     ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.yml ps
 
 # 健康检查
 echo ""
@@ -386,11 +386,11 @@ echo "  API文档:       http://$SERVER_IP:8000/docs"
 echo ""
 echo "🔧 常用管理命令"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  查看服务状态:  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml ps"
-echo "  查看所有日志:  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml logs -f"
+echo "  查看服务状态:  docker compose -f /opt/mr-game-ops/docker-compose.yml ps"
+echo "  查看所有日志:  docker compose -f /opt/mr-game-ops/docker-compose.yml logs -f"
 echo "  查看后端日志:  docker logs mr_game_ops_backend_prod -f"
-echo "  重启所有服务:  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml restart"
-echo "  停止所有服务:  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml down"
+echo "  重启所有服务:  docker compose -f /opt/mr-game-ops/docker-compose.yml restart"
+echo "  停止所有服务:  docker compose -f /opt/mr-game-ops/docker-compose.yml down"
 echo "  进入后端容器:  docker exec -it mr_game_ops_backend_prod bash"
 echo ""
 echo "📝 下一步操作"
@@ -424,5 +424,5 @@ fi
 
 echo ""
 echo "🆘 如需帮助，查看完整日志："
-echo "  docker compose -f /opt/mr-game-ops/docker-compose.prod.yml logs"
+echo "  docker compose -f /opt/mr-game-ops/docker-compose.yml logs"
 echo ""

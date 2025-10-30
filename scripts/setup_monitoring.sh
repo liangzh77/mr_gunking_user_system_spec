@@ -533,7 +533,7 @@ fi
 # 检查主应用是否运行
 if ! docker ps | grep -q "mr_game_ops_backend_prod"; then
     echo "❌ 主应用未运行，请先启动主应用"
-    echo "运行: docker-compose -f docker-compose.prod.yml up -d"
+    echo "运行: docker-compose -f docker-compose.yml up -d"
     exit 1
 fi
 
