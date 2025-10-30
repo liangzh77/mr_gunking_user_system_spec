@@ -1119,3 +1119,129 @@ class AdminService:
             "created_at": operator.created_at,
             "updated_at": operator.updated_at
         }
+
+    async def update_operator(
+        self,
+        operator_id: PyUUID,
+        full_name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        customer_tier: str | None = None,
+        is_active: bool | None = None,
+    ) -> dict:
+        """Update operator account information.
+
+        Args:
+            operator_id: Operator ID to update
+            full_name: New full name (optional)
+            email: New email (optional)
+            phone: New phone (optional)
+            customer_tier: New customer tier (optional)
+            is_active: New active status (optional)
+
+        Returns:
+            dict: Updated operator data
+
+        Raises:
+            NotFoundException: If operator not found
+            BadRequestException: If validation fails
+        """
+        # Get operator
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Validate customer tier if provided
+        if customer_tier and customer_tier not in ["vip", "standard", "trial"]:
+            raise BadRequestException("Invalid customer tier. Must be 'vip', 'standard', or 'trial'")
+
+        # Update fields
+        if full_name is not None:
+            operator.full_name = full_name
+        if email is not None:
+            operator.email = email
+        if phone is not None:
+            operator.phone = phone
+        if customer_tier is not None:
+            operator.customer_tier = customer_tier
+        if is_active is not None:
+            operator.is_active = is_active
+
+        operator.updated_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(operator)
+
+        # Return updated operator data
+        return {
+            "id": str(operator.id),
+            "username": operator.username,
+            "full_name": operator.full_name,
+            "email": operator.email,
+            "phone": operator.phone,
+            "api_key": operator.api_key,  # 返回API密钥
+            "customer_tier": operator.customer_tier,
+            "balance": float(operator.balance),
+            "is_active": operator.is_active,
+            "is_locked": operator.is_locked,
+            "locked_reason": operator.locked_reason,
+            "locked_at": operator.locked_at,
+            "last_login_at": operator.last_login_at,
+            "last_login_ip": operator.last_login_ip,
+            "created_at": operator.created_at,
+            "updated_at": operator.updated_at
+        }
+
+    async def delete_operator(
+        self,
+        operator_id: PyUUID,
+    ) -> dict:
+        """Delete operator account (soft delete).
+
+        Args:
+            operator_id: Operator ID to delete
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            NotFoundException: If operator not found
+            BadRequestException: If operator has active sessions or positive balance
+        """
+        # Get operator
+        result = await self.db.execute(
+            select(OperatorAccount).where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+        operator = result.scalar_one_or_none()
+        if not operator:
+            raise NotFoundException("Operator not found")
+
+        # Check if operator has positive balance
+        if operator.balance > 0:
+            raise BadRequestException(
+                f"Cannot delete operator with positive balance. Current balance: ¥{float(operator.balance):.2f}"
+            )
+
+        # Soft delete
+        operator.deleted_at = datetime.utcnow()
+        operator.updated_at = datetime.utcnow()
+
+        await self.db.commit()
+
+        return {
+            "success": True,
+            "message": f"Operator '{operator.username}' deleted successfully"
+        }

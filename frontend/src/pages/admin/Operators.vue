@@ -45,7 +45,6 @@
         :data="operators"
         stripe
         style="width: 100%"
-        @row-click="handleRowClick"
       >
         <el-table-column prop="username" label="用户名" width="150" />
         <el-table-column prop="full_name" label="姓名" width="120" />
@@ -58,7 +57,18 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="customer_tier" label="客户等级" width="100" align="center">
+        <el-table-column prop="customer_tier" label="客户等级" width="120" align="center">
+          <template #header>
+            <span>客户等级</span>
+            <el-tooltip
+              content="根据月消费自动分级：VIP(≥1万)、普通(1千-1万)、试用(<1千)"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <template #default="{ row }">
             <el-tag :type="getTierType(row.customer_tier)" size="small">
               {{ getTierLabel(row.customer_tier) }}
@@ -82,9 +92,14 @@
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click.stop="viewDetails(row)">详情</el-button>
+            <el-button type="primary" size="small" text @click.stop="handleEdit(row)">
+              修改
+            </el-button>
+            <el-button type="danger" size="small" text @click.stop="handleDelete(row)">
+              删除
+            </el-button>
             <el-button
               v-if="row.is_locked"
               size="small"
@@ -118,63 +133,84 @@
       />
     </el-card>
 
-    <!-- 详情对话框 -->
-    <el-dialog v-model="detailsVisible" title="运营商详情" width="600px">
-      <el-descriptions v-if="currentOperator" :column="2" border>
-        <el-descriptions-item label="用户名">
-          {{ currentOperator.username }}
-        </el-descriptions-item>
-        <el-descriptions-item label="姓名">
-          {{ currentOperator.full_name }}
-        </el-descriptions-item>
-        <el-descriptions-item label="邮箱">
-          {{ currentOperator.email || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="手机号">
-          {{ currentOperator.phone || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="账户余额">
-          <span :class="{ 'negative-balance': currentOperator.balance < 0 }">
-            ¥{{ currentOperator.balance.toFixed(2) }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="客户等级">
-          <el-tag :type="getTierType(currentOperator.customer_tier)" size="small">
-            {{ getTierLabel(currentOperator.customer_tier) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="账户状态">
-          <el-tag v-if="currentOperator.is_locked" type="danger" size="small">已锁定</el-tag>
-          <el-tag v-else-if="currentOperator.is_active" type="success" size="small">活跃</el-tag>
-          <el-tag v-else type="info" size="small">不活跃</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="currentOperator.is_locked" label="锁定原因">
-          {{ currentOperator.locked_reason || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item v-if="currentOperator.is_locked" label="锁定时间">
-          {{ currentOperator.locked_at ? formatDate(currentOperator.locked_at) : '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="最后登录时间">
-          {{ currentOperator.last_login_at ? formatDate(currentOperator.last_login_at) : '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="最后登录IP">
-          {{ currentOperator.last_login_ip || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ formatDate(currentOperator.created_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="更新时间">
-          {{ formatDate(currentOperator.updated_at) }}
-        </el-descriptions-item>
-      </el-descriptions>
+    <!-- 编辑对话框 -->
+    <el-dialog
+      v-model="editVisible"
+      title="修改运营商信息"
+      width="600px"
+      @close="handleEditDialogClose"
+    >
+      <el-form
+        ref="editFormRef"
+        :model="editFormData"
+        :rules="editFormRules"
+        label-width="120px"
+      >
+        <el-form-item label="用户名">
+          <el-input v-model="editFormData.username" disabled />
+          <div class="form-tip">用户名不可修改</div>
+        </el-form-item>
+
+        <el-form-item label="姓名" prop="full_name">
+          <el-input
+            v-model="editFormData.full_name"
+            placeholder="请输入姓名或公司名称"
+            clearable
+            maxlength="128"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="邮箱" prop="email">
+          <el-input
+            v-model="editFormData.email"
+            placeholder="请输入邮箱地址"
+            clearable
+            maxlength="128"
+          />
+        </el-form-item>
+
+        <el-form-item label="手机号" prop="phone">
+          <el-input
+            v-model="editFormData.phone"
+            placeholder="请输入手机号"
+            clearable
+            maxlength="32"
+          />
+        </el-form-item>
+
+        <el-form-item label="客户等级" prop="customer_tier">
+          <el-select v-model="editFormData.customer_tier" style="width: 100%">
+            <el-option label="试用" value="trial" />
+            <el-option label="普通" value="standard" />
+            <el-option label="VIP" value="vip" />
+          </el-select>
+          <div class="form-tip">根据月消费自动分级，也可手动调整</div>
+        </el-form-item>
+
+        <el-form-item label="账户状态" prop="is_active">
+          <el-switch
+            v-model="editFormData.is_active"
+            active-text="活跃"
+            inactive-text="不活跃"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleEditSubmit">
+          保存
+        </el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Search, QuestionFilled } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 
 interface Operator {
@@ -197,8 +233,6 @@ interface Operator {
 
 const loading = ref(false)
 const operators = ref<Operator[]>([])
-const detailsVisible = ref(false)
-const currentOperator = ref<Operator | null>(null)
 
 const searchForm = reactive({
   search: '',
@@ -210,6 +244,37 @@ const pagination = reactive({
   pageSize: 20,
   total: 0,
 })
+
+// 编辑相关
+const editVisible = ref(false)
+const submitting = ref(false)
+const editFormRef = ref<FormInstance>()
+const editFormData = reactive({
+  id: '',
+  username: '',
+  full_name: '',
+  email: '',
+  phone: '',
+  customer_tier: 'standard',
+  is_active: true,
+})
+
+// 表单验证规则
+const editFormRules: FormRules = {
+  full_name: [
+    { required: true, message: '请输入姓名或公司名称', trigger: 'blur' },
+    { min: 2, max: 128, message: '姓名长度在2-128个字符', trigger: 'blur' },
+  ],
+  email: [
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+  ],
+  phone: [
+    { min: 11, max: 32, message: '手机号长度在11-32个字符', trigger: 'blur' },
+  ],
+  customer_tier: [
+    { required: true, message: '请选择客户等级', trigger: 'change' },
+  ],
+}
 
 // 获取运营商列表
 const fetchOperators = async () => {
@@ -244,15 +309,80 @@ const handleSearch = () => {
   fetchOperators()
 }
 
-// 查看详情
-const viewDetails = (row: Operator) => {
-  currentOperator.value = row
-  detailsVisible.value = true
+// 修改运营商
+const handleEdit = (row: Operator) => {
+  editFormData.id = row.id
+  editFormData.username = row.username
+  editFormData.full_name = row.full_name
+  editFormData.email = row.email || ''
+  editFormData.phone = row.phone || ''
+  editFormData.customer_tier = row.customer_tier
+  editFormData.is_active = row.is_active
+  editVisible.value = true
 }
 
-// 行点击
-const handleRowClick = (row: Operator) => {
-  viewDetails(row)
+// 删除运营商
+const handleDelete = async (row: Operator) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除运营商 "${row.username}" (${row.full_name}) 吗？此操作不可撤销。`,
+      '删除运营商',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    // 调用后端API删除运营商
+    await http.delete(`/admins/operators/${row.id}`)
+    ElMessage.success('运营商删除成功')
+
+    // 刷新列表
+    await fetchOperators()
+  } catch (error: any) {
+    // 用户取消或删除失败
+    if (error !== 'cancel') {
+      console.error('Delete operator failed:', error)
+    }
+  }
+}
+
+// 提交编辑
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+
+  await editFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      submitting.value = true
+
+      await http.put(`/admins/operators/${editFormData.id}`, {
+        full_name: editFormData.full_name,
+        email: editFormData.email || undefined,
+        phone: editFormData.phone || undefined,
+        customer_tier: editFormData.customer_tier,
+        is_active: editFormData.is_active,
+      })
+
+      ElMessage.success('运营商信息更新成功')
+      editVisible.value = false
+
+      // 刷新列表
+      await fetchOperators()
+    } catch (error: any) {
+      console.error('Update operator failed:', error)
+      // 错误已在http拦截器中处理
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
+// 编辑对话框关闭时重置表单
+const handleEditDialogClose = () => {
+  editFormRef.value?.resetFields()
 }
 
 // 锁定账户
@@ -298,10 +428,9 @@ const formatDate = (date: string) => {
 // 获取客户等级类型
 const getTierType = (tier: string) => {
   const types: Record<string, any> = {
-    bronze: '',
-    silver: 'info',
-    gold: 'warning',
-    platinum: 'danger',
+    trial: 'info',
+    standard: '',
+    vip: 'warning',
   }
   return types[tier] || ''
 }
@@ -309,10 +438,9 @@ const getTierType = (tier: string) => {
 // 获取客户等级标签
 const getTierLabel = (tier: string) => {
   const labels: Record<string, string> = {
-    bronze: '铜牌',
-    silver: '银牌',
-    gold: '金牌',
-    platinum: '白金',
+    trial: '试用',
+    standard: '普通',
+    vip: 'VIP',
   }
   return labels[tier] || tier
 }
@@ -343,11 +471,10 @@ onMounted(() => {
   font-weight: 600;
 }
 
-:deep(.el-table__row) {
-  cursor: pointer;
-}
-
-:deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 </style>
