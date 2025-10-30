@@ -64,22 +64,25 @@ export interface LoginResponse {
 // 运营点相关类型
 export interface OperationSite {
   site_id: string
-  site_name: string
+  name: string  // 运营点名称（后端返回name而非site_name）
   address: string
-  contact_person: string
-  contact_phone: string
-  api_key: string
-  api_secret: string
-  is_active: boolean
+  contact_person?: string
+  contact_phone?: string
+  description?: string
+  api_key?: string
+  api_secret?: string
+  is_active?: boolean
+  is_deleted?: boolean
   created_at: string
   updated_at: string
 }
 
 export interface SiteCreateRequest {
-  site_name: string
+  name: string  // 运营点名称（后端字段为name）
   address: string
-  contact_person: string
-  contact_phone: string
+  description?: string
+  contact_person?: string
+  contact_phone?: string
 }
 
 // 交易记录类型

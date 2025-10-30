@@ -106,17 +106,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
-import type { Site } from '@/types'
+import type { OperationSite } from '@/types'
 import dayjs from 'dayjs'
 
 const operatorStore = useOperatorStore()
 
 const loading = ref(false)
-const sites = ref<Site[]>([])
+const sites = ref<OperationSite[]>([])
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
-const editingSite = ref<Site | null>(null)
+const editingSite = ref<OperationSite | null>(null)
 
 const formData = ref({
   name: '',
@@ -172,22 +172,23 @@ const handleCreate = () => {
 }
 
 // 打开编辑对话框
-const handleEdit = (site: Site) => {
+const handleEdit = (site: OperationSite) => {
   editingSite.value = site
   formData.value = {
-    site_name: site.site_name,
-    contact_person: site.contact_person,
-    contact_phone: site.contact_phone,
+    name: site.name,
     address: site.address,
+    description: site.description || '',
+    contact_person: site.contact_person || '',
+    contact_phone: site.contact_phone || '',
   }
   dialogVisible.value = true
 }
 
 // 删除运营点
-const handleDelete = async (site: Site) => {
+const handleDelete = async (site: OperationSite) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除运营点"${site.site_name}"吗？此操作不可撤销。`,
+      `确定要删除运营点"${site.name}"吗？此操作不可撤销。`,
       '确认删除',
       {
         confirmButtonText: '确定',
