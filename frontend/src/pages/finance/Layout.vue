@@ -16,6 +16,11 @@
           <span>财务面板</span>
         </el-menu-item>
 
+        <el-menu-item index="/finance/recharge-records">
+          <el-icon><CreditCard /></el-icon>
+          <span>充值记录</span>
+        </el-menu-item>
+
         <el-sub-menu index="审核">
           <template #title>
             <el-icon><DocumentChecked /></el-icon>
@@ -94,6 +99,7 @@ import {
   UserFilled,
   User,
   Odometer,
+  CreditCard,
   DocumentChecked,
   RefreshLeft,
   Tickets,
@@ -115,6 +121,7 @@ const activeMenu = computed(() => route.path)
 // 面包屑
 const breadcrumbMap: Record<string, string> = {
   '/finance/dashboard': '财务面板',
+  '/finance/recharge-records': '充值记录',
   '/finance/refunds': '退款审核',
   '/finance/invoices': '发票审核',
   '/finance/reports': '财务报表',

@@ -641,11 +641,19 @@ class RefundApplyRequest(BaseModel):
     契约定义: operator.yaml POST /operators/me/refunds
 
     字段要求:
-    - reason: 10-500字符,退款原因说明
+    - amount: 可选，退款金额，不提供则退还全部余额
+    - reason: 1-500字符,退款原因说明
     """
+    amount: Optional[Decimal] = Field(
+        None,
+        gt=0,
+        description="退款金额（可选，不提供则退还全部余额）",
+        examples=[100.00]
+    )
+
     reason: str = Field(
         ...,
-        min_length=10,
+        min_length=1,
         max_length=500,
         description="退款原因",
         examples=["业务调整，不再继续使用服务"]

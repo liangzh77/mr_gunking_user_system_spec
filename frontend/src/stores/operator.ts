@@ -92,7 +92,7 @@ export const useOperatorStore = defineStore('operator', () => {
   // ========== 应用授权 ==========
   async function getAuthorizedApplications(): Promise<AuthorizedApplication[]> {
     const response = await http.get('/operators/me/applications')
-    return response.data.applications || []
+    return response.data.data?.applications || []
   }
 
   async function createApplicationRequest(appId: string, reason: string): Promise<ApplicationRequest> {
@@ -105,7 +105,7 @@ export const useOperatorStore = defineStore('operator', () => {
 
   async function getApplicationRequests(): Promise<ApplicationRequest[]> {
     const response = await http.get('/operators/me/applications/requests')
-    return response.data.requests || []
+    return response.data.data?.items || []
   }
 
   // ========== 使用记录 ==========

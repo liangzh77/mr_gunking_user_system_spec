@@ -60,10 +60,6 @@
             <el-icon><List /></el-icon>
             <span>交易记录</span>
           </el-menu-item>
-          <el-menu-item index="/admin/refunds">
-            <el-icon><RefreshLeft /></el-icon>
-            <span>退款审核</span>
-          </el-menu-item>
           <el-menu-item index="/admin/invoices">
             <el-icon><Tickets /></el-icon>
             <span>发票审核</span>
@@ -183,7 +179,6 @@ const breadcrumbMap: Record<string, string> = {
   '/admin/authorizations': '授权应用',
   '/admin/app-requests': '授权申请',
   '/admin/transactions': '交易记录',
-  '/admin/refunds': '退款审核',
   '/admin/invoices': '发票审核',
   '/admin/usage-stats': '使用统计',
   '/admin/revenue-stats': '收入统计',

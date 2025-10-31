@@ -13,6 +13,9 @@ const http: AxiosInstance = axios.create({
   },
 })
 
+// 防止重复跳转的标志
+let isRedirecting = false
+
 // 请求拦截器
 http.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -53,24 +56,63 @@ http.interceptors.response.use(
 
       switch (status) {
         case 401:
-          // 未授权，清除token并根据当前路径跳转到对应登录页
           const currentPath = router.currentRoute.value.path
 
-          if (currentPath.startsWith('/admin')) {
-            localStorage.removeItem('admin_access_token')
-            localStorage.removeItem('admin_user')
-            router.push('/admin/login')
-          } else if (currentPath.startsWith('/finance')) {
-            localStorage.removeItem('finance_access_token')
-            localStorage.removeItem('finance_user')
-            router.push('/finance/login')
-          } else {
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('operator_id')
-            router.push('/operator/login')
-          }
+          // 判断是否在登录页面
+          const isLoginPage = currentPath === '/operator/login' ||
+                             currentPath === '/admin/login' ||
+                             currentPath === '/finance/login'
 
-          ElMessage.error(data?.message || data?.error?.message || '未授权，请重新登录')
+          if (isLoginPage) {
+            // 在登录页面的401错误 = 用户名或密码错误
+            ElMessage.error({
+              message: data?.message || data?.error?.message || data?.detail?.message || '用户名或密码错误',
+              duration: 3000,
+              showClose: true,
+            })
+          } else {
+            // 在其他页面的401错误 = token过期，需要重新登录
+            // 防止多个401请求导致重复跳转
+            if (isRedirecting) {
+              break
+            }
+            isRedirecting = true
+
+            let loginPath = '/operator/login'
+            let messageText = '登录已过期，请重新登录'
+
+            if (currentPath.startsWith('/admin')) {
+              localStorage.removeItem('admin_access_token')
+              localStorage.removeItem('admin_user')
+              loginPath = '/admin/login'
+              messageText = '管理员登录已过期，请重新登录'
+            } else if (currentPath.startsWith('/finance')) {
+              localStorage.removeItem('finance_access_token')
+              localStorage.removeItem('finance_user')
+              loginPath = '/finance/login'
+              messageText = '财务登录已过期，请重新登录'
+            } else {
+              localStorage.removeItem('access_token')
+              localStorage.removeItem('operator_id')
+            }
+
+            // 显示友好的错误提示
+            ElMessage.warning({
+              message: messageText,
+              duration: 2000,
+              showClose: true,
+            })
+
+            // 延迟跳转，让用户看到提示消息
+            setTimeout(() => {
+              router.push(loginPath).finally(() => {
+                // 重置跳转标志，允许下次跳转
+                setTimeout(() => {
+                  isRedirecting = false
+                }, 1000)
+              })
+            }, 500)
+          }
           break
 
         case 403:

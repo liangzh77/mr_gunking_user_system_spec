@@ -214,15 +214,17 @@ class FinanceRefundService:
 
         operator = refund.operator
 
-        # Get current balance (actual refundable amount)
+        # Get current balance and requested amount
         current_balance = operator.balance
+        requested_amount = refund.requested_amount
 
         # Check if there's balance to refund
         if current_balance <= 0:
             raise BadRequestException("No balance available for refund")
 
-        # Actual refund amount is the current balance (may be less than requested)
-        actual_refund_amount = current_balance
+        # Actual refund amount is the minimum of requested amount and current balance
+        # This ensures we don't refund more than requested or more than available
+        actual_refund_amount = min(requested_amount, current_balance)
 
         # Update refund record
         refund.status = "approved"
@@ -230,8 +232,9 @@ class FinanceRefundService:
         refund.reviewed_at = datetime.now(timezone.utc)
         refund.actual_amount = actual_refund_amount
 
-        # Deduct balance from operator
-        operator.balance = Decimal("0.00")
+        # Deduct actual refund amount from operator balance
+        balance_before = current_balance
+        operator.balance = current_balance - actual_refund_amount
         balance_after = operator.balance
 
         # Create transaction record
@@ -240,7 +243,7 @@ class FinanceRefundService:
             operator_id=refund.operator_id,
             transaction_type="refund",
             amount=-actual_refund_amount,  # Negative because balance decreases
-            balance_before=current_balance,
+            balance_before=balance_before,
             balance_after=balance_after,
             description=f"退款审核通过: {note}" if note else "退款审核通过",
             related_refund_id=refund.id
@@ -298,8 +301,8 @@ class FinanceRefundService:
             BadRequestException: If refund already reviewed or validation fails
         """
         # Validate reason length
-        if len(reason) < 10 or len(reason) > 200:
-            raise BadRequestException("Rejection reason must be between 10 and 200 characters")
+        if len(reason) < 1 or len(reason) > 200:
+            raise BadRequestException("Rejection reason must be between 1 and 200 characters")
 
         # Convert to UUID
         try:
