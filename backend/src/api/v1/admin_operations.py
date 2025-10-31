@@ -912,3 +912,132 @@ async def delete_site(
 
     await service.delete_site(site_id=site_id, admin_id=admin_id)
     return MessageResponse(message="运营点删除成功")
+
+
+# ==================== 交易记录管理API ====================
+
+
+@router.get(
+    "/transactions",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Get All Transactions",
+    description="Get all transaction records with filtering and pagination",
+)
+async def get_transactions(
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    operator_id: Optional[str] = Query(None, description="Filter by operator ID"),
+    transaction_type: Optional[str] = Query(None, description="Filter by type: recharge/consumption/refund"),
+    start_time: Optional[str] = Query(None, description="Start time for filtering"),
+    end_time: Optional[str] = Query(None, description="End time for filtering"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> dict:
+    """Get all transaction records for admin.
+
+    Args:
+        token: Current admin token
+        db: Database session
+        operator_id: Optional operator ID filter
+        transaction_type: Optional transaction type filter
+        start_time: Optional start time filter
+        end_time: Optional end time filter
+        page: Page number
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated list of transactions with operator names
+    """
+    from uuid import UUID as PyUUID
+    from sqlalchemy import select, and_, or_, func, desc
+    from ...models.transaction import TransactionRecord
+    from ...models.operator import OperatorAccount
+    from datetime import datetime
+
+    # Build query
+    query = select(
+        TransactionRecord.id,
+        TransactionRecord.operator_id,
+        OperatorAccount.full_name.label('operator_name'),
+        TransactionRecord.transaction_type,
+        TransactionRecord.amount,
+        TransactionRecord.balance_after,
+        TransactionRecord.description,
+        TransactionRecord.created_at,
+        TransactionRecord.status,
+    ).join(
+        OperatorAccount,
+        TransactionRecord.operator_id == OperatorAccount.id
+    )
+
+    # Apply filters
+    filters = []
+
+    if operator_id:
+        try:
+            op_uuid = PyUUID(operator_id)
+            filters.append(TransactionRecord.operator_id == op_uuid)
+        except ValueError:
+            pass
+
+    if transaction_type:
+        filters.append(TransactionRecord.transaction_type == transaction_type)
+
+    if start_time:
+        try:
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            filters.append(TransactionRecord.created_at >= start_dt)
+        except ValueError:
+            pass
+
+    if end_time:
+        try:
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            filters.append(TransactionRecord.created_at <= end_dt)
+        except ValueError:
+            pass
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    # Order by created_at descending
+    query = query.order_by(desc(TransactionRecord.created_at))
+
+    # Get total count
+    count_query = select(func.count()).select_from(TransactionRecord)
+    if filters:
+        count_query = count_query.where(and_(*filters))
+
+    count_result = await db.execute(count_query)
+    total = count_result.scalar() or 0
+
+    # Apply pagination
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+
+    # Execute query
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Convert to response format
+    items = []
+    for row in rows:
+        items.append({
+            "id": str(row.id),
+            "operator_id": str(row.operator_id),
+            "operator_name": row.operator_name,
+            "transaction_type": row.transaction_type,
+            "amount": str(row.amount),
+            "balance_after": str(row.balance_after),
+            "description": row.description,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "status": row.status,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }

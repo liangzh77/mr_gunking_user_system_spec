@@ -182,7 +182,7 @@ const fetchOperators = async () => {
     const response = await http.get('/admins/operators', {
       params: {
         page: 1,
-        page_size: 1000,
+        page_size: 100,  // 修改为100，符合后端最大限制
       },
     })
     operators.value = response.data.items || []
