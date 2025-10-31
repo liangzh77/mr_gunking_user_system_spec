@@ -369,22 +369,17 @@ const getTierLabel = (tier: string) => {
 // 获取运营商列表
 const fetchOperators = async () => {
   try {
-    // 临时使用模拟数据，等待后端API实现
-    // TODO: 替换为实际API调用
-    operators.value = [
-      { id: 'op_12345', username: 'operator_a', full_name: '运营商A有限公司', balance: 500.00 },
-      { id: 'op_67890', username: 'operator_b', full_name: '运营商B有限公司', balance: 1000.00 },
-      { id: 'op_11111', username: 'operator_c', full_name: '运营商C有限公司', balance: 200.00 },
-    ]
-
-    /*
     const response = await http.get('/finance/operators', {
-      params: { page: 1, page_size: 1000 }
+      params: {
+        page: 1,
+        page_size: 1000,
+        status: 'active'  // 只获取激活状态的运营商
+      }
     })
     operators.value = response.data.items || []
-    */
   } catch (error: any) {
     console.error('获取运营商列表失败:', error)
+    ElMessage.error('获取运营商列表失败')
   }
 }
 

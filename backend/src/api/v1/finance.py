@@ -1422,6 +1422,143 @@ async def export_report(
         )
 
 
+# ==================== 运营商列表 ====================
+
+
+@router.get(
+    "/operators",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+    },
+    summary="获取运营商列表",
+    description="""
+    获取运营商列表（用于手动充值时选择运营商）。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **查询参数**:
+    - search: 搜索关键词（可选），支持用户名、姓名、邮箱、电话
+    - status: 状态筛选（可选），active/inactive/locked
+    - page: 页码，默认1
+    - page_size: 每页条数，默认100（最大1000）
+
+    **响应数据**:
+    - items: 运营商列表
+      - id: 运营商ID
+      - username: 用户名
+      - full_name: 真实姓名/公司名称
+      - email: 邮箱
+      - phone: 电话
+      - balance: 当前余额
+      - customer_tier: 客户分类
+      - is_active: 是否激活
+      - is_locked: 是否锁定
+      - last_login_at: 最后登录时间
+    - total: 总数量
+    - page: 当前页码
+    - page_size: 每页条数
+
+    **业务规则**:
+    - 只返回未删除的运营商
+    - 支持关键词搜索和状态筛选
+    - 默认按创建时间倒序排列
+    """,
+)
+async def get_operators(
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+    search: Optional[str] = Query(None, description="搜索关键词"),
+    status_filter: Optional[str] = Query(
+        None,
+        alias="status",
+        description="状态筛选: active/inactive/locked"
+    ),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(100, ge=1, le=1000, description="每页条数"),
+) -> dict:
+    """获取运营商列表API
+
+    Args:
+        token: JWT Token payload
+        db: 数据库会话
+        search: 搜索关键词
+        status_filter: 状态筛选
+        page: 页码
+        page_size: 每页条数
+
+    Returns:
+        dict: 运营商列表（分页）
+
+    Raises:
+        HTTPException 401: 未认证
+        HTTPException 403: 权限不足
+    """
+    from sqlalchemy import select, or_, func
+    from ...models.operator import OperatorAccount
+
+    # 构建查询
+    query = select(OperatorAccount).where(OperatorAccount.deleted_at.is_(None))
+
+    # 搜索条件
+    if search:
+        search_filter = or_(
+            OperatorAccount.username.ilike(f"%{search}%"),
+            OperatorAccount.full_name.ilike(f"%{search}%"),
+            OperatorAccount.email.ilike(f"%{search}%"),
+            OperatorAccount.phone.ilike(f"%{search}%"),
+        )
+        query = query.where(search_filter)
+
+    # 状态筛选
+    if status_filter == "active":
+        query = query.where(OperatorAccount.is_active == True, OperatorAccount.is_locked == False)
+    elif status_filter == "inactive":
+        query = query.where(OperatorAccount.is_active == False)
+    elif status_filter == "locked":
+        query = query.where(OperatorAccount.is_locked == True)
+
+    # 计算总数
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # 分页查询
+    query = query.order_by(OperatorAccount.created_at.desc())
+    query = query.limit(page_size).offset((page - 1) * page_size)
+
+    result = await db.execute(query)
+    operators = result.scalars().all()
+
+    # 构建响应
+    items = []
+    for op in operators:
+        items.append({
+            "id": f"op_{op.id}",  # 添加前缀保持一致性
+            "username": op.username,
+            "full_name": op.full_name,
+            "email": op.email,
+            "phone": op.phone,
+            "balance": float(op.balance),
+            "customer_tier": op.customer_tier,
+            "is_active": op.is_active,
+            "is_locked": op.is_locked,
+            "last_login_at": op.last_login_at.isoformat() if op.last_login_at else None,
+            "created_at": op.created_at.isoformat() if op.created_at else None,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 # ==================== 手动充值 ====================
 
 
