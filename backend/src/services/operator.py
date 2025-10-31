@@ -14,6 +14,7 @@
 """
 import secrets
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -581,28 +582,32 @@ class OperatorService:
     async def apply_refund(
         self,
         operator_id: UUID,
-        reason: str
+        reason: str,
+        amount: Optional[Decimal] = None
     ):
         """申请退款 (T074)
 
         业务规则:
-        - 只退当前余额,已消费金额不退
+        - 可指定退款金额或退还全部余额
+        - 退款金额不能超过当前余额
         - 余额为0时无法申请
         - 退款状态初始为pending
-        - requested_amount为申请时的余额
+        - requested_amount为申请的退款金额
 
         Args:
             operator_id: 运营商ID
             reason: 退款原因
+            amount: 退款金额（可选，不提供则退还全部余额）
 
         Returns:
             RefundRecord: 新创建的退款申请记录
 
         Raises:
-            HTTPException 400: 余额为0无法申请退款
+            HTTPException 400: 余额为0或金额无效
             HTTPException 404: 运营商不存在
         """
         from ..models.refund import RefundRecord
+        from decimal import Decimal as PyDecimal
 
         # 1. 验证运营商存在并获取余额
         operator_stmt = select(OperatorAccount).where(
@@ -631,10 +636,34 @@ class OperatorService:
                 }
             )
 
-        # 3. 创建退款申请记录
+        # 3. 确定退款金额
+        if amount is not None:
+            # 如果提供了金额，验证其有效性
+            if amount <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error_code": "INVALID_PARAMS",
+                        "message": "退款金额必须大于0"
+                    }
+                )
+            if amount > operator.balance:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error_code": "INVALID_PARAMS",
+                        "message": f"退款金额不能超过当前余额 ¥{operator.balance}"
+                    }
+                )
+            refund_amount = amount
+        else:
+            # 未提供金额，退还全部余额
+            refund_amount = operator.balance
+
+        # 4. 创建退款申请记录
         refund = RefundRecord(
             operator_id=operator_id,
-            requested_amount=operator.balance,  # 申请时的余额
+            requested_amount=refund_amount,  # 申请的退款金额
             status="pending",  # 初始状态为待审核
             refund_reason=reason
         )

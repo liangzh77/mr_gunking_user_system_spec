@@ -179,15 +179,6 @@ const filterForm = reactive<FilterForm>({
 // 获取运营商列表
 const fetchOperators = async () => {
   try {
-    // 临时使用模拟数据，等待后端API实现
-    // TODO: 替换为实际API调用
-    operators.value = [
-      { id: '1', username: '运营商A', full_name: '运营商A有限公司' },
-      { id: '2', username: '运营商B', full_name: '运营商B有限公司' },
-      { id: '3', username: '运营商C', full_name: '运营商C有限公司' },
-    ]
-
-    /*
     const response = await http.get('/admins/operators', {
       params: {
         page: 1,
@@ -195,7 +186,6 @@ const fetchOperators = async () => {
       },
     })
     operators.value = response.data.items || []
-    */
   } catch (error) {
     console.error('获取运营商列表失败:', error)
   }
@@ -206,50 +196,6 @@ const fetchTransactions = async () => {
   try {
     loading.value = true
 
-    // 临时使用模拟数据，等待后端API实现
-    // TODO: 替换为实际API调用
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 模拟数据
-    tableData.value = [
-      {
-        id: '1',
-        operator_id: '1',
-        operator_name: '运营商A',
-        transaction_type: 'recharge',
-        amount: '100.00',
-        balance_after: '150.00',
-        description: '账户充值',
-        created_at: '2024-01-15 10:30:00',
-        status: 'completed'
-      },
-      {
-        id: '2',
-        operator_id: '2',
-        operator_name: '运营商B',
-        transaction_type: 'consumption',
-        amount: '-50.00',
-        balance_after: '100.00',
-        description: '游戏消费',
-        created_at: '2024-01-15 14:20:00',
-        status: 'completed'
-      },
-      {
-        id: '3',
-        operator_id: '1',
-        operator_name: '运营商A',
-        transaction_type: 'refund',
-        amount: '25.00',
-        balance_after: '125.00',
-        description: '退款处理',
-        created_at: '2024-01-16 09:15:00',
-        status: 'completed'
-      }
-    ]
-    total.value = tableData.value.length
-
-    // 实际API调用（注释掉，等待后端实现）
-    /*
     const params: any = {
       page: currentPage.value,
       page_size: pageSize.value,
@@ -271,7 +217,6 @@ const fetchTransactions = async () => {
     const response = await http.get('/admins/transactions', { params })
     tableData.value = response.data.items || []
     total.value = response.data.total || 0
-    */
   } catch (error: any) {
     console.error('获取交易记录失败:', error)
     ElMessage.error('获取交易记录失败')

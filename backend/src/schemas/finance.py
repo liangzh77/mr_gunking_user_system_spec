@@ -788,7 +788,7 @@ class RefundRejectRequest(BaseModel):
     """
     reason: str = Field(
         ...,
-        min_length=10,
+        min_length=1,
         max_length=200,
         description="拒绝原因",
         examples=["退款原因不符合公司政策，建议继续使用或联系客服"]

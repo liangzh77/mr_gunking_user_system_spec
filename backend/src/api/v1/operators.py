@@ -762,7 +762,8 @@ async def apply_refund(
     try:
         refund = await operator_service.apply_refund(
             operator_id=operator_id,
-            reason=request.reason
+            reason=request.reason,
+            amount=request.amount
         )
 
         # 转换为响应格式
@@ -773,7 +774,7 @@ async def apply_refund(
                 "refund_id": f"refund_{refund.id}",
                 "requested_amount": str(refund.requested_amount),
                 "status": refund.status,
-                "reason": refund.reason,
+                "reason": refund.refund_reason,
                 "created_at": refund.created_at,
                 "actual_refund_amount": None,
                 "reject_reason": None,
@@ -903,9 +904,9 @@ async def get_refunds(
             items.append(RefundItem(
                 refund_id=f"refund_{refund.id}",
                 requested_amount=str(refund.requested_amount),
-                actual_refund_amount=str(refund.actual_refund_amount) if refund.actual_refund_amount else None,
+                actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
                 status=refund.status,
-                reason=refund.reason,
+                reason=refund.refund_reason,
                 reject_reason=refund.reject_reason,
                 reviewed_by=f"fin_{refund.reviewed_by}" if refund.reviewed_by else None,
                 reviewed_at=refund.reviewed_at,

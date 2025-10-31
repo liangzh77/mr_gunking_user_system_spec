@@ -23,9 +23,9 @@
         style="width: 100%"
       >
         <el-table-column prop="refund_id" label="退款ID" width="200" show-overflow-tooltip />
-        <el-table-column prop="amount" label="退款金额" width="120">
+        <el-table-column prop="requested_amount" label="退款金额" width="120">
           <template #default="{ row }">
-            <span class="refund-amount">¥{{ row.amount }}</span>
+            <span class="refund-amount">¥{{ row.requested_amount }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="reason" label="退款原因" min-width="200" show-overflow-tooltip />
@@ -36,9 +36,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="admin_note" label="管理员备注" min-width="150" show-overflow-tooltip>
+        <el-table-column prop="reject_reason" label="拒绝原因" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.admin_note">{{ row.admin_note }}</span>
+            <span v-if="row.reject_reason">{{ row.reject_reason }}</span>
             <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
@@ -87,19 +87,29 @@
         :rules="formRules"
         label-width="100px"
       >
+        <el-alert
+          title="退款说明"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 20px"
+        >
+          <template #default>
+            <div>当前账户余额: ¥{{ balance }}</div>
+            <div>您可以申请退还部分或全部余额，已消费金额不可退还</div>
+          </template>
+        </el-alert>
+
         <el-form-item label="退款金额" prop="amount">
           <el-input
             v-model="formData.amount"
-            placeholder="请输入退款金额（留空表示全额退款）"
+            placeholder="请输入退款金额"
             type="number"
-            min="0"
             step="0.01"
+            min="0"
           >
-            <template #prefix>¥</template>
+            <template #prepend>¥</template>
           </el-input>
-          <div class="form-tip">
-            当前账户余额: ¥{{ balance }}
-          </div>
+          <div class="form-tip">最大可退款金额: ¥{{ balance }}</div>
         </el-form-item>
 
         <el-form-item label="退款原因" prop="reason">
@@ -153,30 +163,31 @@ const pagination = ref({
 
 const formRules: FormRules = {
   amount: [
+    { required: true, message: '请输入退款金额', trigger: 'blur' },
     {
-      validator: (rule, value, callback) => {
+      validator: (rule: any, value: any, callback: any) => {
         if (!value) {
-          // 允许为空（全额退款）
-          callback()
+          callback(new Error('请输入退款金额'))
           return
         }
-        const amount = parseFloat(value)
-        if (isNaN(amount)) {
-          callback(new Error('请输入有效的金额'))
-        } else if (amount <= 0) {
+        const num = Number(value)
+        if (isNaN(num) || num <= 0) {
           callback(new Error('退款金额必须大于0'))
-        } else if (amount > parseFloat(balance.value)) {
-          callback(new Error('退款金额不能超过账户余额'))
-        } else {
-          callback()
+          return
         }
+        const balanceNum = Number(balance.value)
+        if (num > balanceNum) {
+          callback(new Error(`退款金额不能超过当前余额 ¥${balance.value}`))
+          return
+        }
+        callback()
       },
-      trigger: 'blur',
-    },
+      trigger: 'blur'
+    }
   ],
   reason: [
     { required: true, message: '请输入退款原因', trigger: 'blur' },
-    { min: 10, max: 500, message: '退款原因长度应在 10-500 个字符之间', trigger: 'blur' },
+    { min: 1, max: 500, message: '退款原因长度应在 1-500 个字符之间', trigger: 'blur' },
   ],
 }
 
@@ -236,9 +247,12 @@ const loadRefunds = async () => {
 }
 
 // 打开创建对话框
-const handleCreate = () => {
+const handleCreate = async () => {
+  // 先加载最新余额
+  await loadBalance()
+
   formData.value = {
-    amount: '',
+    amount: balance.value,
     reason: '',
   }
   dialogVisible.value = true
@@ -256,16 +270,10 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const data: any = {
+    await operatorStore.applyRefund({
+      amount: Number(formData.value.amount),
       reason: formData.value.reason,
-    }
-
-    // 如果填写了金额，则添加到请求中；否则为全额退款
-    if (formData.value.amount) {
-      data.amount = formData.value.amount
-    }
-
-    await operatorStore.applyRefund(data)
+    })
     ElMessage.success('退款申请已提交，请等待审核')
 
     dialogVisible.value = false

@@ -39,9 +39,9 @@
       <el-table :data="refunds" v-loading="loading" stripe>
         <el-table-column prop="refund_id" label="退款ID" width="120" />
         <el-table-column prop="operator_name" label="运营商" />
-        <el-table-column prop="amount" label="退款金额" align="right">
+        <el-table-column prop="requested_amount" label="退款金额" align="right">
           <template #default="scope">
-            ¥{{ scope.row.amount }}
+            ¥{{ scope.row.requested_amount }}
           </template>
         </el-table-column>
         <el-table-column prop="reason" label="退款原因" />
@@ -53,7 +53,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column prop="reject_reason" label="拒绝原因" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            <span v-if="scope.row.reject_reason">{{ scope.row.reject_reason }}</span>
+            <span v-else style="color: #909399;">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" align="center">
           <template #default="scope">
             <el-button
               v-if="scope.row.status === 'pending'"
@@ -70,13 +76,6 @@
               @click="handleReject(scope.row)"
             >
               拒绝
-            </el-button>
-            <el-button
-              type="info"
-              size="small"
-              @click="handleView(scope.row)"
-            >
-              详情
             </el-button>
           </template>
         </el-table-column>
@@ -96,37 +95,12 @@
       </div>
     </el-card>
 
-    <!-- 退款详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="退款详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentRefund">
-        <el-descriptions-item label="退款ID">{{ currentRefund.refund_id }}</el-descriptions-item>
-        <el-descriptions-item label="运营商">{{ currentRefund.operator_name }}</el-descriptions-item>
-        <el-descriptions-item label="退款金额">¥{{ currentRefund.amount }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(currentRefund.status)">
-            {{ getStatusLabel(currentRefund.status) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="申请时间" :span="2">{{ currentRefund.requested_at }}</el-descriptions-item>
-        <el-descriptions-item label="退款原因" :span="2">{{ currentRefund.reason }}</el-descriptions-item>
-        <el-descriptions-item label="审核人" v-if="currentRefund.reviewed_by">
-          {{ currentRefund.reviewed_by }}
-        </el-descriptions-item>
-        <el-descriptions-item label="审核时间" v-if="currentRefund.reviewed_at">
-          {{ currentRefund.reviewed_at }}
-        </el-descriptions-item>
-        <el-descriptions-item label="拒绝原因" :span="2" v-if="currentRefund.reject_reason">
-          {{ currentRefund.reject_reason }}
-        </el-descriptions-item>
-      </el-descriptions>
-    </el-dialog>
-
     <!-- 拒绝退款对话框 -->
     <el-dialog v-model="rejectDialogVisible" title="拒绝退款" width="500px">
       <el-form :model="rejectForm" :rules="rejectRules" ref="rejectFormRef">
-        <el-form-item label="拒绝原因" prop="reject_reason">
+        <el-form-item label="拒绝原因" prop="reason">
           <el-input
-            v-model="rejectForm.reject_reason"
+            v-model="rejectForm.reason"
             type="textarea"
             :rows="4"
             placeholder="请输入拒绝原因"
@@ -161,19 +135,18 @@ const total = ref(0)
 const loading = ref(false)
 
 // 对话框
-const detailDialogVisible = ref(false)
 const rejectDialogVisible = ref(false)
 const currentRefund = ref<any>(null)
 
 // 拒绝表单
 const rejectFormRef = ref<FormInstance>()
 const rejectForm = reactive({
-  reject_reason: '',
+  reason: '',
 })
 const rejectRules: FormRules = {
-  reject_reason: [
+  reason: [
     { required: true, message: '请输入拒绝原因', trigger: 'blur' },
-    { min: 10, message: '拒绝原因至少10个字符', trigger: 'blur' },
+    { min: 1, message: '拒绝原因至少1个字符', trigger: 'blur' },
   ],
 }
 const rejecting = ref(false)
@@ -194,22 +167,16 @@ const fetchRefunds = async () => {
   }
 }
 
-// 查看详情
-const handleView = (refund: any) => {
-  currentRefund.value = refund
-  detailDialogVisible.value = true
-}
-
 // 批准退款
 const handleApprove = async (refund: any) => {
   try {
-    await ElMessageBox.confirm(`确定批准退款 ¥${refund.amount} 吗?`, '确认批准', {
+    await ElMessageBox.confirm(`确定批准退款 ¥${refund.requested_amount} 吗?`, '确认批准', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'success',
     })
 
-    await http.post(`/finance/refunds/${refund.refund_id}/approve`)
+    await http.post(`/finance/refunds/${refund.refund_id}/approve`, {})
     ElMessage.success('退款已批准')
     fetchRefunds()
   } catch (error: any) {
@@ -222,7 +189,7 @@ const handleApprove = async (refund: any) => {
 // 拒绝退款
 const handleReject = (refund: any) => {
   currentRefund.value = refund
-  rejectForm.reject_reason = ''
+  rejectForm.reason = ''
   rejectDialogVisible.value = true
 }
 
@@ -235,7 +202,7 @@ const confirmReject = async () => {
     rejecting.value = true
 
     await http.post(`/finance/refunds/${currentRefund.value.refund_id}/reject`, {
-      reject_reason: rejectForm.reject_reason,
+      reason: rejectForm.reason,
     })
 
     ElMessage.success('已拒绝退款申请')
