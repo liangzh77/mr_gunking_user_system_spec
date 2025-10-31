@@ -1653,38 +1653,124 @@ async def manual_recharge(
         )
 
     try:
-        # 导入充值服务
-        # 这里先返回模拟数据
         from datetime import datetime
+        from decimal import Decimal
+        from sqlalchemy import select
+        from ...models.operator import OperatorAccount
+        from ...models.transaction import TransactionRecord
+        from ...models.finance import FinanceOperationLog
+
+        # 解析运营商ID（移除 "op_" 前缀）
+        actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+
+        try:
+            operator_uuid = UUID(actual_operator_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_OPERATOR_ID",
+                    "message": f"无效的运营商ID格式: {operator_id}",
+                },
+            )
+
+        # 查询运营商（使用行级锁防止并发问题）
+        query = select(OperatorAccount).where(
+            OperatorAccount.id == operator_uuid,
+            OperatorAccount.deleted_at.is_(None)
+        ).with_for_update()
+
+        result = await db.execute(query)
+        operator = result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error_code": "OPERATOR_NOT_FOUND", "message": "运营商不存在或已删除"},
+            )
+
+        # 验证运营商状态
+        if not operator.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "OPERATOR_INACTIVE", "message": "运营商账户已停用"},
+            )
+
+        if operator.is_locked:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "OPERATOR_LOCKED", "message": "运营商账户已锁定"},
+            )
+
+        # 记录充值前余额
+        balance_before = operator.balance
+        recharge_amount = Decimal(str(amount))
+
+        # 更新运营商余额
+        operator.balance = operator.balance + recharge_amount
+        balance_after = operator.balance
 
         # 处理付款凭证文件（如果有）
         payment_proof_path = None
         if payment_proof:
-            # 保存文件到uploads目录
             import os
             upload_dir = "uploads/payment_proofs"
             os.makedirs(upload_dir, exist_ok=True)
             file_extension = payment_proof.filename.split('.')[-1] if payment_proof.filename else 'jpg'
-            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{operator_id}.{file_extension}"
+            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{actual_operator_id}.{file_extension}"
             file_path = os.path.join(upload_dir, filename)
 
-            # 读取文件内容并保存
             content = await payment_proof.read()
             with open(file_path, "wb") as f:
                 f.write(content)
 
             payment_proof_path = file_path
 
-        # 模拟充值响应
+        # 创建交易记录（手动充值不需要设置payment_channel等字段）
+        transaction = TransactionRecord(
+            operator_id=operator_uuid,
+            transaction_type="recharge",
+            amount=recharge_amount,
+            balance_before=balance_before,
+            balance_after=balance_after,
+            description=description or "财务手动充值",
+        )
+        db.add(transaction)
+
+        # 记录财务操作日志
+        operation_log = FinanceOperationLog(
+            finance_account_id=finance_id,
+            operation_type="manual_recharge",
+            target_resource_type="operator",
+            target_resource_id=operator_uuid,
+            operation_details={
+                "operator_id": str(operator_uuid),
+                "operator_username": operator.username,
+                "operator_name": operator.full_name,
+                "amount": str(recharge_amount),
+                "balance_before": str(balance_before),
+                "balance_after": str(balance_after),
+                "description": description,
+                "payment_proof": payment_proof_path,
+            },
+            ip_address="127.0.0.1",  # TODO: 从请求中获取真实IP
+        )
+        db.add(operation_log)
+
+        # 提交事务
+        await db.commit()
+        await db.refresh(transaction)
+
+        # 返回充值结果
         return RechargeResponse(
-            transaction_id=f"txn_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            operator_id=operator_id,
-            operator_name="运营商A",  # 模拟运营商名称
-            amount=f"{amount:.2f}",
-            balance_before="500.00",  # 模拟充值前余额
-            balance_after=f"{500.00 + amount:.2f}",  # 模拟充值后余额
-            description=description,
-            created_at=datetime.now(),
+            transaction_id=f"txn_{transaction.id}",
+            operator_id=f"op_{operator_uuid}",
+            operator_name=operator.full_name,
+            amount=f"{recharge_amount:.2f}",
+            balance_before=f"{balance_before:.2f}",
+            balance_after=f"{balance_after:.2f}",
+            description=description or "财务手动充值",
+            created_at=transaction.created_at,
         )
 
     except BadRequestException as e:
@@ -1705,5 +1791,158 @@ async def manual_recharge(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"充值失败: {str(e)}",
+            },
+        )
+
+
+@router.get(
+    "/recharge-records",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="获取充值记录列表",
+    description="财务人员查询所有运营商的充值记录，支持筛选和分页",
+)
+async def get_recharge_records(
+    operator_id: Optional[str] = Query(None, description="运营商ID筛选（格式: op_xxx或uuid）"),
+    start_date: Optional[str] = Query(None, description="开始日期（格式: YYYY-MM-DD）"),
+    end_date: Optional[str] = Query(None, description="结束日期（格式: YYYY-MM-DD）"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """获取充值记录列表
+
+    返回所有运营商的充值记录，包括：
+    - 手动充值（财务操作）
+    - 在线充值（支付宝/微信支付）
+
+    支持按运营商、日期范围筛选，按时间倒序排列
+    """
+    from datetime import datetime
+    from sqlalchemy import select, and_, func
+    from sqlalchemy.orm import selectinload
+    from ...models.transaction import TransactionRecord
+    from ...models.operator import OperatorAccount
+
+    try:
+        # 构建基础查询 - 只查询充值类型的交易
+        query = select(TransactionRecord).where(
+            TransactionRecord.transaction_type == "recharge"
+        ).options(
+            selectinload(TransactionRecord.operator)
+        )
+
+        # 筛选条件
+        filters = []
+
+        # 按运营商筛选
+        if operator_id:
+            # 解析运营商ID（移除op_前缀）
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = UUID(actual_operator_id)
+                filters.append(TransactionRecord.operator_id == operator_uuid)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_OPERATOR_ID", "message": "无效的运营商ID格式"}
+                )
+
+        # 按日期范围筛选
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                filters.append(TransactionRecord.created_at >= start_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_DATE", "message": "开始日期格式错误，应为YYYY-MM-DD"}
+                )
+
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                # 结束日期包含当天23:59:59
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                filters.append(TransactionRecord.created_at <= end_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_DATE", "message": "结束日期格式错误，应为YYYY-MM-DD"}
+                )
+
+        # 应用筛选条件
+        if filters:
+            query = query.where(and_(*filters))
+
+        # 按时间倒序排列
+        query = query.order_by(TransactionRecord.created_at.desc())
+
+        # 统计总数
+        count_query = select(func.count()).select_from(TransactionRecord).where(
+            TransactionRecord.transaction_type == "recharge"
+        )
+        if filters:
+            count_query = count_query.where(and_(*filters))
+
+        result = await db.execute(count_query)
+        total = result.scalar()
+
+        # 分页
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # 执行查询
+        result = await db.execute(query)
+        records = result.scalars().all()
+
+        # 构建响应数据
+        items = []
+        for record in records:
+            # 判断充值方式
+            if record.payment_channel:
+                recharge_method = "在线充值"
+                payment_info = {
+                    "channel": record.payment_channel,
+                    "order_no": record.payment_order_no,
+                    "status": record.payment_status,
+                }
+            else:
+                recharge_method = "手动充值"
+                payment_info = None
+
+            items.append({
+                "id": f"txn_{record.id}",
+                "transaction_id": str(record.id),
+                "operator_id": f"op_{record.operator_id}",
+                "operator_username": record.operator.username,
+                "operator_name": record.operator.full_name,
+                "amount": f"{record.amount:.2f}",
+                "balance_before": f"{record.balance_before:.2f}",
+                "balance_after": f"{record.balance_after:.2f}",
+                "recharge_method": recharge_method,
+                "payment_info": payment_info,
+                "description": record.description or "",
+                "created_at": record.created_at.isoformat(),
+            })
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"查询充值记录失败: {str(e)}",
             },
         )

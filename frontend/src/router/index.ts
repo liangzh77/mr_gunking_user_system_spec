@@ -175,6 +175,11 @@ const router = createRouter({
               component: () => import('@/pages/finance/Dashboard.vue'),
             },
             {
+              path: 'recharge-records',
+              name: 'FinanceRechargeRecords',
+              component: () => import('@/pages/finance/RechargeRecords.vue'),
+            },
+            {
               path: 'refunds',
               name: 'FinanceRefunds',
               component: () => import('@/pages/finance/Refunds.vue'),
