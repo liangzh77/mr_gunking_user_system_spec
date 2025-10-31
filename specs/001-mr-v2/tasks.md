@@ -638,7 +638,7 @@
 - [ ] T288 代码审查和重构
 - [ ] T289 性能基准测试 in backend/tests/performance/test_benchmark.py (授权API P95 < 100ms满足NFR-001, 峰值吞吐量 ≥ 20 req/s满足NFR-002, 10万条记录导出<30秒满足SC-009/NFR-004, 系统可用性≥99.5%验证SC-011/NFR-005)
 - [X] T289a [P] 编写性能基线测试 in backend/tests/performance/test_baseline.py (在优化前建立性能基线：当前授权API响应时间P50/P95/P99、数据库查询耗时、内存占用，优化后对比验证改进效果，遵循TDD原则不跳过测试)
-- [ ] T290 [P] 实现客户分类自动更新任务 in backend/src/tasks/tier_recalculation.py (使用APScheduler，每月1日凌晨2点根据上月消费额自动重新计算所有运营商客户分类：≥10000元→VIP、1000-10000元→普通、<1000元→试用，记录变更日志)
+- [X] T290 [P] 实现客户分类自动更新任务 in backend/src/tasks/customer_tier_update.py (使用APScheduler，每月1日凌晨2点根据上月消费额自动重新计算所有运营商客户分类：≥10000元→VIP、1000-10000元→普通、<1000元→试用，记录变更日志) ✅ 2025-10-29
 
 **Checkpoint**: 项目完成，可以投入生产
 
