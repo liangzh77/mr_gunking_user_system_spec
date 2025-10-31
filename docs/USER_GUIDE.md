@@ -2,9 +2,9 @@
 
 ## 快速访问
 
-- **运营商端**: https://localhost/operator
-- **管理员端**: https://localhost/admin
-- **财务端**: https://localhost/finance
+- **运营商端**: https://mrgun.chu-jiao.com/operator
+- **管理员端**: https://mrgun.chu-jiao.com/admin
+- **财务端**: https://mrgun.chu-jiao.com/finance
 
 ---
 

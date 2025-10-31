@@ -101,16 +101,6 @@
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" />
         <el-table-column prop="created_at" label="交易时间" width="180" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag
-              :type="row.status === 'completed' ? 'success' : 'warning'"
-              size="small"
-            >
-              {{ row.status === 'completed' ? '已完成' : '处理中' }}
-            </el-tag>
-          </template>
-        </el-table-column>
       </el-table>
 
       <!-- 分页 -->

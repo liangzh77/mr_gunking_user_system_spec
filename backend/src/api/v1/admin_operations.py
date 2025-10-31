@@ -965,7 +965,6 @@ async def get_transactions(
         TransactionRecord.balance_after,
         TransactionRecord.description,
         TransactionRecord.created_at,
-        TransactionRecord.status,
     ).join(
         OperatorAccount,
         TransactionRecord.operator_id == OperatorAccount.id
@@ -1032,7 +1031,6 @@ async def get_transactions(
             "balance_after": str(row.balance_after),
             "description": row.description,
             "created_at": row.created_at.isoformat() if row.created_at else None,
-            "status": row.status,
         })
 
     return {
