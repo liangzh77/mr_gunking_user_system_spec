@@ -28,6 +28,7 @@ from .logging import (
 )
 from .security import (
     create_access_token,
+    create_headset_token,
     decode_token,
     get_token_subject,
     get_token_user_type,
@@ -97,6 +98,7 @@ __all__ = [
     "clear_context",
     # Security - JWT
     "create_access_token",
+    "create_headset_token",
     "verify_token",
     "decode_token",
     "is_token_expired",

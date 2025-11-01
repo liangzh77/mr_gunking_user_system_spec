@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_operator
+from ...core import create_headset_token
 from ...schemas.invoice import InvoiceRequestCreate, InvoiceResponse
 from ...schemas.operator import (
     ApplicationRequestCreate,
@@ -2984,5 +2985,63 @@ async def get_application_requests(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询授权申请列表失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/generate-token",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="生成头显Server TOKEN",
+    description="为头显Server生成24小时有效的TOKEN，用于运营点页面点击'启动应用'按钮时生成TOKEN"
+)
+async def generate_headset_token(
+    token: dict = Depends(require_operator),
+) -> dict:
+    """为头显Server生成24小时有效的TOKEN
+
+    用于运营点页面点击"启动应用"按钮时生成TOKEN。
+    生成的TOKEN用于头显Server调用游戏授权相关API。
+
+    Args:
+        token: 当前运营商的JWT token (由require_operator依赖自动注入)
+
+    Returns:
+        dict: 包含TOKEN、过期时间等信息
+        {
+            "success": True,
+            "data": {
+                "token": "eyJ...",
+                "expires_in": 86400,
+                "token_type": "Bearer"
+            }
+        }
+
+    Raises:
+        HTTPException: TOKEN生成失败时返回500错误
+    """
+    try:
+        # 从token中提取operator_id
+        operator_id = token.get("sub")
+
+        # 生成头显Server专用TOKEN (24小时有效)
+        headset_token = create_headset_token(operator_id)
+
+        return {
+            "success": True,
+            "data": {
+                "token": headset_token,
+                "expires_in": 86400,  # 24 hours in seconds
+                "token_type": "Bearer"
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "TOKEN_GENERATION_FAILED",
+                "message": f"生成TOKEN失败: {str(e)}"
             }
         )
