@@ -44,7 +44,7 @@ def upgrade() -> None:
     op.create_table(
         'game_sessions',
         sa.Column('id', UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()'), comment='主键'),
-        sa.Column('usage_record_id', UUID(as_uuid=True), sa.ForeignKey('game_usage_records.id'), nullable=False, comment='关联的使用记录ID'),
+        sa.Column('usage_record_id', UUID(as_uuid=True), sa.ForeignKey('usage_records.id'), nullable=False, comment='关联的使用记录ID'),
         sa.Column('start_time', TIMESTAMP(timezone=True), nullable=True, comment='游戏开始时间'),
         sa.Column('end_time', TIMESTAMP(timezone=True), nullable=True, comment='游戏结束时间'),
         sa.Column('process_info', sa.Text(), nullable=True, comment='游戏过程信息'),

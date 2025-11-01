@@ -27,9 +27,9 @@ def upgrade() -> None:
         sa.Column('protocol_scheme', sa.String(50), nullable=True, comment='自定义协议名称，如 mrgun')
     )
 
-    # Add headset_ids to game_usage_records table
+    # Add headset_ids to usage_records table
     op.add_column(
-        'game_usage_records',
+        'usage_records',
         sa.Column('headset_ids', JSONB, nullable=True, comment='头显设备ID列表')
     )
 
@@ -37,5 +37,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove protocol_scheme and headset_ids fields."""
 
-    op.drop_column('game_usage_records', 'headset_ids')
+    op.drop_column('usage_records', 'headset_ids')
     op.drop_column('applications', 'protocol_scheme')
