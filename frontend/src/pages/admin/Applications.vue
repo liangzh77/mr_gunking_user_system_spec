@@ -144,6 +144,16 @@
           />
         </el-form-item>
 
+        <el-form-item label="自定义协议" prop="protocol_scheme">
+          <el-input
+            v-model="editFormData.protocol_scheme"
+            placeholder="例如: mrgun (可选)"
+            clearable
+            maxlength="50"
+          />
+          <div class="form-tip">自定义协议名称，用于启动头显Server应用</div>
+        </el-form-item>
+
         <el-form-item label="状态" prop="is_active">
           <el-switch
             v-model="editFormData.is_active"
@@ -181,6 +191,7 @@ interface Application {
   min_players: number
   max_players: number
   is_active: boolean
+  protocol_scheme?: string
   created_at: string
   updated_at: string
 }
@@ -202,6 +213,7 @@ const editFormData = reactive({
   min_players: 1,
   max_players: 1,
   is_active: true,
+  protocol_scheme: '',
 })
 
 const pagination = reactive({
@@ -295,6 +307,7 @@ const handleEdit = (row: Application) => {
   editFormData.min_players = row.min_players
   editFormData.max_players = row.max_players
   editFormData.is_active = row.is_active
+  editFormData.protocol_scheme = row.protocol_scheme || ''
   editVisible.value = true
 }
 
