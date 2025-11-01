@@ -70,6 +70,12 @@ class Application(Base):
         comment="应用描述"
     )
 
+    protocol_scheme: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="自定义协议名称，如 mrgun"
+    )
+
     # ==================== 定价规则 ====================
     price_per_player: Mapped[Decimal] = mapped_column(
         DECIMAL(10, 2),
