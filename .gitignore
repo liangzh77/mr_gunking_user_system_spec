@@ -93,6 +93,27 @@ backend/reports/*.csv
 *.sublime-project
 *.sublime-workspace
 
+# C# / .NET
+*.sln
+*.csproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+bin/
+obj/
+*.Cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+*.snupkg
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
 # mypy
 .mypy_cache/
 .dmypy.json
