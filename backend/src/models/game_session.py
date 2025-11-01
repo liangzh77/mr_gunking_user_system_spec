@@ -45,7 +45,7 @@ class GameSession(Base):
     # ==================== 关联关系 ====================
     usage_record_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("game_usage_records.id", ondelete="RESTRICT"),
+        ForeignKey("usage_records.id", ondelete="RESTRICT"),
         nullable=False,
         comment="关联的使用记录ID"
     )
