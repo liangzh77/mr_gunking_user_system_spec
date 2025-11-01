@@ -30,8 +30,11 @@
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button type="success" size="small" text @click="handleLaunchApp(row)">
+              启动应用
+            </el-button>
             <el-button type="primary" size="small" text @click="handleEdit(row)">
               编辑
             </el-button>
@@ -96,6 +99,56 @@
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">
           确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 启动应用对话框 -->
+    <el-dialog
+      v-model="launchDialogVisible"
+      title="启动应用"
+      width="500px"
+    >
+      <el-form label-width="100px">
+        <el-form-item label="运营点">
+          <el-input :value="currentSite?.name" disabled />
+        </el-form-item>
+
+        <el-form-item label="选择应用">
+          <el-select
+            v-model="selectedAppId"
+            placeholder="请选择要启动的应用"
+            style="width: 100%"
+            :loading="loadingApps"
+          >
+            <el-option
+              v-for="app in availableApps"
+              :key="app.id"
+              :label="app.app_name"
+              :value="app.id"
+              :disabled="!app.protocol_scheme"
+            >
+              <span>{{ app.app_name }}</span>
+              <span v-if="!app.protocol_scheme" style="color: #999; font-size: 12px; margin-left: 8px">
+                (未配置协议)
+              </span>
+            </el-option>
+          </el-select>
+          <div v-if="selectedApp && selectedApp.protocol_scheme" class="form-tip">
+            协议: {{ selectedApp.protocol_scheme }}://
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="launchDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="launching"
+          :disabled="!selectedAppId"
+          @click="handleConfirmLaunch"
+        >
+          启动
         </el-button>
       </template>
     </el-dialog>
@@ -249,6 +302,79 @@ const handleDialogClose = () => {
   editingSite.value = null
 }
 
+// ========== 启动应用相关 ==========
+interface Application {
+  id: string
+  app_code: string
+  app_name: string
+  protocol_scheme?: string
+}
+
+const launchDialogVisible = ref(false)
+const currentSite = ref<OperationSite | null>(null)
+const availableApps = ref<Application[]>([])
+const loadingApps = ref(false)
+const selectedAppId = ref('')
+const launching = ref(false)
+
+const selectedApp = computed(() => {
+  return availableApps.value.find(app => app.id === selectedAppId.value)
+})
+
+// 打开启动应用对话框
+const handleLaunchApp = async (site: OperationSite) => {
+  currentSite.value = site
+  selectedAppId.value = ''
+  launchDialogVisible.value = true
+
+  // 加载授权应用列表
+  await loadAuthorizedApps()
+}
+
+// 加载已授权的应用列表
+const loadAuthorizedApps = async () => {
+  loadingApps.value = true
+  try {
+    const response = await operatorStore.http.get('/operators/applications/authorized')
+    availableApps.value = response.data.items
+  } catch (error) {
+    console.error('Load authorized apps error:', error)
+    ElMessage.error('加载应用列表失败')
+  } finally {
+    loadingApps.value = false
+  }
+}
+
+// 确认启动应用
+const handleConfirmLaunch = async () => {
+  if (!currentSite.value || !selectedApp.value) return
+
+  launching.value = true
+  try {
+    // 1. 生成TOKEN
+    const tokenResponse = await operatorStore.http.post('/operators/generate-token')
+    const token = tokenResponse.data.token
+
+    // 2. 构建启动URL
+    const protocol = selectedApp.value.protocol_scheme || 'mrgun'
+    const appCode = selectedApp.value.app_code
+    const siteId = currentSite.value.site_id
+
+    const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}`
+
+    // 3. 尝试启动应用
+    window.location.href = launchUrl
+
+    ElMessage.success('应用启动指令已发送')
+    launchDialogVisible.value = false
+  } catch (error: any) {
+    console.error('Launch app error:', error)
+    ElMessage.error(error?.response?.data?.detail?.message || '启动应用失败')
+  } finally {
+    launching.value = false
+  }
+}
+
 onMounted(() => {
   loadSites()
 })
@@ -289,5 +415,11 @@ onMounted(() => {
 
 .list-card :deep(.el-card__body) {
   padding: 20px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 </style>
