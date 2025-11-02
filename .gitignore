@@ -171,3 +171,18 @@ log.txt
 tmp.py
 *.json.test
 test_*.json
+
+# Temporary testing and debugging files
+SUMMARY.md
+test_*.py
+verify_*.py
+*.reg
+install-*.bat
+install-*.ps1
+test-*.html
+
+# Temporary E2E test files (debugging purpose, not production-ready)
+frontend/tests/e2e/direct-login-test.spec.ts
+frontend/tests/e2e/sites-launch-button.spec.ts
+frontend/tests/e2e/verify-launch.spec.ts
+frontend/tests/e2e/launch-application.spec.ts
