@@ -39,6 +39,9 @@ FROM python:3.12-slim
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
     sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
+# 配置pip使用清华镜像（运行阶段也需要）
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 # 构建参数
 ARG BUILD_DATE
 ARG VERSION
@@ -52,7 +55,8 @@ LABEL maintainer="MR Game Ops Team" \
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/usr/local/bin:$PATH"
+    PATH="/usr/local/bin:$PATH" \
+    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 创建非root用户
 RUN groupadd -r appuser && useradd -r -g appuser appuser
