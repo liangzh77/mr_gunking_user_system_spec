@@ -35,7 +35,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mr_game_ops_redis
-    command: redis-server --requirepass dev_redis_password --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:-dev_redis_password} --appendonly yes
     ports:
       - "6379:6379"
     volumes:
