@@ -146,7 +146,7 @@ X-Timestamp: 1730451234
 X-Signature: dGVzdF9zaWduYXR1cmU=
 
 {
-  "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+  "app_code": "APP_20251030_001",
   "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
   "player_count": 5,
   "headset_ids": ["headset_001", "headset_002"]
@@ -208,7 +208,7 @@ X-Signature: dGVzdF9zaWduYXR1cmU=
   "success": true,
   "data": {
     "can_authorize": true,
-    "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+    "app_code": "APP_20251030_001",
     "app_name": "太空射击",
     "unit_price": "10.00",
     "estimated_cost": "50.00",
@@ -256,7 +256,7 @@ Content-Type: application/json
 
 ```json
 {
-  "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+  "app_code": "APP_20251030_001",
   "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
   "player_count": 5,
   "headset_ids": ["headset_001", "headset_002", "headset_003", "headset_004", "headset_005"]
@@ -265,7 +265,7 @@ Content-Type: application/json
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| app_id | string(UUID) | 是 | 应用ID |
+| app_code | string | 是 | 应用代码（与启动URL中的app_code一致） |
 | site_id | string(UUID) | 是 | 运营点ID |
 | player_count | integer | 是 | 实际玩家数量（1-100） |
 | headset_ids | array[string] | 否 | 头显设备ID列表（用于记录和统计） |
@@ -317,7 +317,7 @@ Content-Type: application/json
 
 | HTTP状态码 | 错误码 | 说明 | 处理建议 |
 |-----------|--------|------|----------|
-| 400 | `INVALID_APP_ID` | 应用ID格式错误 | 检查app_id格式 |
+| 400 | `INVALID_APP_CODE` | 应用代码格式错误 | 检查app_code格式 |
 | 400 | `INVALID_SITE_ID` | 运营点ID格式错误 | 检查site_id格式 |
 | 400 | `INVALID_SESSION_ID` | 会话ID格式错误 | 检查会话ID生成逻辑 |
 | 400 | `INVALID_PLAYER_COUNT` | 玩家数量超出范围 | 确认在min_players和max_players之间 |
@@ -325,7 +325,8 @@ Content-Type: application/json
 | 402 | `INSUFFICIENT_BALANCE` | 余额不足 | 提示运营商充值 |
 | 403 | `APP_NOT_AUTHORIZED` | 应用未授权 | 联系管理员授权应用 |
 | 403 | `SITE_NOT_OWNED` | 运营点不属于该运营商 | 检查site_id是否正确 |
-| 409 | `SESSION_ALREADY_EXISTS` | 会话ID重复（幂等性保护） | 返回已授权信息，不重复扣费 |
+| 404 | `APP_NOT_FOUND` | 应用不存在 | 检查app_code是否正确 |
+| 409 | `SESSION_ALREADY_EXISTS` | 会话ID重复（幂等性保护） | 返回已授权信息,不重复扣费 |
 
 **幂等性保护**:
 - 相同会话ID的重复请求会返回已授权的信息
@@ -485,7 +486,7 @@ class HeadsetServerClient:
 
     def authorize_game(
         self,
-        app_id: str,
+        app_code: str,
         site_id: str,
         player_count: int,
         headset_ids: Optional[list[str]] = None
@@ -493,7 +494,7 @@ class HeadsetServerClient:
         """游戏授权（扣费）
 
         Args:
-            app_id: 应用ID
+            app_code: 应用代码
             site_id: 运营点ID
             player_count: 实际玩家数量
             headset_ids: 头显设备ID列表（可选）
@@ -505,7 +506,7 @@ class HeadsetServerClient:
         url = f"{self.base_url}/auth/game/authorize"
         headers = self._get_headers(session_id)
         payload = {
-            "app_id": app_id,
+            "app_code": app_code,
             "site_id": site_id,
             "player_count": player_count
         }
@@ -605,7 +606,7 @@ if __name__ == "__main__":
         # 5. 正式授权（扣费）
         print("\n执行游戏授权...")
         auth_result = client.authorize_game(
-            app_id=pre_auth_result['data']['app_id'],
+            app_code=params['app_code'],
             site_id=params['site_id'],
             player_count=actual_player_count,
             headset_ids=headset_ids
@@ -770,7 +771,7 @@ public class HeadsetServerClient
     }
 
     public async Task<AuthResponse> AuthorizeGame(
-        string appId,
+        string appCode,
         string siteId,
         int playerCount,
         string[] headsetIds = null)
@@ -780,7 +781,7 @@ public class HeadsetServerClient
 
         var payload = new
         {
-            app_id = appId,
+            app_code = appCode,
             site_id = siteId,
             player_count = playerCount,
             headset_ids = headsetIds
@@ -861,7 +862,7 @@ public class Program
                 // 4. 正式授权
                 Console.WriteLine("\n执行游戏授权...");
                 var auth = await client.AuthorizeGame(
-                    preAuth.Data.AppId,
+                    appCode,
                     siteId,
                     5,
                     new[] { "headset_001", "headset_002", "headset_003", "headset_004", "headset_005" }
@@ -998,7 +999,7 @@ def safe_start_game(launch_url: str):
 
         # 6. 正式授权
         auth = client.authorize_game(
-            app_id=pre_auth['data']['app_id'],
+            app_code=params['app_code'],
             site_id=params['site_id'],
             player_count=actual_players,
             headset_ids=headset_ids

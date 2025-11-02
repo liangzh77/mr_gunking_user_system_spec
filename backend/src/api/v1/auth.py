@@ -158,16 +158,7 @@ async def authorize_game(
         )
 
     # ========== STEP 4: 解析并验证请求参数 ==========
-    try:
-        app_id = UUID(request_body.app_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error_code": "INVALID_APP_ID",
-                "message": f"应用ID格式错误: {request_body.app_id}"
-            }
-        )
+    app_code = request_body.app_code
 
     try:
         site_id = UUID(request_body.site_id)
@@ -183,9 +174,9 @@ async def authorize_game(
     # ========== STEP 5: 验证运营点归属 ==========
     site = await auth_service.verify_site_ownership(site_id, operator.id)
 
-    # ========== STEP 6: 验证应用授权 ==========
-    application, authorization = await auth_service.verify_application_authorization(
-        app_id,
+    # ========== STEP 6: 通过app_code查询应用并验证授权 ==========
+    application, authorization = await auth_service.verify_application_authorization_by_code(
+        app_code,
         operator.id
     )
 
@@ -308,16 +299,7 @@ async def pre_authorize_game(
         )
 
     # ========== STEP 3: 解析并验证请求参数 ==========
-    try:
-        app_id = UUID(request_body.app_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error_code": "INVALID_APP_ID",
-                "message": f"应用ID格式错误: {request_body.app_id}"
-            }
-        )
+    app_code = request_body.app_code
 
     try:
         site_id = UUID(request_body.site_id)
@@ -333,9 +315,9 @@ async def pre_authorize_game(
     # ========== STEP 4: 验证运营点归属 ==========
     site = await auth_service.verify_site_ownership(site_id, UUID(operator_id))
 
-    # ========== STEP 5: 验证应用授权 ==========
-    application, authorization = await auth_service.verify_application_authorization(
-        app_id,
+    # ========== STEP 5: 通过app_code验证应用授权 ==========
+    application, authorization = await auth_service.verify_application_authorization_by_code(
+        app_code,
         UUID(operator_id)
     )
 
@@ -359,6 +341,7 @@ async def pre_authorize_game(
     from ...core.utils import cents_to_yuan
     response_data = GamePreAuthorizeData(
         can_authorize=can_authorize,
+        app_code=application.app_code,
         app_name=application.app_name,
         player_count=request_body.player_count,
         unit_price=cents_to_yuan(application.price_per_player),

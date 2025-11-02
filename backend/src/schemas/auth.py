@@ -209,17 +209,17 @@ class GameAuthorizeRequest(BaseModel):
     """游戏授权请求体
 
     请求参数验证:
-    - app_id: 应用ID(非空)
+    - app_code: 应用代码(非空)
     - site_id: 运营点ID(非空)
     - player_count: 玩家数量(1-100)
     - headset_ids: 头显设备ID列表(可选)
     """
 
-    app_id: str = Field(
+    app_code: str = Field(
         ...,
-        description="应用ID",
+        description="应用代码",
         min_length=1,
-        examples=["app_space_adventure_001"]
+        examples=["APP_20251030_001"]
     )
 
     site_id: str = Field(
@@ -246,7 +246,7 @@ class GameAuthorizeRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "app_id": "app_space_adventure_001",
+                "app_code": "APP_20251030_001",
                 "site_id": "site_beijing_001",
                 "player_count": 5,
                 "headset_ids": ["headset_001", "headset_002"]
@@ -477,6 +477,12 @@ class GamePreAuthorizeData(BaseModel):
         ...,
         description="是否可以授权",
         examples=[True]
+    )
+
+    app_code: str = Field(
+        ...,
+        description="应用代码",
+        examples=["APP_20251030_001"]
     )
 
     app_name: str = Field(
