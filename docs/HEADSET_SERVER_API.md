@@ -1,7 +1,7 @@
 # 头显Server对接API文档
 
-**版本**: v1.0
-**更新时间**: 2025-10-31
+**版本**: v2.0
+**更新时间**: 2025-11-02
 **适用对象**: 头显Server开发者
 
 ---
@@ -33,38 +33,83 @@
 ### 核心流程
 
 ```
-1. 玩家启动游戏
+1. 运营商在后台点击"启动应用"
    ↓
-2. 头显Server请求授权 [POST /api/v1/game/authorize]
+2. 前端生成24小时有效的Headset Token
    ↓
-3. 系统验证运营商资质、余额，扣费
+3. 前端通过自定义协议启动头显Server (mrgun-{exe_name}://start?token=...&app_code=...&site_id=...)
    ↓
-4. 返回授权Token
+4. 头显Server解析URL参数，获取Token、app_code、site_id
    ↓
-5. 游戏运行
+5. 头显Server调用 POST /api/v1/auth/game/pre-authorize 预授权（可选）
    ↓
-6. 游戏结束（可选：主动结束会话）
+6. 玩家佩戴头显，确定玩家数量
+   ↓
+7. 头显Server请求正式授权 [POST /api/v1/auth/game/authorize]
+   ↓
+8. 系统验证Token、运营商资质、余额，扣费
+   ↓
+9. 返回授权Token
+   ↓
+10. 游戏运行
+   ↓
+11. 游戏结束（可选：上传游戏会话数据）
 ```
 
 ---
 
 ## 接入准备
 
-### 1. 获取API凭证
+### 1. 获取启动参数
 
-登录运营商后台（https://mrgun.chu-jiao.com/operator），进入"个人中心"：
+运营商在后台点击"启动应用"时，系统会通过自定义协议启动头显Server：
 
-- **运营商ID**: `operator_id` (示例: `e930ecfe-28e9-4360-afdd-76caf6bf7bb1`)
-- **API Key**: 64位字符串 (示例: `api_key_1234567890abcdef...`)
+**协议格式**: `mrgun-{exe_name}://start?token={headset_token}&app_code={app_code}&site_id={site_id}`
 
-### 2. 环境信息
+**示例URL**:
+```
+mrgun-HeadsetServer://start?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&app_code=APP_20251030_001&site_id=site_144c10e2-7c9b-4d07-a42c-05f736654d87
+```
+
+**URL参数说明**:
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| token | string | 24小时有效的Headset Token (JWT格式) |
+| app_code | string | 应用代码 (如: APP_20251030_001) |
+| site_id | string(UUID) | 运营点ID |
+
+### 2. 注册自定义协议
+
+**Windows注册表脚本示例** (mrgun-HeadsetServer.reg):
+
+```reg
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\mrgun-HeadsetServer]
+@="URL:MR Gun HeadsetServer Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\mrgun-HeadsetServer\shell]
+
+[HKEY_CLASSES_ROOT\mrgun-HeadsetServer\shell\open]
+
+[HKEY_CLASSES_ROOT\mrgun-HeadsetServer\shell\open\command]
+@="\"C:\\Program Files\\MRGaming\\HeadsetServer.exe\" \"%1\""
+```
+
+**注意**:
+- 协议名称格式: `mrgun-{exe文件名}` (使用连字符，不是下划线)
+- 运营商可在后台下载注册表脚本，无需手动编写
+
+### 3. 环境信息
 
 | 环境 | Base URL | 用途 |
 |------|----------|------|
 | 生产环境 | `https://mrgun.chu-jiao.com/api/v1` | 正式使用 |
 | 测试环境 | `https://localhost/api/v1` | 开发测试 |
 
-### 3. 技术要求
+### 4. 技术要求
 
 - **协议**: HTTPS (生产环境必须)
 - **请求格式**: JSON
@@ -75,54 +120,86 @@
 
 ## 认证机制
 
-### 请求头认证
+### Headset Token认证
 
-所有API请求需要在HTTP Header中携带：
+所有游戏授权API请求需要在HTTP Header中携带Headset Token：
 
 ```http
-X-API-Key: your_api_key_here
+Authorization: Bearer {headset_token}
 Content-Type: application/json
 ```
+
+**Token特性**:
+- 有效期: 24小时
+- 格式: JWT
+- 包含信息: operator_id, user_type (headset)
+- 用途: 代表运营商身份调用游戏授权API
 
 **示例**:
 ```http
-POST /api/v1/game/authorize HTTP/1.1
+POST /api/v1/auth/game/authorize HTTP/1.1
 Host: mrgun.chu-jiao.com
-X-API-Key: api_key_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
+X-Session-ID: 3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8
+X-Timestamp: 1730451234
+X-Signature: dGVzdF9zaWduYXR1cmU=
 
 {
-  "app_code": "space_adventure",
+  "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+  "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
   "player_count": 5,
-  "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7"
+  "headset_ids": ["headset_001", "headset_002"]
 }
 ```
+
+### 会话ID规范 (重要)
+
+**格式**: `{operatorId}_{13位毫秒时间戳}_{16位随机字符}`
+
+**示例**: `3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8`
+
+**要求**:
+- `operatorId`: 从Headset Token中提取的运营商UUID
+- `timestamp`: 13位Unix毫秒时间戳，必须在当前时间前后5分钟内
+- `random`: 16位字母数字随机字符 (a-z, A-Z, 0-9)
+
+**用途**:
+- **幂等性保护**: 相同会话ID重复请求不会重复扣费
+- **防重放攻击**: 时间戳验证防止请求重放
+- **会话追踪**: 唯一标识一次游戏会话
+
+### HMAC签名 (暂未实施)
+
+未来版本将支持HMAC-SHA256签名验证，增强安全性。
 
 ---
 
 ## 核心接口
 
-### 1. 游戏授权（最重要）
+### 1. 游戏预授权 (可选)
 
-**接口**: `POST /api/v1/game/authorize`
+**接口**: `POST /api/v1/auth/game/pre-authorize`
 
-**用途**: 启动游戏前请求授权并扣费
+**用途**: 游戏启动前进行预检查，验证应用授权、余额等，但不扣费
+
+**认证**: Bearer Token (Headset Token)
 
 **请求参数**:
 
 ```json
 {
-  "app_code": "space_adventure",
-  "player_count": 5,
-  "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7"
+  "app_code": "APP_20251030_001",
+  "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
+  "estimated_player_count": 5
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| app_code | string | 是 | 应用代码（如：space_adventure） |
-| player_count | integer | 是 | 玩家数量（2-8人） |
+| app_code | string | 是 | 应用代码 |
 | site_id | string(UUID) | 是 | 运营点ID |
+| estimated_player_count | integer | 是 | 预估玩家数量（1-100） |
 
 **成功响应** (HTTP 200):
 
@@ -130,20 +207,101 @@ Content-Type: application/json
 {
   "success": true,
   "data": {
-    "usage_record_id": "550e8400-e29b-41d4-a716-446655440000",
-    "session_id": "sess_1234567890",
-    "price_per_player": "10.00",
-    "total_cost": "50.00",
-    "authorization_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expires_at": "2025-10-31T18:00:00Z",
-    "balance_before": "1000.00",
-    "balance_after": "950.00"
+    "can_authorize": true,
+    "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+    "app_name": "太空射击",
+    "unit_price": "10.00",
+    "estimated_cost": "50.00",
+    "current_balance": "1000.00",
+    "min_players": 2,
+    "max_players": 8
   },
-  "message": "游戏授权成功"
+  "message": "预授权检查通过"
 }
 ```
 
-**失败响应** (HTTP 400/403):
+**失败响应** (HTTP 402 余额不足):
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INSUFFICIENT_BALANCE",
+    "message": "账户余额不足，当前余额: ¥30.00，预估需要: ¥50.00"
+  }
+}
+```
+
+---
+
+### 2. 游戏授权 (最重要)
+
+**接口**: `POST /api/v1/auth/game/authorize`
+
+**用途**: 启动游戏前请求正式授权并扣费
+
+**认证**: Bearer Token (Headset Token) + 会话ID + 时间戳 + HMAC签名
+
+**请求头**:
+
+```http
+Authorization: Bearer {headset_token}
+X-Session-ID: {operator_id}_{timestamp}_{random}
+X-Timestamp: {unix_timestamp_seconds}
+X-Signature: {hmac_sha256_base64}
+Content-Type: application/json
+```
+
+**请求参数**:
+
+```json
+{
+  "app_id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
+  "site_id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
+  "player_count": 5,
+  "headset_ids": ["headset_001", "headset_002", "headset_003", "headset_004", "headset_005"]
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| app_id | string(UUID) | 是 | 应用ID |
+| site_id | string(UUID) | 是 | 运营点ID |
+| player_count | integer | 是 | 实际玩家数量（1-100） |
+| headset_ids | array[string] | 否 | 头显设备ID列表（用于记录和统计） |
+
+**成功响应** (HTTP 200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "authorization_token": "550e8400-e29b-41d4-a716-446655440000",
+    "session_id": "3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8",
+    "app_name": "太空射击",
+    "player_count": 5,
+    "unit_price": "10.00",
+    "total_cost": "50.00",
+    "balance_after": "950.00",
+    "authorized_at": "2025-11-02T10:30:45.123Z"
+  }
+}
+```
+
+**响应字段说明**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| authorization_token | string(UUID) | 授权令牌，用于游戏内验证 |
+| session_id | string | 会话ID（与请求头中的一致） |
+| app_name | string | 应用名称 |
+| player_count | integer | 玩家数量 |
+| unit_price | string | 单人价格（保留2位小数） |
+| total_cost | string | 本次扣费总额 |
+| balance_after | string | 扣费后账户余额 |
+| authorized_at | string(ISO 8601) | 授权时间 |
+
+**失败响应** (HTTP 402 余额不足):
 
 ```json
 {
@@ -157,99 +315,70 @@ Content-Type: application/json
 
 **常见错误码**:
 
-| 错误码 | 说明 | 处理建议 |
-|--------|------|----------|
-| `INSUFFICIENT_BALANCE` | 余额不足 | 提示运营商充值 |
-| `INVALID_APP_CODE` | 应用代码不存在 | 检查app_code是否正确 |
-| `APP_NOT_AUTHORIZED` | 应用未授权 | 联系管理员授权 |
-| `INVALID_PLAYER_COUNT` | 玩家数量超出范围 | 检查player_count是否在允许范围内 |
-| `SITE_NOT_FOUND` | 运营点不存在 | 检查site_id是否正确 |
-| `INVALID_API_KEY` | API密钥无效 | 检查API Key是否正确 |
+| HTTP状态码 | 错误码 | 说明 | 处理建议 |
+|-----------|--------|------|----------|
+| 400 | `INVALID_APP_ID` | 应用ID格式错误 | 检查app_id格式 |
+| 400 | `INVALID_SITE_ID` | 运营点ID格式错误 | 检查site_id格式 |
+| 400 | `INVALID_SESSION_ID` | 会话ID格式错误 | 检查会话ID生成逻辑 |
+| 400 | `INVALID_PLAYER_COUNT` | 玩家数量超出范围 | 确认在min_players和max_players之间 |
+| 401 | `INVALID_TOKEN` | Token无效或已过期 | 重新获取Token |
+| 402 | `INSUFFICIENT_BALANCE` | 余额不足 | 提示运营商充值 |
+| 403 | `APP_NOT_AUTHORIZED` | 应用未授权 | 联系管理员授权应用 |
+| 403 | `SITE_NOT_OWNED` | 运营点不属于该运营商 | 检查site_id是否正确 |
+| 409 | `SESSION_ALREADY_EXISTS` | 会话ID重复（幂等性保护） | 返回已授权信息，不重复扣费 |
+
+**幂等性保护**:
+- 相同会话ID的重复请求会返回已授权的信息
+- HTTP状态码: 200 (不是409)
+- 不会重复扣费
+- 适用场景: 网络重试、客户端重复请求
 
 ---
 
-### 2. 查询余额
+### 3. 上传游戏会话数据 (可选)
 
-**接口**: `GET /api/v1/operators/balance`
+**接口**: `POST /api/v1/auth/game/sessions/upload`
 
-**用途**: 查询运营商账户余额
+**用途**: 游戏结束后上传会话数据（游戏时长、头显信息等）
 
-**请求参数**: 无
+**认证**: Bearer Token (Headset Token)
 
-**成功响应** (HTTP 200):
-
-```json
-{
-  "balance": "1000.00",
-  "currency": "CNY"
-}
-```
-
----
-
-### 3. 查询已授权应用
-
-**接口**: `GET /api/v1/operators/applications`
-
-**用途**: 获取运营商已授权的应用列表
-
-**请求参数**: 无
-
-**成功响应** (HTTP 200):
+**请求参数**:
 
 ```json
 {
-  "items": [
+  "session_id": "3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8",
+  "game_duration_seconds": 1800,
+  "headset_records": [
     {
-      "id": "32d012d9-b798-4f78-8e96-3ce87bbbd3f5",
-      "app_code": "space_adventure",
-      "app_name": "太空探险",
-      "description": "VR太空探险游戏",
-      "price_per_player": "10.00",
-      "min_players": 2,
-      "max_players": 8,
-      "is_active": true
+      "headset_id": "headset_001",
+      "player_name": "Player1",
+      "play_time_seconds": 1800
     },
     {
-      "id": "d64de826-4044-4a5a-811f-2ab3d3d8d739",
-      "app_code": "star_war",
-      "app_name": "星际战争",
-      "description": "多人星际对战",
-      "price_per_player": "15.00",
-      "min_players": 4,
-      "max_players": 8,
-      "is_active": true
+      "headset_id": "headset_002",
+      "player_name": "Player2",
+      "play_time_seconds": 1750
     }
-  ],
-  "total": 2
+  ]
 }
 ```
 
----
-
-### 4. 查询运营点列表
-
-**接口**: `GET /api/v1/operators/sites`
-
-**用途**: 获取运营商的运营点列表
-
-**请求参数**: 无
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| session_id | string | 是 | 会话ID |
+| game_duration_seconds | integer | 是 | 游戏总时长（秒） |
+| headset_records | array | 否 | 头显游戏记录列表 |
+| headset_records[].headset_id | string | 是 | 头显设备ID |
+| headset_records[].player_name | string | 否 | 玩家昵称 |
+| headset_records[].play_time_seconds | integer | 是 | 该头显游戏时长（秒） |
 
 **成功响应** (HTTP 200):
 
 ```json
 {
-  "items": [
-    {
-      "id": "9afdc97b-7d33-485e-845c-55f041a6b5a7",
-      "name": "北京朝阳店",
-      "address": "北京市朝阳区xxx路xxx号",
-      "contact_person": "张三",
-      "contact_phone": "13800138000",
-      "is_active": true
-    }
-  ],
-  "total": 1
+  "success": true,
+  "message": "游戏会话数据已上传"
 }
 ```
 
@@ -261,77 +390,276 @@ Content-Type: application/json
 
 ```python
 import requests
-import uuid
+import time
+import secrets
+import urllib.parse
+from typing import Optional
 
-class MRGameClient:
-    def __init__(self, api_key: str, base_url: str):
-        self.api_key = api_key
+class HeadsetServerClient:
+    def __init__(self, base_url: str, headset_token: str):
+        """初始化客户端
+
+        Args:
+            base_url: API基础URL (如: https://mrgun.chu-jiao.com/api/v1)
+            headset_token: 从启动URL中提取的Headset Token
+        """
         self.base_url = base_url.rstrip('/')
-        self.headers = {
-            'X-API-Key': api_key,
-            'Content-Type': 'application/json'
+        self.headset_token = headset_token
+        self.operator_id = self._extract_operator_id_from_token()
+
+    def _extract_operator_id_from_token(self) -> str:
+        """从JWT Token中提取operator_id"""
+        import base64
+        import json
+
+        # JWT格式: header.payload.signature
+        parts = self.headset_token.split('.')
+        if len(parts) != 3:
+            raise ValueError("Invalid JWT token format")
+
+        # 解码payload (需要补充padding)
+        payload = parts[1]
+        payload += '=' * (4 - len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload)
+        data = json.loads(decoded)
+
+        return data['sub']  # operator_id存储在'sub'字段
+
+    def _generate_session_id(self) -> str:
+        """生成符合规范的会话ID
+
+        格式: {operatorId}_{13位毫秒时间戳}_{16位随机字符}
+        """
+        timestamp_ms = int(time.time() * 1000)
+        random_str = secrets.token_hex(8)  # 16位十六进制字符
+        return f"{self.operator_id}_{timestamp_ms}_{random_str}"
+
+    def _get_headers(self, session_id: str) -> dict:
+        """构造请求头
+
+        Args:
+            session_id: 会话ID
+
+        Returns:
+            请求头字典
+        """
+        timestamp = int(time.time())
+        # TODO: 实现HMAC签名
+        signature = "test_signature_placeholder"
+
+        return {
+            'Authorization': f'Bearer {self.headset_token}',
+            'Content-Type': 'application/json',
+            'X-Session-ID': session_id,
+            'X-Timestamp': str(timestamp),
+            'X-Signature': signature
         }
 
-    def check_balance(self) -> dict:
-        """查询余额"""
-        url = f"{self.base_url}/operators/balance"
-        response = requests.get(url, headers=self.headers, timeout=30)
-        response.raise_for_status()
-        return response.json()
+    def pre_authorize(
+        self,
+        app_code: str,
+        site_id: str,
+        estimated_player_count: int
+    ) -> dict:
+        """预授权检查
 
-    def authorize_game(self, app_code: str, player_count: int, site_id: str) -> dict:
-        """游戏授权"""
-        url = f"{self.base_url}/game/authorize"
+        Args:
+            app_code: 应用代码
+            site_id: 运营点ID
+            estimated_player_count: 预估玩家数量
+
+        Returns:
+            预授权响应数据
+        """
+        url = f"{self.base_url}/auth/game/pre-authorize"
+        headers = {'Authorization': f'Bearer {self.headset_token}'}
         payload = {
             "app_code": app_code,
-            "player_count": player_count,
-            "site_id": site_id
+            "site_id": site_id,
+            "estimated_player_count": estimated_player_count
         }
-        response = requests.post(url, headers=self.headers, json=payload, timeout=30)
+
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
         return response.json()
 
-# 使用示例
+    def authorize_game(
+        self,
+        app_id: str,
+        site_id: str,
+        player_count: int,
+        headset_ids: Optional[list[str]] = None
+    ) -> dict:
+        """游戏授权（扣费）
+
+        Args:
+            app_id: 应用ID
+            site_id: 运营点ID
+            player_count: 实际玩家数量
+            headset_ids: 头显设备ID列表（可选）
+
+        Returns:
+            授权响应数据
+        """
+        session_id = self._generate_session_id()
+        url = f"{self.base_url}/auth/game/authorize"
+        headers = self._get_headers(session_id)
+        payload = {
+            "app_id": app_id,
+            "site_id": site_id,
+            "player_count": player_count
+        }
+
+        if headset_ids:
+            payload["headset_ids"] = headset_ids
+
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+    def upload_session_data(
+        self,
+        session_id: str,
+        game_duration_seconds: int,
+        headset_records: Optional[list[dict]] = None
+    ) -> dict:
+        """上传游戏会话数据
+
+        Args:
+            session_id: 会话ID
+            game_duration_seconds: 游戏总时长（秒）
+            headset_records: 头显游戏记录列表
+
+        Returns:
+            上传响应数据
+        """
+        url = f"{self.base_url}/auth/game/sessions/upload"
+        headers = {'Authorization': f'Bearer {self.headset_token}'}
+        payload = {
+            "session_id": session_id,
+            "game_duration_seconds": game_duration_seconds
+        }
+
+        if headset_records:
+            payload["headset_records"] = headset_records
+
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+
+# ========== 使用示例 ==========
+
+def parse_launch_url(url: str) -> dict:
+    """解析启动URL
+
+    Args:
+        url: 启动URL (如: mrgun-HeadsetServer://start?token=...&app_code=...&site_id=...)
+
+    Returns:
+        解析后的参数字典
+    """
+    parsed = urllib.parse.urlparse(url)
+    params = urllib.parse.parse_qs(parsed.query)
+
+    return {
+        'token': params.get('token', [None])[0],
+        'app_code': params.get('app_code', [None])[0],
+        'site_id': params.get('site_id', [None])[0]
+    }
+
+
 if __name__ == "__main__":
-    # 初始化客户端
-    client = MRGameClient(
-        api_key="your_api_key_here",
-        base_url="https://mrgun.chu-jiao.com/api/v1"
+    # 1. 解析启动URL
+    launch_url = "mrgun-HeadsetServer://start?token=eyJhbG...&app_code=APP_20251030_001&site_id=9afdc97b-7d33-485e-845c-55f041a6b5a7"
+    params = parse_launch_url(launch_url)
+
+    # 2. 初始化客户端
+    client = HeadsetServerClient(
+        base_url="https://mrgun.chu-jiao.com/api/v1",
+        headset_token=params['token']
     )
 
     try:
-        # 1. 检查余额
-        balance_result = client.check_balance()
-        print(f"当前余额: ¥{balance_result['balance']}")
+        # 3. 预授权检查（可选）
+        print("执行预授权检查...")
+        pre_auth_result = client.pre_authorize(
+            app_code=params['app_code'],
+            site_id=params['site_id'],
+            estimated_player_count=5
+        )
 
-        # 2. 请求游戏授权
+        if pre_auth_result['data']['can_authorize']:
+            print(f"✅ 预授权通过")
+            print(f"   应用名称: {pre_auth_result['data']['app_name']}")
+            print(f"   预估费用: ¥{pre_auth_result['data']['estimated_cost']}")
+            print(f"   当前余额: ¥{pre_auth_result['data']['current_balance']}")
+        else:
+            print(f"❌ 预授权失败")
+            exit(1)
+
+        # 4. 等待玩家佩戴头显，确定实际玩家数量
+        actual_player_count = 5  # 实际检测到的玩家数量
+        headset_ids = ["headset_001", "headset_002", "headset_003", "headset_004", "headset_005"]
+
+        # 5. 正式授权（扣费）
+        print("\n执行游戏授权...")
         auth_result = client.authorize_game(
-            app_code="space_adventure",
-            player_count=5,
-            site_id="9afdc97b-7d33-485e-845c-55f041a6b5a7"
+            app_id=pre_auth_result['data']['app_id'],
+            site_id=params['site_id'],
+            player_count=actual_player_count,
+            headset_ids=headset_ids
         )
 
         if auth_result['success']:
             print(f"✅ 授权成功")
             print(f"   会话ID: {auth_result['data']['session_id']}")
+            print(f"   授权Token: {auth_result['data']['authorization_token']}")
             print(f"   费用: ¥{auth_result['data']['total_cost']}")
             print(f"   剩余余额: ¥{auth_result['data']['balance_after']}")
 
-            # 启动游戏
-            # start_game_with_token(auth_result['data']['authorization_token'])
+            # 6. 启动游戏
+            session_id = auth_result['data']['session_id']
+            auth_token = auth_result['data']['authorization_token']
+
+            print("\n🎮 启动游戏中...")
+            # start_game(auth_token, player_count)
+
+            # 7. 游戏结束后上传数据（可选）
+            game_duration = 1800  # 30分钟
+
+            print("\n上传游戏会话数据...")
+            upload_result = client.upload_session_data(
+                session_id=session_id,
+                game_duration_seconds=game_duration,
+                headset_records=[
+                    {"headset_id": "headset_001", "player_name": "Player1", "play_time_seconds": 1800},
+                    {"headset_id": "headset_002", "player_name": "Player2", "play_time_seconds": 1750},
+                    {"headset_id": "headset_003", "player_name": "Player3", "play_time_seconds": 1800},
+                    {"headset_id": "headset_004", "player_name": "Player4", "play_time_seconds": 1700},
+                    {"headset_id": "headset_005", "player_name": "Player5", "play_time_seconds": 1800},
+                ]
+            )
+
+            if upload_result['success']:
+                print(f"✅ 会话数据上传成功")
         else:
-            print(f"❌ 授权失败: {auth_result['error']['message']}")
+            print(f"❌ 授权失败: {auth_result.get('error', {}).get('message')}")
 
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 400:
+        if e.response.status_code == 402:
             error = e.response.json()
-            print(f"请求错误: {error['error']['message']}")
+            print(f"❌ 余额不足: {error['error']['message']}")
+        elif e.response.status_code == 401:
+            print(f"❌ Token无效或已过期，请重新启动")
         elif e.response.status_code == 403:
-            print("认证失败，请检查API Key")
+            error = e.response.json()
+            print(f"❌ 权限错误: {error['error']['message']}")
         else:
-            print(f"HTTP错误: {e}")
+            print(f"❌ HTTP错误: {e}")
+
     except Exception as e:
-        print(f"系统错误: {e}")
+        print(f"❌ 系统错误: {e}")
 ```
 
 ### C# 示例
@@ -342,90 +670,232 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.Web;
 
-public class MRGameClient
+public class HeadsetServerClient
 {
-    private readonly string _apiKey;
     private readonly string _baseUrl;
+    private readonly string _headsetToken;
+    private readonly string _operatorId;
     private readonly HttpClient _httpClient;
 
-    public MRGameClient(string apiKey, string baseUrl)
+    public HeadsetServerClient(string baseUrl, string headsetToken)
     {
-        _apiKey = apiKey;
         _baseUrl = baseUrl.TrimEnd('/');
+        _headsetToken = headsetToken;
+        _operatorId = ExtractOperatorIdFromToken(headsetToken);
         _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
     }
 
-    public async Task<BalanceResponse> CheckBalance()
+    private string ExtractOperatorIdFromToken(string token)
     {
-        var response = await _httpClient.GetAsync($"{_baseUrl}/operators/balance");
-        response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<BalanceResponse>(json);
+        // JWT格式: header.payload.signature
+        var parts = token.Split('.');
+        if (parts.Length != 3)
+            throw new ArgumentException("Invalid JWT token format");
+
+        // 解码payload
+        var payload = parts[1];
+        var padding = (4 - payload.Length % 4) % 4;
+        payload += new string('=', padding);
+
+        var decoded = Convert.FromBase64String(payload);
+        var json = Encoding.UTF8.GetString(decoded);
+        var data = JsonDocument.Parse(json);
+
+        return data.RootElement.GetProperty("sub").GetString();
     }
 
-    public async Task<AuthorizeResponse> AuthorizeGame(
+    private string GenerateSessionId()
+    {
+        // 格式: {operatorId}_{13位毫秒时间戳}_{16位随机字符}
+        var timestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var randomBytes = new byte[8];
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomBytes);
+        }
+        var randomHex = BitConverter.ToString(randomBytes).Replace("-", "").ToLower();
+
+        return $"{_operatorId}_{timestampMs}_{randomHex}";
+    }
+
+    private HttpRequestMessage CreateRequest(
+        HttpMethod method,
+        string endpoint,
+        string sessionId = null)
+    {
+        var request = new HttpRequestMessage(method, $"{_baseUrl}{endpoint}");
+        request.Headers.Add("Authorization", $"Bearer {_headsetToken}");
+
+        if (!string.IsNullOrEmpty(sessionId))
+        {
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            // TODO: 实现HMAC签名
+            var signature = "test_signature_placeholder";
+
+            request.Headers.Add("X-Session-ID", sessionId);
+            request.Headers.Add("X-Timestamp", timestamp.ToString());
+            request.Headers.Add("X-Signature", signature);
+        }
+
+        return request;
+    }
+
+    public async Task<PreAuthResponse> PreAuthorize(
         string appCode,
-        int playerCount,
-        string siteId)
+        string siteId,
+        int estimatedPlayerCount)
     {
+        var request = CreateRequest(HttpMethod.Post, "/auth/game/pre-authorize");
         var payload = new
         {
             app_code = appCode,
-            player_count = playerCount,
-            site_id = siteId
+            site_id = siteId,
+            estimated_player_count = estimatedPlayerCount
         };
 
-        var content = new StringContent(
+        request.Content = new StringContent(
             JsonSerializer.Serialize(payload),
             Encoding.UTF8,
             "application/json"
         );
 
-        var response = await _httpClient.PostAsync(
-            $"{_baseUrl}/game/authorize",
-            content
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<PreAuthResponse>(json);
+    }
+
+    public async Task<AuthResponse> AuthorizeGame(
+        string appId,
+        string siteId,
+        int playerCount,
+        string[] headsetIds = null)
+    {
+        var sessionId = GenerateSessionId();
+        var request = CreateRequest(HttpMethod.Post, "/auth/game/authorize", sessionId);
+
+        var payload = new
+        {
+            app_id = appId,
+            site_id = siteId,
+            player_count = playerCount,
+            headset_ids = headsetIds
+        };
+
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json"
         );
 
+        var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
+
         var json = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<AuthorizeResponse>(json);
+        return JsonSerializer.Deserialize<AuthResponse>(json);
+    }
+
+    public async Task<UploadResponse> UploadSessionData(
+        string sessionId,
+        int gameDurationSeconds,
+        HeadsetRecord[] headsetRecords = null)
+    {
+        var request = CreateRequest(HttpMethod.Post, "/auth/game/sessions/upload");
+        var payload = new
+        {
+            session_id = sessionId,
+            game_duration_seconds = gameDurationSeconds,
+            headset_records = headsetRecords
+        };
+
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<UploadResponse>(json);
     }
 }
 
 // 使用示例
 public class Program
 {
-    public static async Task Main()
+    public static async Task Main(string[] args)
     {
-        var client = new MRGameClient(
-            "your_api_key_here",
-            "https://mrgun.chu-jiao.com/api/v1"
+        // 1. 解析启动URL参数
+        var launchUrl = "mrgun-HeadsetServer://start?token=eyJhbG...&app_code=APP_20251030_001&site_id=9afdc97b-7d33-485e-845c-55f041a6b5a7";
+        var uri = new Uri(launchUrl);
+        var query = HttpUtility.ParseQueryString(uri.Query);
+
+        var headsetToken = query["token"];
+        var appCode = query["app_code"];
+        var siteId = query["site_id"];
+
+        // 2. 初始化客户端
+        var client = new HeadsetServerClient(
+            "https://mrgun.chu-jiao.com/api/v1",
+            headsetToken
         );
 
         try
         {
-            // 查询余额
-            var balance = await client.CheckBalance();
-            Console.WriteLine($"当前余额: ¥{balance.Balance}");
+            // 3. 预授权检查
+            Console.WriteLine("执行预授权检查...");
+            var preAuth = await client.PreAuthorize(appCode, siteId, 5);
 
-            // 请求授权
-            var auth = await client.AuthorizeGame(
-                "space_adventure",
-                5,
-                "9afdc97b-7d33-485e-845c-55f041a6b5a7"
-            );
-
-            if (auth.Success)
+            if (preAuth.Data.CanAuthorize)
             {
-                Console.WriteLine($"✅ 授权成功");
-                Console.WriteLine($"   费用: ¥{auth.Data.TotalCost}");
+                Console.WriteLine($"✅ 预授权通过");
+                Console.WriteLine($"   应用名称: {preAuth.Data.AppName}");
+                Console.WriteLine($"   预估费用: ¥{preAuth.Data.EstimatedCost}");
+
+                // 4. 正式授权
+                Console.WriteLine("\n执行游戏授权...");
+                var auth = await client.AuthorizeGame(
+                    preAuth.Data.AppId,
+                    siteId,
+                    5,
+                    new[] { "headset_001", "headset_002", "headset_003", "headset_004", "headset_005" }
+                );
+
+                if (auth.Success)
+                {
+                    Console.WriteLine($"✅ 授权成功");
+                    Console.WriteLine($"   费用: ¥{auth.Data.TotalCost}");
+                    Console.WriteLine($"   剩余余额: ¥{auth.Data.BalanceAfter}");
+
+                    // 5. 启动游戏
+                    Console.WriteLine("\n🎮 启动游戏中...");
+                    // StartGame(auth.Data.AuthorizationToken, auth.Data.PlayerCount);
+
+                    // 6. 游戏结束后上传数据
+                    Console.WriteLine("\n上传游戏会话数据...");
+                    var upload = await client.UploadSessionData(
+                        auth.Data.SessionId,
+                        1800,
+                        new[]
+                        {
+                            new HeadsetRecord { HeadsetId = "headset_001", PlayerName = "Player1", PlayTimeSeconds = 1800 },
+                            new HeadsetRecord { HeadsetId = "headset_002", PlayerName = "Player2", PlayTimeSeconds = 1750 }
+                        }
+                    );
+
+                    Console.WriteLine("✅ 会话数据上传成功");
+                }
             }
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"请求错误: {ex.Message}");
+            Console.WriteLine($"❌ 请求错误: {ex.Message}");
         }
     }
 }
@@ -441,22 +911,28 @@ public class Program
 |--------|------|----------|
 | 200 | 成功 | 正常处理响应数据 |
 | 400 | 请求参数错误 | 检查请求参数，显示错误信息 |
-| 401 | 未认证 | 检查API Key是否设置 |
-| 403 | 认证失败/无权限 | 检查API Key是否正确 |
-| 404 | 资源不存在 | 检查请求URL和资源ID |
+| 401 | Token无效或已过期 | 提示用户重新启动应用 |
+| 402 | 余额不足 | 提示运营商充值 |
+| 403 | 无权限（应用未授权等） | 显示错误信息，联系管理员 |
+| 409 | 会话重复（幂等性） | 使用返回的授权信息，继续游戏 |
 | 500 | 服务器错误 | 稍后重试，或联系技术支持 |
-| 503 | 服务不可用 | 稍后重试 |
 
 ### 重试策略
 
-建议实现指数退避重试：
+建议实现指数退避重试（仅针对网络错误和5xx错误）：
 
 ```python
 import time
-from typing import Optional
+import requests
 
 def retry_request(func, max_retries=3, initial_delay=1):
-    """带重试的请求"""
+    """带重试的请求
+
+    Args:
+        func: 请求函数
+        max_retries: 最大重试次数
+        initial_delay: 初始延迟（秒）
+    """
     last_exception = None
 
     for attempt in range(max_retries):
@@ -464,6 +940,13 @@ def retry_request(func, max_retries=3, initial_delay=1):
             return func()
         except requests.exceptions.RequestException as e:
             last_exception = e
+
+            # 只重试网络错误和5xx错误
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code < 500:
+                    # 4xx错误不重试
+                    raise
+
             if attempt < max_retries - 1:
                 delay = initial_delay * (2 ** attempt)
                 print(f"请求失败，{delay}秒后重试... ({attempt + 1}/{max_retries})")
@@ -478,38 +961,144 @@ def retry_request(func, max_retries=3, initial_delay=1):
 
 ## 最佳实践
 
-### 1. 启动前检查余额
+### 1. 启动流程推荐
 
 ```python
-def safe_start_game(client, app_code, player_count, site_id):
-    """安全启动游戏"""
-    # 1. 先查询余额
-    balance = client.check_balance()
+def safe_start_game(launch_url: str):
+    """安全启动游戏流程"""
 
-    # 2. 预估费用（假设单价10元）
-    estimated_cost = player_count * 10
+    # 1. 解析启动URL
+    params = parse_launch_url(launch_url)
 
-    # 3. 余额检查
-    if float(balance['balance']) < estimated_cost:
-        return {
-            'success': False,
-            'message': f'余额不足，需要¥{estimated_cost}，当前余额¥{balance["balance"]}'
-        }
+    # 2. 初始化客户端
+    client = HeadsetServerClient(BASE_URL, params['token'])
 
-    # 4. 请求授权
-    return client.authorize_game(app_code, player_count, site_id)
+    try:
+        # 3. 预授权检查（推荐）
+        pre_auth = client.pre_authorize(
+            app_code=params['app_code'],
+            site_id=params['site_id'],
+            estimated_player_count=MAX_PLAYERS
+        )
+
+        # 4. 显示预授权信息给操作员
+        show_pre_auth_info(
+            app_name=pre_auth['data']['app_name'],
+            estimated_cost=pre_auth['data']['estimated_cost'],
+            current_balance=pre_auth['data']['current_balance'],
+            min_players=pre_auth['data']['min_players'],
+            max_players=pre_auth['data']['max_players']
+        )
+
+        # 5. 等待玩家准备
+        actual_players, headset_ids = wait_for_players(
+            min_players=pre_auth['data']['min_players'],
+            max_players=pre_auth['data']['max_players']
+        )
+
+        # 6. 正式授权
+        auth = client.authorize_game(
+            app_id=pre_auth['data']['app_id'],
+            site_id=params['site_id'],
+            player_count=actual_players,
+            headset_ids=headset_ids
+        )
+
+        # 7. 启动游戏
+        start_game(auth['data']['authorization_token'], actual_players)
+
+        # 8. 记录会话ID，游戏结束后上传数据
+        save_session_id(auth['data']['session_id'])
+
+    except requests.exceptions.HTTPError as e:
+        handle_http_error(e)
 ```
 
 ### 2. 会话ID管理
 
-会话ID由系统自动生成，无需客户端提供。每次授权请求会返回唯一的`session_id`。
+```python
+import secrets
+import time
+
+class SessionManager:
+    """会话ID管理器"""
+
+    def __init__(self, operator_id: str):
+        self.operator_id = operator_id
+        self.current_session_id = None
+
+    def generate_new_session(self) -> str:
+        """生成新的会话ID"""
+        timestamp_ms = int(time.time() * 1000)
+        random_str = secrets.token_hex(8)  # 16位十六进制
+
+        self.current_session_id = f"{self.operator_id}_{timestamp_ms}_{random_str}"
+        return self.current_session_id
+
+    def get_current_session(self) -> str:
+        """获取当前会话ID（用于重试）"""
+        if not self.current_session_id:
+            raise ValueError("No active session")
+        return self.current_session_id
+
+    def clear_session(self):
+        """清除当前会话"""
+        self.current_session_id = None
+```
 
 ### 3. 离线处理
 
 如果网络断开，建议：
-- 记录离线期间的游戏会话
-- 网络恢复后补发授权请求
+- 记录离线期间的游戏会话信息
+- 网络恢复后补发授权请求（使用相同会话ID，利用幂等性）
 - 实现本地队列机制
+
+```python
+import json
+import os
+
+class OfflineQueue:
+    """离线请求队列"""
+
+    def __init__(self, queue_file='offline_queue.json'):
+        self.queue_file = queue_file
+        self.queue = self._load_queue()
+
+    def _load_queue(self) -> list:
+        """加载离线队列"""
+        if os.path.exists(self.queue_file):
+            with open(self.queue_file, 'r') as f:
+                return json.load(f)
+        return []
+
+    def _save_queue(self):
+        """保存离线队列"""
+        with open(self.queue_file, 'w') as f:
+            json.dump(self.queue, f, indent=2)
+
+    def add_request(self, request_data: dict):
+        """添加离线请求"""
+        self.queue.append({
+            'timestamp': time.time(),
+            'data': request_data
+        })
+        self._save_queue()
+
+    def process_queue(self, client):
+        """处理离线队列"""
+        while self.queue:
+            item = self.queue[0]
+
+            try:
+                # 尝试发送请求
+                client.authorize_game(**item['data'])
+                # 成功后移除
+                self.queue.pop(0)
+                self._save_queue()
+            except Exception as e:
+                print(f"离线请求处理失败: {e}")
+                break
+```
 
 ### 4. 日志记录
 
@@ -517,17 +1106,30 @@ def safe_start_game(client, app_code, player_count, site_id):
 
 ```python
 import logging
+import json
 
-logger = logging.getLogger('mr_game_client')
+logger = logging.getLogger('headset_server_client')
 logger.setLevel(logging.INFO)
 
+# 文件处理器
+file_handler = logging.FileHandler('headset_api.log')
+file_handler.setLevel(logging.INFO)
+
+# 格式化器
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 def log_api_call(method, url, request_data, response_data, status_code):
+    """记录API调用"""
     logger.info(f"""
     API调用记录:
     - 方法: {method}
     - URL: {url}
-    - 请求: {request_data}
-    - 响应: {response_data}
+    - 请求: {json.dumps(request_data, ensure_ascii=False, indent=2)}
+    - 响应: {json.dumps(response_data, ensure_ascii=False, indent=2)}
     - 状态码: {status_code}
     """)
 ```
@@ -536,46 +1138,79 @@ def log_api_call(method, url, request_data, response_data, status_code):
 
 ## FAQ
 
-### Q1: 如何获取运营点ID (site_id)？
+### Q1: 如何从启动URL中提取参数？
 
-**A**: 调用 `GET /api/v1/operators/sites` 接口获取运营点列表，使用返回的 `id` 字段。
+**A**: 启动URL格式为 `mrgun-{exe_name}://start?token=...&app_code=...&site_id=...`
 
-### Q2: 游戏中途玩家退出如何处理？
+Python示例:
+```python
+import urllib.parse
+
+def parse_launch_url(url: str) -> dict:
+    parsed = urllib.parse.urlparse(url)
+    params = urllib.parse.parse_qs(parsed.query)
+
+    return {
+        'token': params.get('token', [None])[0],
+        'app_code': params.get('app_code', [None])[0],
+        'site_id': params.get('site_id', [None])[0]
+    }
+```
+
+### Q2: Headset Token的有效期是多久？
+
+**A**: 24小时。如果Token过期，用户需要在运营商后台重新点击"启动应用"。
+
+### Q3: 游戏中途玩家退出如何处理？
 
 **A**: 本系统按启动时的玩家数量扣费，游戏中途玩家变化不影响费用。无需额外通知系统。
 
-### Q3: 授权Token有什么用？
-
-**A**: `authorization_token` 用于验证游戏启动的合法性，可用于：
-- 游戏启动时验证
-- 防止未授权启动
-- 日志追踪
-
-### Q4: 余额不足怎么办？
+### Q4: 如何注册自定义协议？
 
 **A**:
-1. 在UI上提示运营商
-2. 引导运营商登录后台充值：https://mrgun.chu-jiao.com/operator
-3. 建议实现余额预警（如低于100元提示）
+1. 运营商在后台"启动应用"对话框中，选择应用后会显示"下载注册表脚本"按钮
+2. 下载并双击运行`.reg`文件
+3. 注册表脚本会自动配置协议关联
 
-### Q5: 如何测试接口？
+### Q5: 会话ID重复会怎样？
+
+**A**:
+- 系统会返回已授权的信息（HTTP 200）
+- 不会重复扣费
+- 这是幂等性保护机制，允许安全重试
+
+### Q6: 如何测试接口？
 
 **A**:
 1. 使用测试环境：`https://localhost/api/v1`
-2. 使用测试账号（从运营商后台注册）
-3. 使用Postman等工具测试API
+2. 在运营商后台点击"启动应用"获取真实的Headset Token
+3. 使用Postman等工具测试API（记得设置正确的Headers）
 
-### Q6: 一个运营商可以有多个运营点吗？
+### Q7: 预授权接口是必须的吗？
 
-**A**: 可以。一个运营商账号可以创建多个运营点，每个运营点对应一个物理门店。
+**A**: 不是必须的，但**强烈推荐**。预授权可以：
+- 提前检查余额，避免授权时才发现余额不足
+- 获取应用的玩家数量限制，用于UI提示
+- 提供更好的用户体验
 
-### Q7: 授权失败是否会扣费？
+### Q8: 上传游戏会话数据有什么用？
 
-**A**: 不会。只有授权成功（返回200状态码）才会扣费。
+**A**:
+- 记录实际游戏时长，用于统计分析
+- 记录每个头显的使用情况
+- 帮助运营商了解设备使用率
+- 可选功能，不影响计费
 
-### Q8: 支持批量授权吗？
+### Q9: 如何处理网络不稳定？
 
-**A**: 暂不支持。每个游戏会话需要单独调用授权接口。
+**A**:
+- 实现重试机制（参考"重试策略"章节）
+- 使用相同会话ID重试，利用幂等性保护
+- 实现离线队列，网络恢复后补发请求
+
+### Q10: 协议名称为什么要用连字符？
+
+**A**: Windows自定义协议不支持下划线，必须使用连字符（`mrgun-HeadsetServer`），否则无法注册成功。
 
 ---
 
@@ -590,10 +1225,17 @@ def log_api_call(method, url, request_data, response_data, status_code):
 ### 在线文档
 
 - **API完整文档**: `backend/docs/API_DOCUMENTATION.md`
-- **Python SDK**: `sdk/python/README.md`
 - **数据模型**: `specs/001-mr-v2/data-model.md`
+- **头显Server API**: `docs/HEADSET_SERVER_API.md` (本文档)
 
 ---
 
-**文档版本**: v1.0
-**最后更新**: 2025-10-31
+**文档版本**: v2.0
+**最后更新**: 2025-11-02
+**主要更新**:
+- 更新认证机制：改用Headset Token（24小时有效）
+- 新增自定义协议启动流程说明
+- 新增预授权接口
+- 更新会话ID格式规范
+- 新增完整的Python和C#集成示例
+- 补充自定义协议注册方法
