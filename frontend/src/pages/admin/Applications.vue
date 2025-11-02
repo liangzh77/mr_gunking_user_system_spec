@@ -144,14 +144,14 @@
           />
         </el-form-item>
 
-        <el-form-item label="自定义协议" prop="protocol_scheme">
+        <el-form-item label="启动exe路径" prop="launch_exe_path">
           <el-input
-            v-model="editFormData.protocol_scheme"
-            placeholder="例如: mrgun (可选)"
+            v-model="editFormData.launch_exe_path"
+            placeholder="例如: C:\Program Files\MRGaming\HeadsetServer.exe (可选)"
             clearable
-            maxlength="50"
+            maxlength="500"
           />
-          <div class="form-tip">自定义协议名称，用于启动头显Server应用</div>
+          <div class="form-tip">启动exe的绝对路径，用于生成注册表脚本</div>
         </el-form-item>
 
         <el-form-item label="状态" prop="is_active">
@@ -191,7 +191,7 @@ interface Application {
   min_players: number
   max_players: number
   is_active: boolean
-  protocol_scheme?: string
+  launch_exe_path?: string
   created_at: string
   updated_at: string
 }
@@ -213,7 +213,7 @@ const editFormData = reactive({
   min_players: 1,
   max_players: 1,
   is_active: true,
-  protocol_scheme: '',
+  launch_exe_path: '',
 })
 
 const pagination = reactive({
@@ -307,7 +307,7 @@ const handleEdit = (row: Application) => {
   editFormData.min_players = row.min_players
   editFormData.max_players = row.max_players
   editFormData.is_active = row.is_active
-  editFormData.protocol_scheme = row.protocol_scheme || ''
+  editFormData.launch_exe_path = row.launch_exe_path || ''
   editVisible.value = true
 }
 
@@ -328,6 +328,7 @@ const handleEditSubmit = async () => {
         min_players: editFormData.min_players,
         max_players: editFormData.max_players,
         is_active: editFormData.is_active,
+        launch_exe_path: editFormData.launch_exe_path || undefined,
       })
 
       // 如果价格变化了，单独更新价格

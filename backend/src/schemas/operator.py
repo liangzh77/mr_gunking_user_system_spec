@@ -1050,6 +1050,11 @@ class AuthorizedApplicationItem(BaseModel):
         description="授权状态"
     )
 
+    launch_exe_path: Optional[str] = Field(
+        None,
+        description="自定义协议名称，用于启动头显Server应用，如 mrgun"
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [

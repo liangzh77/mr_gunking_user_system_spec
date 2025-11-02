@@ -126,16 +126,29 @@
               :key="app.id"
               :label="app.app_name"
               :value="app.id"
-              :disabled="!app.protocol_scheme"
+              :disabled="!app.launch_exe_path"
             >
               <span>{{ app.app_name }}</span>
-              <span v-if="!app.protocol_scheme" style="color: #999; font-size: 12px; margin-left: 8px">
-                (未配置协议)
+              <span v-if="!app.launch_exe_path" style="color: #999; font-size: 12px; margin-left: 8px">
+                (未配置exe路径)
               </span>
             </el-option>
           </el-select>
-          <div v-if="selectedApp && selectedApp.protocol_scheme" class="form-tip">
-            协议: {{ selectedApp.protocol_scheme }}://
+          <div v-if="selectedApp && selectedApp.launch_exe_path" class="form-tip">
+            协议: {{ getProtocolName(selectedApp.launch_exe_path) }}://
+          </div>
+        </el-form-item>
+
+        <el-form-item v-if="selectedApp && selectedApp.launch_exe_path" label="注册表脚本">
+          <el-button
+            type="success"
+            :icon="Download"
+            @click="handleDownloadRegScript"
+          >
+            下载注册表脚本
+          </el-button>
+          <div class="form-tip">
+            下载并运行此脚本后，即可通过自定义协议启动应用
           </div>
         </el-form-item>
       </el-form>
@@ -158,9 +171,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { OperationSite } from '@/types'
 import dayjs from 'dayjs'
+import http from '@/utils/http'
 
 const operatorStore = useOperatorStore()
 
@@ -307,7 +322,7 @@ interface Application {
   id: string
   app_code: string
   app_name: string
-  protocol_scheme?: string
+  launch_exe_path?: string
 }
 
 const launchDialogVisible = ref(false)
@@ -335,13 +350,67 @@ const handleLaunchApp = async (site: OperationSite) => {
 const loadAuthorizedApps = async () => {
   loadingApps.value = true
   try {
-    const response = await operatorStore.http.get('/operators/applications/authorized')
-    availableApps.value = response.data.items
+    const response = await http.get('/operators/me/applications')
+    const apps = response.data.data?.applications || []
+    // 将app_id映射为id，以便el-select可以正确绑定
+    availableApps.value = apps.map((app: any) => ({
+      id: app.app_id,
+      app_code: app.app_code,
+      app_name: app.app_name,
+      launch_exe_path: app.launch_exe_path
+    }))
   } catch (error) {
     console.error('Load authorized apps error:', error)
     ElMessage.error('加载应用列表失败')
   } finally {
     loadingApps.value = false
+  }
+}
+
+// 从exe路径提取文件名并生成协议名称
+const getProtocolName = (exePath: string): string => {
+  if (!exePath) return 'mrgun'
+
+  // 提取文件名（去除路径和扩展名）
+  const fileName = exePath.split(/[\\\/]/).pop() || ''
+  const nameWithoutExt = fileName.replace(/\.(exe|EXE)$/, '')
+
+  // 使用连字符而不是下划线（Windows协议不支持下划线）
+  return `mrgun-${nameWithoutExt}`
+}
+
+// 下载注册表脚本
+const handleDownloadRegScript = async () => {
+  if (!selectedApp.value || !selectedApp.value.launch_exe_path) {
+    ElMessage.error('未配置exe路径')
+    return
+  }
+
+  try {
+    const response = await http.post('/operators/registry-script', {
+      app_id: selectedApp.value.id,
+    }, {
+      responseType: 'blob'
+    })
+
+    // 创建下载链接
+    const blob = new Blob([response.data], { type: 'text/plain' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+
+    const protocolName = getProtocolName(selectedApp.value.launch_exe_path)
+    link.download = `register-${protocolName}.reg`
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success('注册表脚本已下载，请双击运行')
+  } catch (error: any) {
+    console.error('Download registry script error:', error)
+    ElMessage.error('下载注册表脚本失败')
   }
 }
 
@@ -352,18 +421,30 @@ const handleConfirmLaunch = async () => {
   launching.value = true
   try {
     // 1. 生成TOKEN
-    const tokenResponse = await operatorStore.http.post('/operators/generate-token')
-    const token = tokenResponse.data.token
+    const tokenResponse = await http.post('/operators/generate-token')
+    const token = tokenResponse.data.data.token
 
     // 2. 构建启动URL
-    const protocol = selectedApp.value.protocol_scheme || 'mrgun'
+    const protocol = getProtocolName(selectedApp.value.launch_exe_path || '')
     const appCode = selectedApp.value.app_code
     const siteId = currentSite.value.site_id
 
     const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}`
 
+    console.log('Launch URL:', launchUrl)
+
     // 3. 尝试启动应用
-    window.location.href = launchUrl
+    // 创建隐藏的链接并自动点击，触发自定义协议
+    const link = document.createElement('a')
+    link.href = launchUrl
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+
+    // 短暂延迟后移除链接
+    setTimeout(() => {
+      document.body.removeChild(link)
+    }, 100)
 
     ElMessage.success('应用启动指令已发送')
     launchDialogVisible.value = false

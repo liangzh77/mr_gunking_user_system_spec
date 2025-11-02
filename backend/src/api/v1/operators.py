@@ -15,7 +15,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_operator
@@ -2662,7 +2663,8 @@ async def get_authorized_applications(
                 max_players=app["max_players"],
                 authorized_at=app["authorized_at"],
                 expires_at=app["expires_at"],
-                is_active=True  # 服务层已筛选,均为活跃授权
+                is_active=True,  # 服务层已筛选,均为活跃授权
+                launch_exe_path=app.get("launch_exe_path")
             ))
 
         return {
@@ -3043,5 +3045,133 @@ async def generate_headset_token(
             detail={
                 "error_code": "TOKEN_GENERATION_FAILED",
                 "message": f"生成TOKEN失败: {str(e)}"
+            }
+        )
+
+
+@router.post(
+    "/registry-script",
+    response_class=PlainTextResponse,
+    status_code=status.HTTP_200_OK,
+    summary="生成注册表脚本",
+    description="生成Windows注册表脚本，用于注册自定义协议以启动头显Server应用"
+)
+async def generate_registry_script(
+    request: dict,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> str:
+    """生成注册表脚本
+
+    根据应用配置的exe路径生成Windows注册表脚本（.reg文件）。
+    协议名称格式为: mrgun-{exe_filename} (使用连字符，Windows协议不支持下划线)
+
+    Args:
+        request: 请求体，包含app_id字段
+        token: 当前运营商的JWT token
+        db: 数据库会话
+
+    Returns:
+        str: 注册表脚本内容（纯文本格式）
+
+    Raises:
+        HTTPException: 应用不存在或未配置exe路径时返回400错误
+    """
+    from sqlalchemy import select
+    from ...models.application import Application
+
+    try:
+        # 从请求中获取app_id
+        app_id_str = request.get("app_id")
+        if not app_id_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "MISSING_APP_ID",
+                    "message": "缺少app_id参数"
+                }
+            )
+
+        # 解析app_id（去除可能的"app_"前缀）
+        try:
+            if app_id_str.startswith("app_"):
+                app_uuid = UUID(app_id_str[4:])
+            else:
+                app_uuid = UUID(app_id_str)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_APP_ID",
+                    "message": f"无效的应用ID格式: {app_id_str}"
+                }
+            )
+
+        # 查询应用信息
+        result = await db.execute(
+            select(Application).where(Application.id == app_uuid)
+        )
+        app = result.scalar_one_or_none()
+
+        if not app:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "APP_NOT_FOUND",
+                    "message": "应用不存在"
+                }
+            )
+
+        if not app.launch_exe_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "EXE_PATH_NOT_CONFIGURED",
+                    "message": "该应用未配置exe路径"
+                }
+            )
+
+        # 从exe路径提取文件名
+        # 注意：backend运行在Linux容器中，需要正确处理Windows路径
+        import os
+        import ntpath  # Windows路径处理模块
+
+        # 使用ntpath确保能正确解析Windows路径（无论在什么OS上运行）
+        exe_filename = ntpath.basename(app.launch_exe_path)
+        # 去除.exe扩展名
+        exe_name_without_ext = ntpath.splitext(exe_filename)[0]
+
+        # 生成协议名称（使用连字符，Windows协议不支持下划线）
+        protocol_name = f"mrgun-{exe_name_without_ext}"
+
+        # 转义路径中的反斜杠（Windows注册表格式）
+        escaped_exe_path = app.launch_exe_path.replace("\\", "\\\\")
+
+        # 生成注册表脚本内容
+        reg_content = f"""Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\\{protocol_name}]
+@="URL:MR Gun {app.app_name} Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\\{protocol_name}\\shell]
+
+[HKEY_CLASSES_ROOT\\{protocol_name}\\shell\\open]
+
+[HKEY_CLASSES_ROOT\\{protocol_name}\\shell\\open\\command]
+@="\\"{escaped_exe_path}\\" \\"%1\\""
+"""
+
+        return reg_content
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "REGISTRY_SCRIPT_GENERATION_FAILED",
+                "message": f"生成注册表脚本失败: {str(e)}"
             }
         )

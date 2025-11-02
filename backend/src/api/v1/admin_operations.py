@@ -466,6 +466,7 @@ async def update_application(
         max_players=app_data.max_players,
         description=app_data.description,
         is_active=app_data.is_active,
+        launch_exe_path=app_data.launch_exe_path,
     )
 
     return ApplicationResponse.model_validate(app)
