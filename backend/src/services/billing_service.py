@@ -105,7 +105,8 @@ class BillingService:
         site_id: UUID,
         application: Application,
         player_count: int,
-        client_ip: Optional[str] = None
+        client_ip: Optional[str] = None,
+        headset_ids: Optional[list[str]] = None
     ) -> tuple[UsageRecord, TransactionRecord, Decimal]:
         """创建授权扣费事务
 
@@ -126,6 +127,7 @@ class BillingService:
             application: 应用对象
             player_count: 玩家数量
             client_ip: 客户端IP(可选)
+            headset_ids: 头显设备ID列表(可选)
 
         Returns:
             tuple[UsageRecord, TransactionRecord, Decimal]: (使用记录, 交易记录, 扣费后余额)
@@ -191,7 +193,8 @@ class BillingService:
                 total_cost=total_cost,
                 authorization_token=authorization_token,
                 game_started_at=datetime.utcnow(),
-                client_ip=client_ip
+                client_ip=client_ip,
+                headset_ids=headset_ids
             )
             self.db.add(usage_record)
 

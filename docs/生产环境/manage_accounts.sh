@@ -21,8 +21,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 容器名称
-BACKEND_CONTAINER="mr_game_ops_backend_prod"
-DB_CONTAINER="mr_game_ops_db_prod"
+BACKEND_CONTAINER="mr_game_ops_backend"
+DB_CONTAINER="mr_game_ops_db"
 
 # 检查容器是否运行
 check_container() {
@@ -469,7 +469,8 @@ reset_password() {
     echo "账户类型:"
     echo "  1. 管理员"
     echo "  2. 运营商"
-    read -p "请选择 [1/2]: " account_type
+    echo "  3. 财务人员"
+    read -p "请选择 [1/2/3]: " account_type
 
     read -p "用户名: " username
     read -s -p "新密码: " new_password
@@ -478,9 +479,15 @@ reset_password() {
     if [ "$account_type" == "1" ]; then
         model="AdminAccount"
         table="admin_accounts"
-    else
+    elif [ "$account_type" == "2" ]; then
         model="OperatorAccount"
         table="operator_accounts"
+    elif [ "$account_type" == "3" ]; then
+        model="FinanceAccount"
+        table="finance_accounts"
+    else
+        echo -e "${RED}无效的账户类型选择${NC}"
+        return 1
     fi
 
     echo -e "\n${YELLOW}正在重置密码...${NC}"
@@ -494,6 +501,7 @@ from sqlalchemy import select
 from src.db.session import init_db, get_db_context
 from src.models import AdminAccount
 from src.models import OperatorAccount
+from src.models import FinanceAccount
 from src.core.utils.password import hash_password
 
 async def reset_password():

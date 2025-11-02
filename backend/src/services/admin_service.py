@@ -449,6 +449,7 @@ class AdminService:
         max_players: Optional[int] = None,
         description: Optional[str] = None,
         is_active: Optional[bool] = None,
+        launch_exe_path: Optional[str] = None,
     ) -> Application:
         """Update application basic information (excludes price).
 
@@ -459,6 +460,7 @@ class AdminService:
             max_players: New maximum players (optional)
             description: New description (optional)
             is_active: New active status (optional)
+            launch_exe_path: Absolute path to the exe file for launching application (optional)
 
         Returns:
             Application: Updated application model instance
@@ -491,6 +493,9 @@ class AdminService:
 
         if is_active is not None:
             app.is_active = is_active
+
+        if launch_exe_path is not None:
+            app.launch_exe_path = launch_exe_path
 
         # Validate player range if either was updated
         if min_players is not None or max_players is not None:

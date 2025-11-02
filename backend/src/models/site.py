@@ -138,6 +138,13 @@ class OperationSite(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营点有多个头显设备
+    headset_devices: Mapped[list["HeadsetDevice"]] = relationship(
+        "HeadsetDevice",
+        back_populates="site",
+        lazy="select"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # 复合索引: 查询运营商的活跃运营点

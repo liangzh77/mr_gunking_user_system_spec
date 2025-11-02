@@ -1660,7 +1660,8 @@ class OperatorService:
                 "max_players": app.max_players,
                 "authorized_at": auth.authorized_at.isoformat(),
                 "expires_at": auth.expires_at.isoformat() if auth.expires_at else None,
-                "is_active": auth.is_active
+                "is_active": auth.is_active,
+                "launch_exe_path": app.launch_exe_path
             })
 
         return applications

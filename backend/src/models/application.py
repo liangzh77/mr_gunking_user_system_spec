@@ -70,6 +70,12 @@ class Application(Base):
         comment="应用描述"
     )
 
+    launch_exe_path: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe"
+    )
+
     # ==================== 定价规则 ====================
     price_per_player: Mapped[Decimal] = mapped_column(
         DECIMAL(10, 2),

@@ -172,12 +172,19 @@ test.describe('运营商功能测试', () => {
     // 验证"创建运营点"按钮存在
     await expect(page.locator('button:has-text("创建运营点")')).toBeVisible()
 
-    // 如果有数据，验证表格列
+    // 如果有数据，验证表格列和"启动应用"按钮
     const hasData = await page.locator('.el-table__row').count() > 0
     if (hasData) {
-      await expect(page.locator('text=运营点代码')).toBeVisible()
       await expect(page.locator('text=运营点名称')).toBeVisible()
-      await expect(page.locator('text=状态')).toBeVisible()
+      await expect(page.locator('text=地址')).toBeVisible()
+
+      // 验证每行都有"启动应用"按钮
+      const launchButtons = page.locator('button:has-text("启动应用")')
+      const buttonCount = await launchButtons.count()
+      expect(buttonCount).toBeGreaterThan(0)
+
+      // 验证第一个"启动应用"按钮可见
+      await expect(launchButtons.first()).toBeVisible()
     }
 
     // 截图

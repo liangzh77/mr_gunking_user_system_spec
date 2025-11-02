@@ -4,12 +4,13 @@
 
 端点:
 - POST /v1/auth/game/authorize - 游戏授权请求 (T046)
+- POST /v1/auth/game/pre-authorize - 游戏预授权查询
 - POST /v1/auth/operators/register - 运营商注册 (T066)
 - POST /v1/auth/operators/login - 运营商登录 (T067)
 - POST /v1/auth/operators/logout - 运营商登出 (T068)
 
 认证方式:
-- 游戏授权: API Key认证 (X-API-Key header) + HMAC签名验证
+- 游戏授权/预授权: Headset Token认证 (Authorization: Bearer {headset_token})
 - 运营商注册/登录: 无需认证
 - 运营商登出: JWT Token认证 (Authorization: Bearer {token})
 """
@@ -27,6 +28,11 @@ from ...schemas.auth import (
     GameAuthorizeData,
     GameAuthorizeRequest,
     GameAuthorizeResponse,
+    GamePreAuthorizeData,
+    GamePreAuthorizeResponse,
+    GameSessionUploadRequest,
+    GameSessionUploadResponse,
+    HeadsetDeviceRecord,
     LoginResponse,
     OperatorLoginRequest,
 )
@@ -48,11 +54,11 @@ router = APIRouter(prefix="/auth", tags=["授权"])
     responses={
         400: {
             "model": ErrorResponse,
-            "description": "请求参数错误(玩家数量超出范围、会话ID格式错误、时间戳过期等)"
+            "description": "请求参数错误(玩家数量超出范围、会话ID格式错误等)"
         },
         401: {
             "model": ErrorResponse,
-            "description": "认证失败(API Key无效)"
+            "description": "认证失败(Headset Token无效或过期)"
         },
         402: {
             "model": ErrorResponse,
@@ -65,10 +71,6 @@ router = APIRouter(prefix="/auth", tags=["授权"])
         409: {
             "description": "会话重复(幂等性处理，返回已授权信息)"
         },
-        429: {
-            "model": ErrorResponse,
-            "description": "请求频率超限"
-        },
         500: {
             "model": ErrorResponse,
             "description": "服务器内部错误"
@@ -79,22 +81,18 @@ router = APIRouter(prefix="/auth", tags=["授权"])
     头显Server请求游戏授权并扣费。
 
     **认证要求**:
-    - X-API-Key: 运营商API Key (64位字符串)
-    - X-Signature: HMAC-SHA256签名 (Base64编码)
-    - X-Timestamp: Unix时间戳 (秒，5分钟有效)
+    - Authorization: Bearer {headset_token} (24小时有效的Headset Token)
     - X-Session-ID: 会话ID (格式: {operatorId}_{timestamp}_{random16})
 
     **业务逻辑**:
-    1. 验证API Key有效性
-    2. 验证HMAC签名 (防篡改)
-    3. 验证时间戳 (防重放攻击)
-    4. 验证会话ID格式和幂等性 (防重复扣费)
-    5. 验证运营商对应用的授权状态
-    6. 验证玩家数量在应用允许范围内
-    7. 计算费用: 总费用 = 玩家数量 × 应用单人价格
-    8. 检查账户余额是否充足
-    9. 使用数据库事务扣费并创建使用记录
-    10. 返回授权Token
+    1. 验证Headset Token有效性
+    2. 验证会话ID格式和幂等性 (防重复扣费)
+    3. 验证运营商对应用的授权状态
+    4. 验证玩家数量在应用允许范围内
+    5. 计算费用: 总费用 = 玩家数量 × 应用单人价格
+    6. 检查账户余额是否充足
+    7. 使用数据库事务扣费并创建使用记录
+    8. 返回授权Token
 
     **幂等性**: 相同会话ID重复请求返回已授权信息，不重复扣费。
     """
@@ -102,10 +100,8 @@ router = APIRouter(prefix="/auth", tags=["授权"])
 async def authorize_game(
     request_body: GameAuthorizeRequest,
     request: Request,
-    x_api_key: str = Header(..., alias="X-API-Key", description="运营商API Key"),
     x_session_id: str = Header(..., alias="X-Session-ID", description="会话ID(幂等性标识)"),
-    x_timestamp: int = Header(..., alias="X-Timestamp", description="Unix时间戳(秒)"),
-    x_signature: str = Header(..., alias="X-Signature", description="HMAC-SHA256签名"),
+    token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ) -> GameAuthorizeResponse:
     """游戏授权API
@@ -113,12 +109,10 @@ async def authorize_game(
     处理头显Server的游戏授权请求，完成验证、扣费、返回授权Token。
 
     Args:
-        request_body: 请求体(app_id, site_id, player_count)
+        request_body: 请求体(app_code, site_id, player_count)
         request: FastAPI Request对象
-        x_api_key: API Key (Header)
         x_session_id: 会话ID (Header)
-        x_timestamp: 时间戳 (Header)
-        x_signature: HMAC签名 (Header)
+        token: Headset Token payload (包含operator_id)
         db: 数据库会话
 
     Returns:
@@ -128,11 +122,31 @@ async def authorize_game(
     auth_service = AuthService(db)
     billing_service = BillingService(db)
 
-    # ========== STEP 1: 验证API Key ==========
-    operator = await auth_service.verify_operator_by_api_key(x_api_key)
+    # ========== STEP 1: 从Token中提取operator_id并查询运营商 ==========
+    operator_id = UUID(token["sub"])  # token["sub"]存储的是operator_id
+
+    # 查询运营商对象（用于后续余额检查）
+    from ...models.operator import OperatorAccount
+    from sqlalchemy import select
+
+    stmt = select(OperatorAccount).where(
+        OperatorAccount.id == operator_id,
+        OperatorAccount.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    operator = result.scalar_one_or_none()
+
+    if not operator:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "OPERATOR_NOT_FOUND",
+                "message": "运营商账户不存在或已删除"
+            }
+        )
 
     # ========== STEP 2: 验证会话ID格式 (FR-061) ==========
-    await auth_service.verify_session_id_format(x_session_id, operator.id)
+    await auth_service.verify_session_id_format(x_session_id, operator_id)
 
     # ========== STEP 3: 检查会话ID幂等性 ==========
     existing_record = await billing_service.check_session_idempotency(x_session_id)
@@ -153,16 +167,7 @@ async def authorize_game(
         )
 
     # ========== STEP 4: 解析并验证请求参数 ==========
-    try:
-        app_id = UUID(request_body.app_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error_code": "INVALID_APP_ID",
-                "message": f"应用ID格式错误: {request_body.app_id}"
-            }
-        )
+    app_code = request_body.app_code
 
     try:
         site_id = UUID(request_body.site_id)
@@ -176,12 +181,12 @@ async def authorize_game(
         )
 
     # ========== STEP 5: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator.id)
+    site = await auth_service.verify_site_ownership(site_id, operator_id)
 
-    # ========== STEP 6: 验证应用授权 ==========
-    application, authorization = await auth_service.verify_application_authorization(
-        app_id,
-        operator.id
+    # ========== STEP 6: 通过app_code查询应用并验证授权 ==========
+    application, authorization = await auth_service.verify_application_authorization_by_code(
+        app_code,
+        operator_id
     )
 
     # ========== STEP 7: 验证玩家数量 ==========
@@ -199,11 +204,12 @@ async def authorize_game(
 
     usage_record, transaction_record, balance_after = await billing_service.create_authorization_transaction(
         session_id=x_session_id,
-        operator_id=operator.id,
+        operator_id=operator_id,
         site_id=site_id,
         application=application,
         player_count=request_body.player_count,
-        client_ip=client_ip
+        client_ip=client_ip,
+        headset_ids=request_body.headset_ids
     )
 
     # ========== STEP 10: 构造响应 ==========
@@ -219,6 +225,297 @@ async def authorize_game(
     )
 
     return GameAuthorizeResponse(success=True, data=response_data)
+
+
+@router.post(
+    "/game/pre-authorize",
+    response_model=GamePreAuthorizeResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "请求参数错误"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "认证失败(Token无效)"
+        },
+        402: {
+            "model": ErrorResponse,
+            "description": "余额不足"
+        },
+        403: {
+            "model": ErrorResponse,
+            "description": "应用未授权或账户已锁定"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="游戏授权查询(预授权)",
+    description="""
+    查询游戏授权资格，不执行实际扣费操作。
+
+    **认证要求**:
+    - Authorization: Bearer {TOKEN} (由/operators/generate-token生成的24小时TOKEN)
+
+    **业务逻辑**:
+    1. 验证Bearer Token有效性
+    2. 验证运营商对应用的授权状态
+    3. 验证玩家数量在应用允许范围内
+    4. 计算费用
+    5. 检查账户余额是否充足
+    6. 返回授权资格信息(不扣费)
+    """
+)
+async def pre_authorize_game(
+    request_body: GameAuthorizeRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> GamePreAuthorizeResponse:
+    """游戏授权查询API (预授权,不扣费)
+
+    处理头显Server的游戏授权查询请求，验证资格但不执行扣费。
+
+    Args:
+        request_body: 请求体(app_id, site_id, player_count)
+        token: Bearer Token payload (由require_operator验证)
+        db: 数据库会话
+
+    Returns:
+        GamePreAuthorizeResponse: 预授权响应
+    """
+    # 初始化服务
+    auth_service = AuthService(db)
+    billing_service = BillingService(db)
+
+    # ========== STEP 1: 从Token中提取operator_id ==========
+    operator_id = token.get("sub")
+
+    # ========== STEP 2: 获取运营商信息 ==========
+    from ...services.operator import OperatorService
+    operator_service = OperatorService(db)
+    operator = await operator_service.get_operator_by_id(operator_id)
+
+    if not operator:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "运营商不存在"
+            }
+        )
+
+    # ========== STEP 3: 解析并验证请求参数 ==========
+    app_code = request_body.app_code
+
+    try:
+        site_id = UUID(request_body.site_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_SITE_ID",
+                "message": f"运营点ID格式错误: {request_body.site_id}"
+            }
+        )
+
+    # ========== STEP 4: 验证运营点归属 ==========
+    site = await auth_service.verify_site_ownership(site_id, UUID(operator_id))
+
+    # ========== STEP 5: 通过app_code验证应用授权 ==========
+    application, authorization = await auth_service.verify_application_authorization_by_code(
+        app_code,
+        UUID(operator_id)
+    )
+
+    # ========== STEP 6: 验证玩家数量 ==========
+    await auth_service.verify_player_count(request_body.player_count, application)
+
+    # ========== STEP 7: 计算费用 ==========
+    total_cost = billing_service.calculate_total_cost(
+        application.price_per_player,
+        request_body.player_count
+    )
+
+    # ========== STEP 8: 检查余额 (不扣费) ==========
+    can_authorize = True
+    try:
+        await billing_service.check_balance_sufficiency(operator, total_cost)
+    except HTTPException:
+        can_authorize = False
+
+    # ========== STEP 9: 构造响应 ==========
+    from ...core.utils import cents_to_yuan
+    response_data = GamePreAuthorizeData(
+        can_authorize=can_authorize,
+        app_code=application.app_code,
+        app_name=application.app_name,
+        player_count=request_body.player_count,
+        unit_price=cents_to_yuan(application.price_per_player),
+        total_cost=cents_to_yuan(total_cost),
+        current_balance=cents_to_yuan(operator.balance)
+    )
+
+    return GamePreAuthorizeResponse(success=True, data=response_data)
+
+
+@router.post(
+    "/game/session/upload",
+    response_model=GameSessionUploadResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "请求参数错误"
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "认证失败(Token无效)"
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "会话不存在"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="上传游戏Session信息",
+    description="""
+    上传游戏Session的详细信息，包括游戏时间、过程信息和头显设备记录。
+
+    **认证要求**:
+    - Authorization: Bearer {TOKEN}
+
+    **业务逻辑**:
+    1. 验证Bearer Token有效性
+    2. 根据session_id查找授权记录
+    3. 创建游戏Session记录
+    4. 为每个头显设备创建记录（自动注册新设备）
+    """
+)
+async def upload_game_session(
+    request_body: GameSessionUploadRequest,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> GameSessionUploadResponse:
+    """上传游戏Session信息API
+
+    处理头显Server的游戏Session数据上传请求。
+
+    Args:
+        request_body: 请求体(session_id, start_time, end_time, process_info, headset_devices)
+        token: Bearer Token payload
+        db: 数据库会话
+
+    Returns:
+        GameSessionUploadResponse: 上传响应
+    """
+    from uuid import UUID as PyUUID
+    from ...models.usage_record import UsageRecord
+    from ...models.game_session import GameSession
+    from ...models.headset_device import HeadsetDevice
+    from ...models.headset_game_record import HeadsetGameRecord
+
+    try:
+        # ========== STEP 1: 查找授权记录 ==========
+        stmt = select(UsageRecord).where(UsageRecord.session_id == request_body.session_id)
+        result = await db.execute(stmt)
+        usage_record = result.scalar_one_or_none()
+
+        if not usage_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "SESSION_NOT_FOUND",
+                    "message": f"会话不存在: {request_body.session_id}"
+                }
+            )
+
+        # 验证session归属
+        operator_id = token.get("sub")
+        if str(usage_record.operator_id) != operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SESSION_ACCESS_DENIED",
+                    "message": "无权访问此会话"
+                }
+            )
+
+        # ========== STEP 2: 创建游戏Session记录 ==========
+        game_session = GameSession(
+            usage_record_id=usage_record.id,
+            start_time=request_body.start_time,
+            end_time=request_body.end_time,
+            process_info=request_body.process_info
+        )
+        db.add(game_session)
+        await db.flush()  # 获取game_session.id
+
+        # ========== STEP 3: 处理头显设备记录 ==========
+        if request_body.headset_devices:
+            for device_record in request_body.headset_devices:
+                # 查找或创建头显设备
+                stmt = select(HeadsetDevice).where(
+                    HeadsetDevice.device_id == device_record.device_id,
+                    HeadsetDevice.site_id == usage_record.site_id
+                )
+                result = await db.execute(stmt)
+                headset_device = result.scalar_one_or_none()
+
+                if not headset_device:
+                    # 创建新设备
+                    headset_device = HeadsetDevice(
+                        device_id=device_record.device_id,
+                        site_id=usage_record.site_id,
+                        device_name=device_record.device_name,
+                        first_used_at=device_record.start_time or datetime.utcnow(),
+                        last_used_at=device_record.end_time or datetime.utcnow()
+                    )
+                    db.add(headset_device)
+                    await db.flush()
+                else:
+                    # 更新最后使用时间
+                    if device_record.end_time:
+                        headset_device.last_used_at = device_record.end_time
+                    else:
+                        headset_device.last_used_at = datetime.utcnow()
+
+                # 创建头显游戏记录
+                headset_game_record = HeadsetGameRecord(
+                    game_session_id=game_session.id,
+                    headset_device_id=headset_device.id,
+                    start_time=device_record.start_time,
+                    end_time=device_record.end_time,
+                    process_info=device_record.process_info
+                )
+                db.add(headset_game_record)
+
+        # ========== STEP 4: 提交事务 ==========
+        await db.commit()
+
+        return GameSessionUploadResponse(
+            success=True,
+            message="游戏信息上传成功"
+        )
+
+    except HTTPException:
+        await db.rollback()
+        raise
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "UPLOAD_FAILED",
+                "message": f"上传游戏信息失败: {str(e)}"
+            }
+        )
 
 
 # ==================== 运营商注册和登录 (User Story 2) ====================

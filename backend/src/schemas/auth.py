@@ -209,16 +209,17 @@ class GameAuthorizeRequest(BaseModel):
     """游戏授权请求体
 
     请求参数验证:
-    - app_id: 应用ID(非空)
+    - app_code: 应用代码(非空)
     - site_id: 运营点ID(非空)
     - player_count: 玩家数量(1-100)
+    - headset_ids: 头显设备ID列表(可选)
     """
 
-    app_id: str = Field(
+    app_code: str = Field(
         ...,
-        description="应用ID",
+        description="应用代码",
         min_length=1,
-        examples=["app_space_adventure_001"]
+        examples=["APP_20251030_001"]
     )
 
     site_id: str = Field(
@@ -236,12 +237,19 @@ class GameAuthorizeRequest(BaseModel):
         examples=[5]
     )
 
+    headset_ids: Optional[list[str]] = Field(
+        default=None,
+        description="头显设备ID列表(可选)",
+        examples=[["headset_001", "headset_002"]]
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
-                "app_id": "app_space_adventure_001",
+                "app_code": "APP_20251030_001",
                 "site_id": "site_beijing_001",
-                "player_count": 5
+                "player_count": 5,
+                "headset_ids": ["headset_001", "headset_002"]
             }
         }
 
@@ -455,5 +463,198 @@ class ErrorResponse(BaseModel):
                     "required_amount": "50.00",
                     "shortage": "20.00"
                 }
+            }
+        }
+
+
+# ==================== 游戏预授权 (Pre-Authorize) ====================
+
+
+class GamePreAuthorizeData(BaseModel):
+    """游戏预授权响应数据(不扣费,仅检查授权资格)"""
+
+    can_authorize: bool = Field(
+        ...,
+        description="是否可以授权",
+        examples=[True]
+    )
+
+    app_code: str = Field(
+        ...,
+        description="应用代码",
+        examples=["APP_20251030_001"]
+    )
+
+    app_name: str = Field(
+        ...,
+        description="应用名称",
+        examples=["太空探险"]
+    )
+
+    player_count: int = Field(
+        ...,
+        description="玩家数量",
+        ge=1,
+        examples=[5]
+    )
+
+    unit_price: str = Field(
+        ...,
+        description="单人价格",
+        pattern=r'^\d+\.\d{2}$',
+        examples=["10.00"]
+    )
+
+    total_cost: str = Field(
+        ...,
+        description="总费用",
+        pattern=r'^\d+\.\d{2}$',
+        examples=["50.00"]
+    )
+
+    current_balance: str = Field(
+        ...,
+        description="当前账户余额",
+        pattern=r'^\d+\.\d{2}$',
+        examples=["450.00"]
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "can_authorize": True,
+                "app_name": "太空探险",
+                "player_count": 5,
+                "unit_price": "10.00",
+                "total_cost": "50.00",
+                "current_balance": "450.00"
+            }
+        }
+
+
+class GamePreAuthorizeResponse(BaseModel):
+    """游戏预授权响应包装"""
+
+    success: bool = Field(
+        default=True,
+        description="请求是否成功"
+    )
+
+    data: GamePreAuthorizeData = Field(
+        ...,
+        description="预授权数据"
+    )
+
+
+# ==================== 游戏Session上传 ====================
+
+
+class HeadsetDeviceRecord(BaseModel):
+    """头显设备记录"""
+
+    device_id: str = Field(
+        ...,
+        description="设备ID",
+        min_length=1,
+        examples=["headset_001"]
+    )
+
+    device_name: Optional[str] = Field(
+        default=None,
+        description="设备名称(可选)",
+        examples=["头显设备1"]
+    )
+
+    start_time: Optional[datetime] = Field(
+        default=None,
+        description="设备开始时间(可选)",
+        examples=["2025-01-01T12:30:00.000Z"]
+    )
+
+    end_time: Optional[datetime] = Field(
+        default=None,
+        description="设备结束时间(可选)",
+        examples=["2025-01-01T13:00:00.000Z"]
+    )
+
+    process_info: Optional[str] = Field(
+        default=None,
+        description="设备过程信息(可选,YAML/JSON格式)",
+        examples=["score: 1500\nkills: 10"]
+    )
+
+
+class GameSessionUploadRequest(BaseModel):
+    """游戏Session上传请求"""
+
+    session_id: str = Field(
+        ...,
+        description="会话ID(授权时返回的session_id)",
+        min_length=1,
+        examples=["op_12345_1704067200000_a1b2c3d4e5f6g7h8"]
+    )
+
+    start_time: Optional[datetime] = Field(
+        default=None,
+        description="游戏开始时间(可选)",
+        examples=["2025-01-01T12:30:00.000Z"]
+    )
+
+    end_time: Optional[datetime] = Field(
+        default=None,
+        description="游戏结束时间(可选)",
+        examples=["2025-01-01T13:00:00.000Z"]
+    )
+
+    process_info: Optional[str] = Field(
+        default=None,
+        description="游戏过程信息(可选,YAML/JSON格式)",
+        examples=["total_rounds: 5\nwinners: [player1, player3]"]
+    )
+
+    headset_devices: Optional[list[HeadsetDeviceRecord]] = Field(
+        default=None,
+        description="头显设备记录列表(可选)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "session_id": "op_12345_1704067200000_a1b2c3d4e5f6g7h8",
+                "start_time": "2025-01-01T12:30:00.000Z",
+                "end_time": "2025-01-01T13:00:00.000Z",
+                "process_info": "total_rounds: 5\nwinners: [player1, player3]",
+                "headset_devices": [
+                    {
+                        "device_id": "headset_001",
+                        "device_name": "头显设备1",
+                        "start_time": "2025-01-01T12:30:00.000Z",
+                        "end_time": "2025-01-01T13:00:00.000Z",
+                        "process_info": "score: 1500\nkills: 10"
+                    }
+                ]
+            }
+        }
+
+
+class GameSessionUploadResponse(BaseModel):
+    """游戏Session上传响应"""
+
+    success: bool = Field(
+        default=True,
+        description="请求是否成功"
+    )
+
+    message: str = Field(
+        ...,
+        description="响应消息",
+        examples=["游戏信息上传成功"]
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "游戏信息上传成功"
             }
         }

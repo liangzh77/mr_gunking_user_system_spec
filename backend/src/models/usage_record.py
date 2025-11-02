@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID as PyUUID, uuid4
 
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -97,6 +97,13 @@ class UsageRecord(Base):
         comment="总费用 = player_count × price_per_player"
     )
 
+    # ==================== 头显设备信息 ====================
+    headset_ids: Mapped[Optional[list]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="头显设备ID列表"
+    )
+
     # ==================== 授权信息 ====================
     authorization_token: Mapped[str] = mapped_column(
         String(64),
@@ -167,6 +174,13 @@ class UsageRecord(Base):
         back_populates="related_usage",
         lazy="selectin",
         uselist=False
+    )
+
+    # 1:N - 一条使用记录可能有多个游戏局（通常只有一个）
+    game_sessions: Mapped[list["GameSession"]] = relationship(
+        "GameSession",
+        back_populates="usage_record",
+        lazy="select"
     )
 
     # ==================== 表级约束 ====================

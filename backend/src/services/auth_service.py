@@ -240,6 +240,91 @@ class AuthService:
 
         return application, authorization
 
+    async def verify_application_authorization_by_code(
+        self,
+        app_code: str,
+        operator_id: UUID
+    ) -> tuple[Application, OperatorAppAuthorization]:
+        """通过应用代码验证应用授权状态
+
+        验证逻辑:
+        1. 通过app_code查询应用
+        2. 应用存在且处于上架状态
+        3. 运营商已被授权使用该应用
+        4. 授权未过期
+
+        Args:
+            app_code: 应用代码
+            operator_id: 运营商ID
+
+        Returns:
+            tuple[Application, OperatorAppAuthorization]: (应用对象, 授权关系对象)
+
+        Raises:
+            HTTPException 404: 应用不存在
+            HTTPException 403: 应用未授权或授权已过期
+        """
+        # 查询应用（通过app_code）
+        stmt = select(Application).where(Application.app_code == app_code)
+        result = await self.db.execute(stmt)
+        application = result.scalar_one_or_none()
+
+        if not application:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "APP_NOT_FOUND",
+                    "message": f"应用不存在: {app_code}"
+                }
+            )
+
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_INACTIVE",
+                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
+                }
+            )
+
+        # 查询授权关系
+        stmt = select(OperatorAppAuthorization).where(
+            OperatorAppAuthorization.operator_id == operator_id,
+            OperatorAppAuthorization.application_id == application.id,
+            OperatorAppAuthorization.is_active == True
+        )
+        result = await self.db.execute(stmt)
+        authorization = result.scalar_one_or_none()
+
+        if not authorization:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_NOT_AUTHORIZED",
+                    "message": f"您未被授权使用此应用，请联系管理员申请授权",
+                    "details": {
+                        "app_code": app_code,
+                        "app_name": application.app_name
+                    }
+                }
+            )
+
+        # 验证授权是否过期
+        if authorization.expires_at and authorization.expires_at < datetime.now(authorization.expires_at.tzinfo):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "AUTHORIZATION_EXPIRED",
+                    "message": f"应用授权已过期，过期时间: {authorization.expires_at.isoformat()}",
+                    "details": {
+                        "app_name": application.app_name,
+                        "expired_at": authorization.expires_at.isoformat()
+                    }
+                }
+            )
+
+        return application, authorization
+
     async def verify_player_count(
         self,
         player_count: int,

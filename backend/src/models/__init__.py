@@ -26,6 +26,9 @@ from .app_request import ApplicationRequest
 from .application import Application
 from .authorization import OperatorAppAuthorization
 from .finance import FinanceAccount
+from .game_session import GameSession
+from .headset_device import HeadsetDevice
+from .headset_game_record import HeadsetGameRecord
 from .invoice import InvoiceRecord
 from .message import OperatorMessage
 from .operator import OperatorAccount
@@ -47,4 +50,7 @@ __all__ = [
     "ApplicationRequest",
     "FinanceAccount",
     "OperatorMessage",
+    "HeadsetDevice",
+    "GameSession",
+    "HeadsetGameRecord",
 ]

@@ -230,3 +230,31 @@ def refresh_token(token: str, new_expires_delta: Optional[timedelta] = None) -> 
         expires_delta=new_expires_delta,
         additional_claims=additional_claims if additional_claims else None,
     )
+
+
+def create_headset_token(operator_id: str) -> str:
+    """Create a JWT token specifically for headset server use.
+
+    This token is designed for headset server applications to authenticate
+    API requests. It has a fixed expiration of 24 hours.
+
+    Args:
+        operator_id: Operator account ID (UUID as string)
+
+    Returns:
+        str: Encoded JWT token valid for 24 hours
+
+    Example:
+        >>> token = create_headset_token("550e8400-e29b-41d4-a716-446655440000")
+        >>> payload = verify_token(token)
+        >>> payload["type"]
+        'headset'
+        >>> payload["user_type"]
+        'operator'
+    """
+    return create_access_token(
+        subject=operator_id,
+        user_type="operator",
+        expires_delta=timedelta(hours=24),
+        additional_claims={"type": "headset"},
+    )

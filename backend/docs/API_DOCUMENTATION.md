@@ -46,19 +46,30 @@ MR 游戏运营管理系统后端 API 参考文档。
 
 ## 认证方式
 
-系统支持两种认证方式：
+系统支持三种认证方式：
 
-### 1. JWT Token 认证（管理员）
+### 1. JWT Token 认证（管理员/运营商Web端/财务）
 
-管理员使用 JWT (JSON Web Token) 进行认证。
+管理员、运营商Web端、财务人员使用 JWT (JSON Web Token) 进行认证。
 
-**获取 Token**:
+**获取 Token (管理员)**:
 ```http
 POST /v1/admin/login
 Content-Type: application/json
 
 {
   "username": "admin",
+  "password": "your_password"
+}
+```
+
+**获取 Token (运营商)**:
+```http
+POST /v1/auth/operators/login
+Content-Type: application/json
+
+{
+  "username": "operator001",
   "password": "your_password"
 }
 ```
@@ -80,27 +91,55 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Token 过期**:
 - 有效期: 24 小时
-- 刷新: 使用 `/v1/admin/refresh-token` 端点
+- 刷新: 使用 `/v1/admin/refresh-token` 端点（管理员）
 
-### 2. API Key 认证（运营商）
+### 2. Headset Token 认证（头显Server）
 
-运营商使用 API Key 进行认证。
+头显Server使用Headset Token进行游戏授权API认证。
 
-**使用 API Key**:
+**获取 Headset Token**:
+- 运营商在Web后台点击"启动应用"时自动生成
+- 通过自定义协议URL传递给头显Server: `mrgun-{exe_name}://start?token={headset_token}&app_code={app_code}&site_id={site_id}`
+
+**使用 Headset Token**:
 ```http
-GET /v1/operator/balance
-X-API-Key: your_api_key_here
+POST /v1/auth/game/authorize
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+X-Session-ID: {operator_id}_{timestamp}_{random}
+Content-Type: application/json
+
+{
+  "app_code": "APP_20251030_001",
+  "site_id": "uuid-here",
+  "player_count": 5
+}
 ```
+
+**Headset Token 特性**:
+- 有效期: 24 小时
+- 格式: JWT
+- 用途: 游戏授权、预授权
+- 包含信息: operator_id, user_type (headset)
+- 安全性: 短期有效，自动过期
+
+**适用接口**:
+- `POST /v1/auth/game/pre-authorize` - 游戏预授权
+- `POST /v1/auth/game/authorize` - 游戏授权（扣费）
+- `POST /v1/auth/game/sessions/upload` - 上传游戏会话数据
+
+### 3. API Key 认证（已废弃，仅用于运营商账户识别）
+
+API Key现在仅用于运营商账户的唯一标识，不再用于游戏授权API认证。
 
 **API Key 格式**:
 - 长度: 64 字符
 - 字符集: `[a-zA-Z0-9_-]`
-- 示例: `api_1234567890abcdef_1234567890abcdef1234567890abcdef1234567890abcd`
+- 示例: `op_1234567890abcdef_1234567890abcdef1234567890abcdef1234567890abcd`
 
 **API Key 管理**:
-- 申请: 通过管理后台提交申请
-- 审核: 管理员审核通过后生成
-- 重置: 联系管理员
+- 生成: 创建运营商账户时自动生成
+- 用途: 账户唯一标识
+- 注意: **不再用于API认证**，请使用Headset Token
 
 ---
 

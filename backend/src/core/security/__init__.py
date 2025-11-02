@@ -4,6 +4,7 @@ from typing import Optional
 
 from .jwt import (
     create_access_token,
+    create_headset_token,
     decode_token,
     get_token_subject,
     get_token_user_type,
@@ -38,6 +39,7 @@ def get_encryption_service() -> EncryptionService:
 
 __all__ = [
     "create_access_token",
+    "create_headset_token",
     "verify_token",
     "decode_token",
     "is_token_expired",
