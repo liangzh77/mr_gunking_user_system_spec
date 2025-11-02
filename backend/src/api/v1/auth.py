@@ -4,12 +4,13 @@
 
 端点:
 - POST /v1/auth/game/authorize - 游戏授权请求 (T046)
+- POST /v1/auth/game/pre-authorize - 游戏预授权查询
 - POST /v1/auth/operators/register - 运营商注册 (T066)
 - POST /v1/auth/operators/login - 运营商登录 (T067)
 - POST /v1/auth/operators/logout - 运营商登出 (T068)
 
 认证方式:
-- 游戏授权: API Key认证 (X-API-Key header) + HMAC签名验证
+- 游戏授权/预授权: Headset Token认证 (Authorization: Bearer {headset_token})
 - 运营商注册/登录: 无需认证
 - 运营商登出: JWT Token认证 (Authorization: Bearer {token})
 """
@@ -53,11 +54,11 @@ router = APIRouter(prefix="/auth", tags=["授权"])
     responses={
         400: {
             "model": ErrorResponse,
-            "description": "请求参数错误(玩家数量超出范围、会话ID格式错误、时间戳过期等)"
+            "description": "请求参数错误(玩家数量超出范围、会话ID格式错误等)"
         },
         401: {
             "model": ErrorResponse,
-            "description": "认证失败(API Key无效)"
+            "description": "认证失败(Headset Token无效或过期)"
         },
         402: {
             "model": ErrorResponse,
@@ -70,10 +71,6 @@ router = APIRouter(prefix="/auth", tags=["授权"])
         409: {
             "description": "会话重复(幂等性处理，返回已授权信息)"
         },
-        429: {
-            "model": ErrorResponse,
-            "description": "请求频率超限"
-        },
         500: {
             "model": ErrorResponse,
             "description": "服务器内部错误"
@@ -84,22 +81,18 @@ router = APIRouter(prefix="/auth", tags=["授权"])
     头显Server请求游戏授权并扣费。
 
     **认证要求**:
-    - X-API-Key: 运营商API Key (64位字符串)
-    - X-Signature: HMAC-SHA256签名 (Base64编码)
-    - X-Timestamp: Unix时间戳 (秒，5分钟有效)
+    - Authorization: Bearer {headset_token} (24小时有效的Headset Token)
     - X-Session-ID: 会话ID (格式: {operatorId}_{timestamp}_{random16})
 
     **业务逻辑**:
-    1. 验证API Key有效性
-    2. 验证HMAC签名 (防篡改)
-    3. 验证时间戳 (防重放攻击)
-    4. 验证会话ID格式和幂等性 (防重复扣费)
-    5. 验证运营商对应用的授权状态
-    6. 验证玩家数量在应用允许范围内
-    7. 计算费用: 总费用 = 玩家数量 × 应用单人价格
-    8. 检查账户余额是否充足
-    9. 使用数据库事务扣费并创建使用记录
-    10. 返回授权Token
+    1. 验证Headset Token有效性
+    2. 验证会话ID格式和幂等性 (防重复扣费)
+    3. 验证运营商对应用的授权状态
+    4. 验证玩家数量在应用允许范围内
+    5. 计算费用: 总费用 = 玩家数量 × 应用单人价格
+    6. 检查账户余额是否充足
+    7. 使用数据库事务扣费并创建使用记录
+    8. 返回授权Token
 
     **幂等性**: 相同会话ID重复请求返回已授权信息，不重复扣费。
     """
@@ -107,10 +100,8 @@ router = APIRouter(prefix="/auth", tags=["授权"])
 async def authorize_game(
     request_body: GameAuthorizeRequest,
     request: Request,
-    x_api_key: str = Header(..., alias="X-API-Key", description="运营商API Key"),
     x_session_id: str = Header(..., alias="X-Session-ID", description="会话ID(幂等性标识)"),
-    x_timestamp: int = Header(..., alias="X-Timestamp", description="Unix时间戳(秒)"),
-    x_signature: str = Header(..., alias="X-Signature", description="HMAC-SHA256签名"),
+    token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ) -> GameAuthorizeResponse:
     """游戏授权API
@@ -118,12 +109,10 @@ async def authorize_game(
     处理头显Server的游戏授权请求，完成验证、扣费、返回授权Token。
 
     Args:
-        request_body: 请求体(app_id, site_id, player_count)
+        request_body: 请求体(app_code, site_id, player_count)
         request: FastAPI Request对象
-        x_api_key: API Key (Header)
         x_session_id: 会话ID (Header)
-        x_timestamp: 时间戳 (Header)
-        x_signature: HMAC签名 (Header)
+        token: Headset Token payload (包含operator_id)
         db: 数据库会话
 
     Returns:
@@ -133,11 +122,31 @@ async def authorize_game(
     auth_service = AuthService(db)
     billing_service = BillingService(db)
 
-    # ========== STEP 1: 验证API Key ==========
-    operator = await auth_service.verify_operator_by_api_key(x_api_key)
+    # ========== STEP 1: 从Token中提取operator_id并查询运营商 ==========
+    operator_id = UUID(token["sub"])  # token["sub"]存储的是operator_id
+
+    # 查询运营商对象（用于后续余额检查）
+    from ...models.operator import OperatorAccount
+    from sqlalchemy import select
+
+    stmt = select(OperatorAccount).where(
+        OperatorAccount.id == operator_id,
+        OperatorAccount.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    operator = result.scalar_one_or_none()
+
+    if not operator:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "OPERATOR_NOT_FOUND",
+                "message": "运营商账户不存在或已删除"
+            }
+        )
 
     # ========== STEP 2: 验证会话ID格式 (FR-061) ==========
-    await auth_service.verify_session_id_format(x_session_id, operator.id)
+    await auth_service.verify_session_id_format(x_session_id, operator_id)
 
     # ========== STEP 3: 检查会话ID幂等性 ==========
     existing_record = await billing_service.check_session_idempotency(x_session_id)
@@ -172,12 +181,12 @@ async def authorize_game(
         )
 
     # ========== STEP 5: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator.id)
+    site = await auth_service.verify_site_ownership(site_id, operator_id)
 
     # ========== STEP 6: 通过app_code查询应用并验证授权 ==========
     application, authorization = await auth_service.verify_application_authorization_by_code(
         app_code,
-        operator.id
+        operator_id
     )
 
     # ========== STEP 7: 验证玩家数量 ==========
@@ -195,7 +204,7 @@ async def authorize_game(
 
     usage_record, transaction_record, balance_after = await billing_service.create_authorization_transaction(
         session_id=x_session_id,
-        operator_id=operator.id,
+        operator_id=operator_id,
         site_id=site_id,
         application=application,
         player_count=request_body.player_count,

@@ -142,8 +142,6 @@ Host: mrgun.chu-jiao.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 X-Session-ID: 3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8
-X-Timestamp: 1730451234
-X-Signature: dGVzdF9zaWduYXR1cmU=
 
 {
   "app_code": "APP_20251030_001",
@@ -168,10 +166,6 @@ X-Signature: dGVzdF9zaWduYXR1cmU=
 - **幂等性保护**: 相同会话ID重复请求不会重复扣费
 - **防重放攻击**: 时间戳验证防止请求重放
 - **会话追踪**: 唯一标识一次游戏会话
-
-### HMAC签名 (暂未实施)
-
-未来版本将支持HMAC-SHA256签名验证，增强安全性。
 
 ---
 
@@ -240,15 +234,13 @@ X-Signature: dGVzdF9zaWduYXR1cmU=
 
 **用途**: 启动游戏前请求正式授权并扣费
 
-**认证**: Bearer Token (Headset Token) + 会话ID + 时间戳 + HMAC签名
+**认证**: Bearer Token (Headset Token) + 会话ID
 
 **请求头**:
 
 ```http
 Authorization: Bearer {headset_token}
 X-Session-ID: {operator_id}_{timestamp}_{random}
-X-Timestamp: {unix_timestamp_seconds}
-X-Signature: {hmac_sha256_base64}
 Content-Type: application/json
 ```
 
@@ -444,16 +436,10 @@ class HeadsetServerClient:
         Returns:
             请求头字典
         """
-        timestamp = int(time.time())
-        # TODO: 实现HMAC签名
-        signature = "test_signature_placeholder"
-
         return {
             'Authorization': f'Bearer {self.headset_token}',
             'Content-Type': 'application/json',
-            'X-Session-ID': session_id,
-            'X-Timestamp': str(timestamp),
-            'X-Signature': signature
+            'X-Session-ID': session_id
         }
 
     def pre_authorize(
@@ -732,13 +718,7 @@ public class HeadsetServerClient
 
         if (!string.IsNullOrEmpty(sessionId))
         {
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            // TODO: 实现HMAC签名
-            var signature = "test_signature_placeholder";
-
             request.Headers.Add("X-Session-ID", sessionId);
-            request.Headers.Add("X-Timestamp", timestamp.ToString());
-            request.Headers.Add("X-Signature", signature);
         }
 
         return request;
