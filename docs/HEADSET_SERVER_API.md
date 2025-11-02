@@ -345,12 +345,10 @@ Content-Type: application/json
   "headset_records": [
     {
       "headset_id": "headset_001",
-      "player_name": "Player1",
       "play_time_seconds": 1800
     },
     {
       "headset_id": "headset_002",
-      "player_name": "Player2",
       "play_time_seconds": 1750
     }
   ]
@@ -363,7 +361,6 @@ Content-Type: application/json
 | game_duration_seconds | integer | 是 | 游戏总时长（秒） |
 | headset_records | array | 否 | 头显游戏记录列表 |
 | headset_records[].headset_id | string | 是 | 头显设备ID |
-| headset_records[].player_name | string | 否 | 玩家昵称 |
 | headset_records[].play_time_seconds | integer | 是 | 该头显游戏时长（秒） |
 
 **成功响应** (HTTP 200):
@@ -620,11 +617,11 @@ if __name__ == "__main__":
                 session_id=session_id,
                 game_duration_seconds=game_duration,
                 headset_records=[
-                    {"headset_id": "headset_001", "player_name": "Player1", "play_time_seconds": 1800},
-                    {"headset_id": "headset_002", "player_name": "Player2", "play_time_seconds": 1750},
-                    {"headset_id": "headset_003", "player_name": "Player3", "play_time_seconds": 1800},
-                    {"headset_id": "headset_004", "player_name": "Player4", "play_time_seconds": 1700},
-                    {"headset_id": "headset_005", "player_name": "Player5", "play_time_seconds": 1800},
+                    {"headset_id": "headset_001", "play_time_seconds": 1800},
+                    {"headset_id": "headset_002", "play_time_seconds": 1750},
+                    {"headset_id": "headset_003", "play_time_seconds": 1800},
+                    {"headset_id": "headset_004", "play_time_seconds": 1700},
+                    {"headset_id": "headset_005", "play_time_seconds": 1800},
                 ]
             )
 
@@ -865,8 +862,8 @@ public class Program
                         1800,
                         new[]
                         {
-                            new HeadsetRecord { HeadsetId = "headset_001", PlayerName = "Player1", PlayTimeSeconds = 1800 },
-                            new HeadsetRecord { HeadsetId = "headset_002", PlayerName = "Player2", PlayTimeSeconds = 1750 }
+                            new HeadsetRecord { HeadsetId = "headset_001", PlayTimeSeconds = 1800 },
+                            new HeadsetRecord { HeadsetId = "headset_002", PlayTimeSeconds = 1750 }
                         }
                     );
 
