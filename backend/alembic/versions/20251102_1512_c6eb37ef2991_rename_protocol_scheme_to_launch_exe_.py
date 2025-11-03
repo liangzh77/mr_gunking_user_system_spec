@@ -1,0 +1,42 @@
+"""rename protocol_scheme to launch_exe_path
+
+Revision ID: c6eb37ef2991
+Revises: e8d7c6b5a4f3
+Create Date: 2025-11-02 15:12:03.211026
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = 'c6eb37ef2991'
+down_revision: Union[str, None] = 'e8d7c6b5a4f3'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Rename protocol_scheme to launch_exe_path and increase length."""
+    # Rename column and change type
+    op.alter_column(
+        'applications',
+        'protocol_scheme',
+        new_column_name='launch_exe_path',
+        type_=sa.String(500),
+        comment='启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe'
+    )
+
+
+def downgrade() -> None:
+    """Rename launch_exe_path back to protocol_scheme and restore length."""
+    # Rename column back and change type
+    op.alter_column(
+        'applications',
+        'launch_exe_path',
+        new_column_name='protocol_scheme',
+        type_=sa.String(50),
+        comment='自定义协议名称，如 mrgun'
+    )
