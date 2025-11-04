@@ -131,7 +131,7 @@
         </div>
         <div class="stat-item">
           <div class="stat-label">退款总额</div>
-          <div class="stat-value refund-total">+¥{{ pageRefundTotal }}</div>
+          <div class="stat-value refund-total">-¥{{ pageRefundTotal }}</div>
         </div>
       </div>
     </el-card>
@@ -178,10 +178,11 @@ const pageBillingTotal = computed(() => {
 })
 
 const pageRefundTotal = computed(() => {
-  return transactions.value
+  const total = transactions.value
     .filter(t => t.transaction_type === 'refund')
     .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-    .toFixed(2)
+  // 退款金额后端返回负数（余额减少），这里取绝对值用于显示
+  return Math.abs(total).toFixed(2)
 })
 
 // 格式化日期时间
@@ -211,12 +212,13 @@ const getTransactionTypeLabel = (type: string) => {
 
 // 获取金额CSS类
 const getAmountClass = (type: string) => {
-  return type === 'recharge' || type === 'refund' ? 'amount-positive' : 'amount-negative'
+  // 充值是加钱（绿色），消费和退款都是减钱（红色）
+  return type === 'recharge' ? 'amount-positive' : 'amount-negative'
 }
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  // 后端返回的amount已经带有正负号（消费为负数，充值/退款为正数）
+  // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
   const numAmount = parseFloat(amount)
   const absAmount = Math.abs(numAmount).toFixed(2)
   const prefix = numAmount >= 0 ? '+' : '-'
