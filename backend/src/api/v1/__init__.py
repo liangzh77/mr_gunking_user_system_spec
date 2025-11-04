@@ -14,6 +14,7 @@ from fastapi import APIRouter
 from .admin_auth import router as admin_auth_router
 from .admin_operations import router as admin_operations_router
 from .auth import router as auth_router
+from .dev_tools import router as dev_tools_router
 from .finance import router as finance_router
 from .messages import router as messages_router
 from .operators import router as operators_router
@@ -28,6 +29,7 @@ api_router = APIRouter()
 api_router.include_router(admin_auth_router)
 api_router.include_router(admin_operations_router)  # Admin business operations
 api_router.include_router(auth_router)  # User Story 1: 游戏授权 & User Story 2: 运营商认证 & User Story 6: 财务认证
+api_router.include_router(dev_tools_router)  # Development tools (only available in dev environment)
 api_router.include_router(finance_router)  # User Story 6: 财务后台业务 (T175-T186)
 api_router.include_router(messages_router)  # 运营商消息通知 (T188+)
 api_router.include_router(operators_router)  # User Story 2: 运营商个人信息管理
