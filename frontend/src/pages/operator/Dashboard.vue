@@ -190,7 +190,7 @@ const formatDateTime = (datetime: string) => {
 const getTransactionTypeTag = (type: string) => {
   const map: Record<string, any> = {
     recharge: 'success',
-    billing: 'warning',
+    consumption: 'warning',
     refund: 'info',
   }
   return map[type] || 'info'
@@ -200,7 +200,7 @@ const getTransactionTypeTag = (type: string) => {
 const getTransactionTypeLabel = (type: string) => {
   const map: Record<string, string> = {
     recharge: '充值',
-    billing: '消费',
+    consumption: '消费',
     refund: '退款',
   }
   return map[type] || type
@@ -213,8 +213,11 @@ const getAmountClass = (type: string) => {
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  const prefix = type === 'recharge' || type === 'refund' ? '+' : '-'
-  return `${prefix}¥${amount}`
+  // 后端返回的amount已经带有正负号（消费为负数，充值/退款为正数）
+  const numAmount = parseFloat(amount)
+  const absAmount = Math.abs(numAmount).toFixed(2)
+  const prefix = numAmount >= 0 ? '+' : '-'
+  return `${prefix}¥${absAmount}`
 }
 
 // 页面跳转
