@@ -4,7 +4,6 @@ SECURITY WARNING: These endpoints should ONLY be available in development enviro
 Never expose these endpoints in production.
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,12 +12,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_operator
-from ...core import create_headset_token, get_settings
+from ...core import create_headset_token, get_logger, get_settings
 from ...models.operator import OperatorAccount
 from ...models.application import Application
 from ...models.site import OperationSite
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 router = APIRouter()
 
 
