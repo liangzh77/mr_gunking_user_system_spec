@@ -6,11 +6,15 @@ authorization, and common parameter extraction.
 
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import verify_token
 from ..db import get_db_session
+
+# HTTP Bearer security scheme for Swagger UI
+http_bearer = HTTPBearer(auto_error=False)
 
 
 # Database session dependency
@@ -37,12 +41,12 @@ DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
 
 # JWT Authentication dependency
 async def get_current_user_token(
-    authorization: Annotated[str | None, Header()] = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
 ) -> dict:
     """Extract and verify JWT token from Authorization header.
 
     Args:
-        authorization: Authorization header value
+        credentials: HTTP Bearer credentials from Authorization header
 
     Returns:
         dict: Decoded JWT token payload
@@ -56,7 +60,7 @@ async def get_current_user_token(
         ...     user_id = token["sub"]
         ...     ...
     """
-    if not authorization:
+    if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -66,20 +70,8 @@ async def get_current_user_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Extract token from "Bearer <token>"
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise ValueError("Invalid authentication scheme")
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error_code": "INVALID_TOKEN_FORMAT",
-                "message": "Invalid authorization header format"
-            },
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # Extract token from credentials
+    token = credentials.credentials
 
     # Verify token
     payload = verify_token(token)
