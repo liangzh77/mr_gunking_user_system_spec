@@ -343,6 +343,21 @@ async def start_scheduler():
 
     # ==================== 定期任务（日/周/月） ====================
 
+    # 数据库分区维护任务 - 每月1日凌晨3点
+    from ..db.partition_manager import ensure_partitions
+    scheduler.add_job(
+        lambda: _task_wrapper_with_retry(
+            lambda: ensure_partitions(months_ahead=6),
+            task_id="partition_maintenance",
+            max_retries=3,  # 重要任务，重试3次
+            retry_delay_seconds=300,  # 5分钟后重试
+        ),
+        trigger=CronTrigger(day=1, hour=3, minute=0),
+        id="partition_maintenance",
+        name="数据库分区维护（每月1日凌晨3点）",
+        replace_existing=True,
+    )
+
     # 财务报表生成任务（日/周/月）
     report_gen = scheduled_reports.ScheduledReportGenerator(scheduler)
     report_gen.setup_jobs()

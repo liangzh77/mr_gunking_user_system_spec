@@ -67,6 +67,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_cache()
         logger.info("redis_cache_initialized", redis_url=settings.REDIS_URL)
 
+        # Ensure database partitions exist (create next 6 months)
+        from .db.partition_manager import ensure_partitions
+        await ensure_partitions(months_ahead=6)
+        logger.info("database_partitions_ensured")
+
         # Initialize monitoring system
         monitoring_config = {
             'health_monitoring': {
