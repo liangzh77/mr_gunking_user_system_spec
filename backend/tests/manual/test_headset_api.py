@@ -249,8 +249,8 @@ class HeadsetAPITester:
 
         url = f"{BASE_URL}/auth/game/pre-authorize"
         headers = {
-            "Authorization": f"Bearer {self.headset_token}",
-            "X-Session-ID": self._generate_session_id()
+            "Authorization": f"Bearer {self.headset_token}"
+            # 预授权接口不需要X-Session-ID
         }
         payload = {
             "app_code": self.app_code,
@@ -284,11 +284,11 @@ class HeadsetAPITester:
         """测试游戏授权"""
         print_header("5. 游戏授权 (核心接口)")
 
-        self.session_id = self._generate_session_id()
+        # 不再需要生成session_id，服务器端会自动生成
         url = f"{BASE_URL}/auth/game/authorize"
         headers = {
-            "Authorization": f"Bearer {self.headset_token}",
-            "X-Session-ID": self.session_id
+            "Authorization": f"Bearer {self.headset_token}"
+            # 移除了 X-Session-ID 头部
         }
         payload = {
             "app_code": self.app_code,
@@ -303,9 +303,11 @@ class HeadsetAPITester:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
+                    # 从响应中获取服务器生成的session_id
+                    self.session_id = data["data"]["session_id"]
                     self.authorization_token = data["data"]["authorization_token"]
                     print_success("游戏授权成功")
-                    print_info(f"Session ID: {self.session_id}")
+                    print_info(f"Session ID (服务器生成): {self.session_id}")
                     print_info(f"扣费金额: {data['data']['total_cost']}")  # 字段名是total_cost
                     print_info(f"授权后余额: {data['data']['balance_after']}")  # 只有授权后余额
                     return True
@@ -324,10 +326,10 @@ class HeadsetAPITester:
         url = f"{BASE_URL}/auth/game/session/upload"
         headers = {
             "Authorization": f"Bearer {self.headset_token}",
-            "X-Session-ID": self.session_id
+            "X-Session-ID": self.session_id  # 使用从授权响应中获得的session_id
         }
         payload = {
-            "session_id": self.session_id,  # 需要提供session_id
+            "session_id": self.session_id,  # 使用从授权响应中获得的session_id
             "session_records": [
                 {
                     "headset_id": "headset_001",

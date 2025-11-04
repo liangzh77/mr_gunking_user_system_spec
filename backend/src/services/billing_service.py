@@ -69,6 +69,40 @@ class BillingService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def check_recent_authorization(
+        self,
+        operator_id: UUID,
+        application_id: UUID,
+        site_id: UUID,
+        player_count: int,
+        since: datetime
+    ) -> Optional[UsageRecord]:
+        """检查最近的相同授权请求(基于业务键的幂等性检查)
+
+        根据业务键(运营商+应用+运营点+玩家数)检查指定时间窗口内
+        是否已有相同的授权记录。用于防止短时间内的重复授权请求。
+
+        Args:
+            operator_id: 运营商ID
+            application_id: 应用ID
+            site_id: 运营点ID
+            player_count: 玩家数量
+            since: 时间窗口起点(通常为当前时间-30秒)
+
+        Returns:
+            Optional[UsageRecord]: 最近的相同授权记录,如果不存在则返回None
+        """
+        stmt = select(UsageRecord).where(
+            UsageRecord.operator_id == operator_id,
+            UsageRecord.application_id == application_id,
+            UsageRecord.site_id == site_id,
+            UsageRecord.player_count == player_count,
+            UsageRecord.created_at >= since
+        ).order_by(UsageRecord.created_at.desc())
+
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def check_balance_sufficiency(
         self,
         operator: OperatorAccount,
