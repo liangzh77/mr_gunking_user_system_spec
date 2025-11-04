@@ -620,9 +620,11 @@ async def get_transactions(
         for trans in transactions:
             items.append(TransactionItem(
                 transaction_id=f"txn_{trans.id}",
-                type=trans.transaction_type,
+                transaction_type=trans.transaction_type,
                 amount=str(trans.amount),
+                balance_before=str(trans.balance_before),
                 balance_after=str(trans.balance_after),
+                description=trans.description,
                 created_at=trans.created_at,
                 related_usage_id=f"usage_{trans.related_usage_id}" if trans.related_usage_id else None,
                 payment_method=trans.payment_channel

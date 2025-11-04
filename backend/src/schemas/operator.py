@@ -427,19 +427,29 @@ class TransactionItem(BaseModel):
         description="交易ID"
     )
 
-    type: str = Field(
+    transaction_type: str = Field(
         ...,
-        description="交易类型: recharge/consumption"
+        description="交易类型: recharge/consumption/refund"
     )
 
     amount: str = Field(
         ...,
-        description="交易金额(字符串格式)"
+        description="交易金额(字符串格式，充值和退款为正，消费为负)"
+    )
+
+    balance_before: str = Field(
+        ...,
+        description="交易前余额"
     )
 
     balance_after: str = Field(
         ...,
         description="交易后余额"
+    )
+
+    description: Optional[str] = Field(
+        None,
+        description="交易描述"
     )
 
     created_at: datetime = Field(
@@ -462,9 +472,11 @@ class TransactionItem(BaseModel):
             "examples": [
                 {
                     "transaction_id": "txn_20250115_123456",
-                    "type": "consumption",
-                    "amount": "50.00",
+                    "transaction_type": "consumption",
+                    "amount": "-50.00",
+                    "balance_before": "500.00",
                     "balance_after": "450.00",
+                    "description": "游戏消费：测试游戏 - 2人",
                     "created_at": "2025-01-15T12:30:00.000Z",
                     "related_usage_id": "usage_20250115_001",
                     "payment_method": None
