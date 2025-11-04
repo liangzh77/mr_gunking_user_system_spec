@@ -17,7 +17,7 @@ from typing import List
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .session import get_async_session
+from .session import get_db_session
 from ..core import get_logger
 
 logger = get_logger(__name__)
@@ -231,7 +231,7 @@ async def ensure_partitions(months_ahead: int = 6) -> None:
         months_ahead: 提前创建多少个月的分区（默认6个月）
     """
     try:
-        async for db in get_async_session():
+        async for db in get_db_session():
             manager = PartitionManager(db)
             await manager.ensure_partitions(months_ahead)
             break  # 只执行一次
