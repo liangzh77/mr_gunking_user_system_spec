@@ -101,11 +101,22 @@ async def generate_headset_token(
             }
         )
 
+    # Normalize IDs: Remove prefixes if present
+    # application_id: 支持 "app_" 前缀或纯UUID
+    application_id_str = request_body.application_id
+    if application_id_str.startswith("app_"):
+        application_id_str = application_id_str[4:]  # 去掉"app_"前缀
+
+    # site_id: 支持 "site_" 前缀或纯UUID
+    site_id_str = request_body.site_id
+    if site_id_str.startswith("site_"):
+        site_id_str = site_id_str[5:]  # 去掉"site_"前缀
+
     logger.info(
         "dev_tool_generate_token",
         operator_id=request_body.operator_id,
-        application_id=request_body.application_id,
-        site_id=request_body.site_id,
+        application_id=application_id_str,
+        site_id=site_id_str,
         requester=token.get("sub")
     )
 
@@ -123,8 +134,8 @@ async def generate_headset_token(
             }
         )
 
-    # 3. Validate application exists
-    app_stmt = select(Application).where(Application.id == request_body.application_id)
+    # 3. Validate application exists (use normalized ID)
+    app_stmt = select(Application).where(Application.id == application_id_str)
     app_result = await db.execute(app_stmt)
     application = app_result.scalar_one_or_none()
 
@@ -137,9 +148,9 @@ async def generate_headset_token(
             }
         )
 
-    # 4. Validate site exists and belongs to operator
+    # 4. Validate site exists and belongs to operator (use normalized ID)
     site_stmt = select(OperationSite).where(
-        OperationSite.id == request_body.site_id,
+        OperationSite.id == site_id_str,
         OperationSite.operator_id == request_body.operator_id
     )
     site_result = await db.execute(site_stmt)
