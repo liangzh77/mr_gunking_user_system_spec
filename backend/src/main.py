@@ -218,7 +218,44 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc" if not settings.is_production else None,
         openapi_url="/api/openapi.json" if not settings.is_production else None,
         lifespan=lifespan,
+        # 配置Swagger UI的安全认证
+        swagger_ui_parameters={
+            "persistAuthorization": True  # 持久化授权配置
+        }
     )
+
+    # 自定义OpenAPI schema以添加安全定义
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        from fastapi.openapi.utils import get_openapi
+
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+        # 添加安全scheme定义
+        openapi_schema["components"]["securitySchemes"] = {
+            "HTTPBearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Token认证。格式: Bearer {token}"
+            }
+        }
+
+        # 为所有需要认证的接口添加安全要求
+        # (注意: 这是全局配置,具体接口可以通过dependencies覆盖)
+        # openapi_schema["security"] = [{"HTTPBearer": []}]
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
 
     # Configure CORS
     app.add_middleware(
