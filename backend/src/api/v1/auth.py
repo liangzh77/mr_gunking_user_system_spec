@@ -19,6 +19,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator
@@ -82,25 +83,26 @@ router = APIRouter(prefix="/auth", tags=["授权"])
 
     **认证要求**:
     - Authorization: Bearer {headset_token} (24小时有效的Headset Token)
-    - X-Session-ID: 会话ID (格式: {operatorId}_{timestamp}_{random16})
 
     **业务逻辑**:
     1. 验证Headset Token有效性
-    2. 验证会话ID格式和幂等性 (防重复扣费)
+    2. 检查幂等性 (基于业务键: operator+app+site+player_count+时间窗口)
     3. 验证运营商对应用的授权状态
     4. 验证玩家数量在应用允许范围内
     5. 计算费用: 总费用 = 玩家数量 × 应用单人价格
     6. 检查账户余额是否充足
     7. 使用数据库事务扣费并创建使用记录
-    8. 返回授权Token
+    8. 服务器生成唯一的session_id
+    9. 返回授权Token和session_id
 
-    **幂等性**: 相同会话ID重复请求返回已授权信息，不重复扣费。
+    **幂等性**: 30秒内相同的运营商、应用、运营点、玩家数量只允许授权一次。
+
+    **session_id生成**: 服务器自动生成,格式为{operator_id}_{timestamp}_{random16}
     """
 )
 async def authorize_game(
     request_body: GameAuthorizeRequest,
     request: Request,
-    x_session_id: str = Header(..., alias="X-Session-ID", description="会话ID(幂等性标识)"),
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ) -> GameAuthorizeResponse:
@@ -108,15 +110,16 @@ async def authorize_game(
 
     处理头显Server的游戏授权请求，完成验证、扣费、返回授权Token。
 
+    注意: session_id 由服务器自动生成,不需要客户端提供。
+
     Args:
         request_body: 请求体(app_code, site_id, player_count)
         request: FastAPI Request对象
-        x_session_id: 会话ID (Header)
         token: Headset Token payload (包含operator_id)
         db: 数据库会话
 
     Returns:
-        GameAuthorizeResponse: 授权成功响应
+        GameAuthorizeResponse: 授权成功响应,包含服务器生成的session_id
     """
     # 初始化服务
     auth_service = AuthService(db)
@@ -145,32 +148,16 @@ async def authorize_game(
             }
         )
 
-    # ========== STEP 2: 验证会话ID格式 (FR-061) ==========
-    await auth_service.verify_session_id_format(x_session_id, operator_id)
-
-    # ========== STEP 3: 检查会话ID幂等性 ==========
-    existing_record = await billing_service.check_session_idempotency(x_session_id)
-    if existing_record:
-        # 会话已存在,返回已授权信息(幂等性保护)
-        return GameAuthorizeResponse(
-            success=True,
-            data=GameAuthorizeData(
-                authorization_token=existing_record.authorization_token,
-                session_id=existing_record.session_id,
-                app_name=existing_record.application.app_name if existing_record.application else "未知应用",
-                player_count=existing_record.player_count,
-                unit_price=str(existing_record.price_per_player),
-                total_cost=str(existing_record.total_cost),
-                balance_after="0.00",  # 已授权记录不再查询余额
-                authorized_at=existing_record.game_started_at
-            )
-        )
-
-    # ========== STEP 4: 解析并验证请求参数 ==========
+    # ========== STEP 2: 解析并验证请求参数 ==========
     app_code = request_body.app_code
 
+    # 处理site_id: 支持带"site_"前缀或纯UUID格式
+    site_id_str = request_body.site_id
+    if site_id_str.startswith("site_"):
+        site_id_str = site_id_str[5:]  # 去掉"site_"前缀
+
     try:
-        site_id = UUID(request_body.site_id)
+        site_id = UUID(site_id_str)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -180,30 +167,73 @@ async def authorize_game(
             }
         )
 
-    # ========== STEP 5: 验证运营点归属 ==========
+    # ========== STEP 3: 验证运营点归属 ==========
     site = await auth_service.verify_site_ownership(site_id, operator_id)
 
-    # ========== STEP 6: 通过app_code查询应用并验证授权 ==========
+    # ========== STEP 4: 通过app_code查询应用并验证授权 ==========
     application, authorization = await auth_service.verify_application_authorization_by_code(
         app_code,
         operator_id
     )
 
-    # ========== STEP 7: 验证玩家数量 ==========
+    # ========== STEP 5: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
 
-    # ========== STEP 8: 计算费用并检查余额 ==========
+    # ========== STEP 6: 计算费用并检查余额 ==========
     total_cost = billing_service.calculate_total_cost(
         application.price_per_player,
         request_body.player_count
     )
     await billing_service.check_balance_sufficiency(operator, total_cost)
 
+    # ========== STEP 7: 检查业务键幂等性 (30秒窗口) ==========
+    from datetime import datetime, timedelta
+    import hashlib
+
+    # 构造业务键: operator_id + app_code + site_id + player_count
+    business_key = f"{operator_id}_{app_code}_{site_id}_{request_body.player_count}"
+
+    # 检查30秒内是否有相同业务键的授权记录
+    time_window_start = datetime.utcnow() - timedelta(seconds=30)
+    existing_record = await billing_service.check_recent_authorization(
+        operator_id=operator_id,
+        application_id=application.id,
+        site_id=site_id,
+        player_count=request_body.player_count,
+        since=time_window_start
+    )
+
+    if existing_record:
+        # 30秒内已有相同授权,返回已授权信息(幂等性保护)
+        from ...core.utils import cents_to_yuan
+        return GameAuthorizeResponse(
+            success=True,
+            data=GameAuthorizeData(
+                authorization_token=existing_record.authorization_token,
+                session_id=existing_record.session_id,
+                app_name=application.app_name,
+                player_count=existing_record.player_count,
+                unit_price=str(cents_to_yuan(existing_record.price_per_player)),
+                total_cost=str(cents_to_yuan(existing_record.total_cost)),
+                balance_after=str(cents_to_yuan(operator.balance)),  # 使用当前余额
+                authorized_at=existing_record.game_started_at
+            )
+        )
+
+    # ========== STEP 8: 生成唯一的session_id ==========
+    import random
+    import string
+    import time as time_module
+
+    timestamp_ms = int(time_module.time() * 1000)
+    random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
+    session_id = f"{operator_id}_{timestamp_ms}_{random_str}"
+
     # ========== STEP 9: 执行扣费事务 ==========
     client_ip = request.client.host if request.client else None
 
     usage_record, transaction_record, balance_after = await billing_service.create_authorization_transaction(
-        session_id=x_session_id,
+        session_id=session_id,
         operator_id=operator_id,
         site_id=site_id,
         application=application,
@@ -290,28 +320,38 @@ async def pre_authorize_game(
     auth_service = AuthService(db)
     billing_service = BillingService(db)
 
-    # ========== STEP 1: 从Token中提取operator_id ==========
-    operator_id = token.get("sub")
+    # ========== STEP 1: 从Token中提取operator_id并查询运营商 ==========
+    operator_id = UUID(token.get("sub"))
 
-    # ========== STEP 2: 获取运营商信息 ==========
-    from ...services.operator import OperatorService
-    operator_service = OperatorService(db)
-    operator = await operator_service.get_operator_by_id(operator_id)
+    # 查询运营商对象（用于后续余额检查）
+    from ...models.operator import OperatorAccount
+
+    stmt = select(OperatorAccount).where(
+        OperatorAccount.id == operator_id,
+        OperatorAccount.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    operator = result.scalar_one_or_none()
 
     if not operator:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
-                "error_code": "INVALID_TOKEN",
-                "message": "运营商不存在"
+                "error_code": "OPERATOR_NOT_FOUND",
+                "message": "运营商账户不存在或已删除"
             }
         )
 
-    # ========== STEP 3: 解析并验证请求参数 ==========
+    # ========== STEP 2: 解析并验证请求参数 ==========
     app_code = request_body.app_code
 
+    # 处理site_id: 支持带"site_"前缀或纯UUID格式
+    site_id_str = request_body.site_id
+    if site_id_str.startswith("site_"):
+        site_id_str = site_id_str[5:]  # 去掉"site_"前缀
+
     try:
-        site_id = UUID(request_body.site_id)
+        site_id = UUID(site_id_str)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -321,41 +361,41 @@ async def pre_authorize_game(
             }
         )
 
-    # ========== STEP 4: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, UUID(operator_id))
+    # ========== STEP 3: 验证运营点归属 ==========
+    site = await auth_service.verify_site_ownership(site_id, operator_id)
 
-    # ========== STEP 5: 通过app_code验证应用授权 ==========
+    # ========== STEP 4: 通过app_code验证应用授权 ==========
     application, authorization = await auth_service.verify_application_authorization_by_code(
         app_code,
-        UUID(operator_id)
+        operator_id
     )
 
-    # ========== STEP 6: 验证玩家数量 ==========
+    # ========== STEP 5: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
 
-    # ========== STEP 7: 计算费用 ==========
+    # ========== STEP 6: 计算费用 ==========
     total_cost = billing_service.calculate_total_cost(
         application.price_per_player,
         request_body.player_count
     )
 
-    # ========== STEP 8: 检查余额 (不扣费) ==========
+    # ========== STEP 7: 检查余额 (不扣费) ==========
     can_authorize = True
     try:
         await billing_service.check_balance_sufficiency(operator, total_cost)
     except HTTPException:
         can_authorize = False
 
-    # ========== STEP 9: 构造响应 ==========
+    # ========== STEP 8: 构造响应 ==========
     from ...core.utils import cents_to_yuan
     response_data = GamePreAuthorizeData(
         can_authorize=can_authorize,
         app_code=application.app_code,
         app_name=application.app_name,
         player_count=request_body.player_count,
-        unit_price=cents_to_yuan(application.price_per_player),
-        total_cost=cents_to_yuan(total_cost),
-        current_balance=cents_to_yuan(operator.balance)
+        unit_price=str(cents_to_yuan(application.price_per_player)),
+        total_cost=str(cents_to_yuan(total_cost)),
+        current_balance=str(cents_to_yuan(operator.balance))
     )
 
     return GamePreAuthorizeResponse(success=True, data=response_data)
