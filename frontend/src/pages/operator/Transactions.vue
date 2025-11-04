@@ -21,7 +21,7 @@
             style="width: 150px"
           >
             <el-option label="充值" value="recharge" />
-            <el-option label="消费" value="billing" />
+            <el-option label="消费" value="consumption" />
             <el-option label="退款" value="refund" />
           </el-select>
         </el-form-item>
@@ -170,10 +170,11 @@ const pageRechargeTotal = computed(() => {
 })
 
 const pageBillingTotal = computed(() => {
-  return transactions.value
-    .filter(t => t.transaction_type === 'billing')
+  const total = transactions.value
+    .filter(t => t.transaction_type === 'consumption')
     .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-    .toFixed(2)
+  // 消费金额后端返回负数，这里取绝对值用于显示
+  return Math.abs(total).toFixed(2)
 })
 
 const pageRefundTotal = computed(() => {
@@ -192,7 +193,7 @@ const formatDateTime = (datetime: string) => {
 const getTransactionTypeTag = (type: string) => {
   const map: Record<string, any> = {
     recharge: 'success',
-    billing: 'warning',
+    consumption: 'warning',
     refund: 'info',
   }
   return map[type] || 'info'
@@ -202,7 +203,7 @@ const getTransactionTypeTag = (type: string) => {
 const getTransactionTypeLabel = (type: string) => {
   const map: Record<string, string> = {
     recharge: '充值',
-    billing: '消费',
+    consumption: '消费',
     refund: '退款',
   }
   return map[type] || type
@@ -215,8 +216,11 @@ const getAmountClass = (type: string) => {
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  const prefix = type === 'recharge' || type === 'refund' ? '+' : '-'
-  return `${prefix}¥${amount}`
+  // 后端返回的amount已经带有正负号（消费为负数，充值/退款为正数）
+  const numAmount = parseFloat(amount)
+  const absAmount = Math.abs(numAmount).toFixed(2)
+  const prefix = numAmount >= 0 ? '+' : '-'
+  return `${prefix}¥${absAmount}`
 }
 
 // 加载交易记录
