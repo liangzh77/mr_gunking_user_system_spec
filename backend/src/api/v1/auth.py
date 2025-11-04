@@ -22,7 +22,7 @@ from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, st
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import require_operator
+from ...api.dependencies import require_operator, require_headset_token
 from ...db.session import get_db
 from ...schemas.auth import (
     ErrorResponse,
@@ -67,7 +67,7 @@ router = APIRouter(prefix="/auth", tags=["授权"])
         },
         403: {
             "model": ErrorResponse,
-            "description": "应用未授权或账户已锁定"
+            "description": "应用未授权、账户已锁定、或使用了错误的Token类型(必须使用Headset Token，不能使用运营商登录Token)"
         },
         409: {
             "description": "会话重复(幂等性处理，返回已授权信息)"
@@ -103,7 +103,7 @@ router = APIRouter(prefix="/auth", tags=["授权"])
 async def authorize_game(
     request_body: GameAuthorizeRequest,
     request: Request,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GameAuthorizeResponse:
     """游戏授权API
@@ -115,7 +115,7 @@ async def authorize_game(
     Args:
         request_body: 请求体(app_code, site_id, player_count)
         request: FastAPI Request对象
-        token: Headset Token payload (包含operator_id)
+        token: Headset Token payload (包含operator_id) - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
@@ -276,7 +276,7 @@ async def authorize_game(
         },
         403: {
             "model": ErrorResponse,
-            "description": "应用未授权或账户已锁定"
+            "description": "应用未授权、账户已锁定、或使用了错误的Token类型(必须使用Headset Token，不能使用运营商登录Token)"
         },
         500: {
             "model": ErrorResponse,
@@ -301,7 +301,7 @@ async def authorize_game(
 )
 async def pre_authorize_game(
     request_body: GameAuthorizeRequest,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GamePreAuthorizeResponse:
     """游戏授权查询API (预授权,不扣费)
@@ -310,7 +310,7 @@ async def pre_authorize_game(
 
     Args:
         request_body: 请求体(app_id, site_id, player_count)
-        token: Bearer Token payload (由require_operator验证)
+        token: Headset Token payload - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
@@ -439,7 +439,7 @@ async def pre_authorize_game(
 )
 async def upload_game_session(
     request_body: GameSessionUploadRequest,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GameSessionUploadResponse:
     """上传游戏Session信息API
@@ -448,7 +448,7 @@ async def upload_game_session(
 
     Args:
         request_body: 请求体(session_id, start_time, end_time, process_info, headset_devices)
-        token: Bearer Token payload
+        token: Headset Token payload - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
