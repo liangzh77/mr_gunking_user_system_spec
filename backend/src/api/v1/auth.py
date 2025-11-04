@@ -170,8 +170,13 @@ async def authorize_game(
     # ========== STEP 4: 解析并验证请求参数 ==========
     app_code = request_body.app_code
 
+    # 处理site_id: 支持带"site_"前缀或纯UUID格式
+    site_id_str = request_body.site_id
+    if site_id_str.startswith("site_"):
+        site_id_str = site_id_str[5:]  # 去掉"site_"前缀
+
     try:
-        site_id = UUID(request_body.site_id)
+        site_id = UUID(site_id_str)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -316,8 +321,13 @@ async def pre_authorize_game(
     # ========== STEP 2: 解析并验证请求参数 ==========
     app_code = request_body.app_code
 
+    # 处理site_id: 支持带"site_"前缀或纯UUID格式
+    site_id_str = request_body.site_id
+    if site_id_str.startswith("site_"):
+        site_id_str = site_id_str[5:]  # 去掉"site_"前缀
+
     try:
-        site_id = UUID(request_body.site_id)
+        site_id = UUID(site_id_str)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
