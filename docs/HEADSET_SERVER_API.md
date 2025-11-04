@@ -1,7 +1,7 @@
 # 头显Server对接API文档
 
-**版本**: v2.0
-**更新时间**: 2025-11-02
+**版本**: v2.1
+**更新时间**: 2025-11-04
 **适用对象**: 头显Server开发者
 
 ---
@@ -141,7 +141,6 @@ POST /api/v1/auth/game/authorize HTTP/1.1
 Host: mrgun.chu-jiao.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
-X-Session-ID: 3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8
 
 {
   "app_code": "APP_20251030_001",
@@ -151,16 +150,20 @@ X-Session-ID: 3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h
 }
 ```
 
-### 会话ID规范 (重要)
+> ⚠️ **v2.1 变更**: 不再需要 `X-Session-ID` 请求头，服务器会自动生成并在响应中返回 `session_id`
+
+### 会话ID规范 (v2.1更新)
+
+**生成方式**: 由服务器端自动生成（客户端无需生成）
 
 **格式**: `{operatorId}_{13位毫秒时间戳}_{16位随机字符}`
 
 **示例**: `3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h8`
 
-**要求**:
-- `operatorId`: 从Headset Token中提取的运营商UUID
-- `timestamp`: 13位Unix毫秒时间戳，必须在当前时间前后5分钟内
-- `random`: 16位字母数字随机字符 (a-z, A-Z, 0-9)
+**说明**:
+- 服务器在授权成功后返回 `session_id`
+- 用于后续游戏会话数据上传
+- 客户端保存此 ID 用于关联游戏会话
 
 **用途**:
 - **幂等性保护**: 相同会话ID重复请求不会重复扣费
@@ -234,15 +237,16 @@ X-Session-ID: 3d4927d0-5c60-407c-9acd-418e789e164d_1730451234567_a1b2c3d4e5f6g7h
 
 **用途**: 启动游戏前请求正式授权并扣费
 
-**认证**: Bearer Token (Headset Token) + 会话ID
+**认证**: Bearer Token (Headset Token)
 
 **请求头**:
 
 ```http
 Authorization: Bearer {headset_token}
-X-Session-ID: {operator_id}_{timestamp}_{random}
 Content-Type: application/json
 ```
+
+> ⚠️ **v2.1 变更**: 移除了 `X-Session-ID` 请求头，服务器会自动生成 session_id
 
 **请求参数**:
 
@@ -285,7 +289,7 @@ Content-Type: application/json
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | authorization_token | string(UUID) | 授权令牌，用于游戏内验证 |
-| session_id | string | 会话ID（与请求头中的一致） |
+| session_id | string | **[v2.1新增]** 服务器生成的会话ID，用于游戏会话数据上传 |
 | app_name | string | 应用名称 |
 | player_count | integer | 玩家数量 |
 | unit_price | string | 单人价格（保留2位小数） |
@@ -415,28 +419,15 @@ class HeadsetServerClient:
 
         return data['sub']  # operator_id存储在'sub'字段
 
-    def _generate_session_id(self) -> str:
-        """生成符合规范的会话ID
-
-        格式: {operatorId}_{13位毫秒时间戳}_{16位随机字符}
-        """
-        timestamp_ms = int(time.time() * 1000)
-        random_str = secrets.token_hex(8)  # 16位十六进制字符
-        return f"{self.operator_id}_{timestamp_ms}_{random_str}"
-
-    def _get_headers(self, session_id: str) -> dict:
+    def _get_headers(self) -> dict:
         """构造请求头
-
-        Args:
-            session_id: 会话ID
 
         Returns:
             请求头字典
         """
         return {
             'Authorization': f'Bearer {self.headset_token}',
-            'Content-Type': 'application/json',
-            'X-Session-ID': session_id
+            'Content-Type': 'application/json'
         }
 
     def pre_authorize(
@@ -483,11 +474,10 @@ class HeadsetServerClient:
             headset_ids: 头显设备ID列表（可选）
 
         Returns:
-            授权响应数据
+            授权响应数据（包含服务器生成的session_id）
         """
-        session_id = self._generate_session_id()
         url = f"{self.base_url}/auth/game/authorize"
-        headers = self._get_headers(session_id)
+        headers = self._get_headers()  # v2.1: 不再需要传入session_id
         payload = {
             "app_code": app_code,
             "site_id": site_id,
@@ -499,7 +489,10 @@ class HeadsetServerClient:
 
         response = requests.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+
+        # v2.1: 服务器返回session_id，保存用于后续会话数据上传
+        return result
 
     def upload_session_data(
         self,
@@ -1208,8 +1201,46 @@ def parse_launch_url(url: str) -> dict:
 
 ---
 
-**文档版本**: v2.0
-**最后更新**: 2025-11-02
+## 版本历史
+
+### v2.1 (2025-11-04)
+**重要变更**:
+- ⚠️ **破坏性变更**: 授权接口不再需要客户端提供 `X-Session-ID` 请求头
+- ✨ **新特性**: 服务器端自动生成 session_id，格式为 `{operator_id}_{timestamp_ms}_{random16}`
+- ✨ **新特性**: 实现业务键幂等性保护（30秒窗口期）
+  - 业务键组成：`operator_id` + `application_id` + `site_id` + `player_count`
+  - 30秒内相同业务键的重复请求返回相同授权结果（不重复扣费）
+- 🐛 **Bug修复**: 修复 site_id 格式支持问题，现支持带 "site_" 前缀和纯UUID两种格式
+- 🐛 **Bug修复**: 修复退款审核通过后错误扣减余额的bug
+- 🐛 **Bug修复**: 修复交易记录API返回字段缺失问题（transaction_type, balance_before, description）
+- 🎨 **UI修复**: 修复前端交易记录金额显示双重负号问题（-¥-400.00 → -¥400.00）
+
+**迁移指南**:
+1. **移除 X-Session-ID 请求头**: 授权请求时不再需要生成和传递 X-Session-ID
+2. **使用响应中的 session_id**: 服务器返回的 session_id 用于后续游戏会话数据上传
+3. **幂等性保护**: 如需重试授权请求，直接重发即可，系统会自动检测重复请求（30秒内）
+
+**API变更详情**:
+
+```diff
+POST /api/v1/auth/game/authorize
+
+请求头:
+  Authorization: Bearer {headset_token}
+- X-Session-ID: {client_generated_session_id}  # 移除
+
+响应:
+  {
+    "success": true,
+    "data": {
++     "session_id": "abac65d7-..._{timestamp}_{random}",  # 新增：服务器生成
+      "authorization_token": "...",
+      ...
+    }
+  }
+```
+
+### v2.0 (2025-11-02)
 **主要更新**:
 - 更新认证机制：改用Headset Token（24小时有效）
 - 新增自定义协议启动流程说明
