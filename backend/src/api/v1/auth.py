@@ -19,6 +19,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator
@@ -290,24 +291,29 @@ async def pre_authorize_game(
     auth_service = AuthService(db)
     billing_service = BillingService(db)
 
-    # ========== STEP 1: 从Token中提取operator_id ==========
-    operator_id = token.get("sub")
+    # ========== STEP 1: 从Token中提取operator_id并查询运营商 ==========
+    operator_id = UUID(token.get("sub"))
 
-    # ========== STEP 2: 获取运营商信息 ==========
-    from ...services.operator import OperatorService
-    operator_service = OperatorService(db)
-    operator = await operator_service.get_operator_by_id(operator_id)
+    # 查询运营商对象（用于后续余额检查）
+    from ...models.operator import OperatorAccount
+
+    stmt = select(OperatorAccount).where(
+        OperatorAccount.id == operator_id,
+        OperatorAccount.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    operator = result.scalar_one_or_none()
 
     if not operator:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
-                "error_code": "INVALID_TOKEN",
-                "message": "运营商不存在"
+                "error_code": "OPERATOR_NOT_FOUND",
+                "message": "运营商账户不存在或已删除"
             }
         )
 
-    # ========== STEP 3: 解析并验证请求参数 ==========
+    # ========== STEP 2: 解析并验证请求参数 ==========
     app_code = request_body.app_code
 
     try:
@@ -321,41 +327,41 @@ async def pre_authorize_game(
             }
         )
 
-    # ========== STEP 4: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, UUID(operator_id))
+    # ========== STEP 3: 验证运营点归属 ==========
+    site = await auth_service.verify_site_ownership(site_id, operator_id)
 
-    # ========== STEP 5: 通过app_code验证应用授权 ==========
+    # ========== STEP 4: 通过app_code验证应用授权 ==========
     application, authorization = await auth_service.verify_application_authorization_by_code(
         app_code,
-        UUID(operator_id)
+        operator_id
     )
 
-    # ========== STEP 6: 验证玩家数量 ==========
+    # ========== STEP 5: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
 
-    # ========== STEP 7: 计算费用 ==========
+    # ========== STEP 6: 计算费用 ==========
     total_cost = billing_service.calculate_total_cost(
         application.price_per_player,
         request_body.player_count
     )
 
-    # ========== STEP 8: 检查余额 (不扣费) ==========
+    # ========== STEP 7: 检查余额 (不扣费) ==========
     can_authorize = True
     try:
         await billing_service.check_balance_sufficiency(operator, total_cost)
     except HTTPException:
         can_authorize = False
 
-    # ========== STEP 9: 构造响应 ==========
+    # ========== STEP 8: 构造响应 ==========
     from ...core.utils import cents_to_yuan
     response_data = GamePreAuthorizeData(
         can_authorize=can_authorize,
         app_code=application.app_code,
         app_name=application.app_name,
         player_count=request_body.player_count,
-        unit_price=cents_to_yuan(application.price_per_player),
-        total_cost=cents_to_yuan(total_cost),
-        current_balance=cents_to_yuan(operator.balance)
+        unit_price=str(cents_to_yuan(application.price_per_player)),
+        total_cost=str(cents_to_yuan(total_cost)),
+        current_balance=str(cents_to_yuan(operator.balance))
     )
 
     return GamePreAuthorizeResponse(success=True, data=response_data)

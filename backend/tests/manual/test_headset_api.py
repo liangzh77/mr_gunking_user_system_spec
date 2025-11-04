@@ -348,7 +348,7 @@ class HeadsetAPITester:
                 data = response.json()
                 if data.get("success"):
                     print_success("Session上传成功")
-                    print_info(f"上传记录数: {data['data']['uploaded_count']}")
+                    print_info(f"消息: {data.get('message', '游戏信息上传成功')}")
                     return True
 
             print_error("Session上传失败")
