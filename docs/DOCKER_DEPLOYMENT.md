@@ -9,7 +9,7 @@
   docker-compose down
 
   # 3. 重新构建backend和frontend镜像（--no-cache确保使用最新代码）
-  docker-compose -f docker-compose.yml --env-file .env.production  build --no-cache backend frontend
+  docker-compose -f docker-compose.yml --env-file .env.production build backend frontend
 
   # 4. 启动所有服务
   docker-compose -f docker-compose.yml --env-file .env.production up -d

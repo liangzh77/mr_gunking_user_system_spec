@@ -96,6 +96,15 @@ class PartitionManager:
             table_name: 分区表名称
             months_ahead: 提前创建多少个月
         """
+        # 首先检查表是否是分区表
+        if not await self._is_partitioned_table(table_name):
+            logger.info(
+                "table_not_partitioned_skipping",
+                table_name=table_name,
+                message=f"{table_name}不是分区表，跳过分区创建（开发环境正常）"
+            )
+            return
+
         today = datetime.utcnow().date()
         current_month_start = datetime(today.year, today.month, 1)
 
@@ -155,6 +164,31 @@ class PartitionManager:
             skipped=skipped_count,
             total=months_ahead + 1,
         )
+
+    async def _is_partitioned_table(self, table_name: str) -> bool:
+        """检查表是否是分区表.
+
+        Args:
+            table_name: 表名称
+
+        Returns:
+            bool: 是否为分区表
+        """
+        query = text("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_partitioned_table pt
+                JOIN pg_class c ON pt.partrelid = c.oid
+                WHERE c.relname = :table_name
+            )
+        """)
+
+        try:
+            result = await self.db.execute(query, {"table_name": table_name})
+            return result.scalar()
+        except Exception:
+            # 如果查询失败（比如表不存在），返回False
+            return False
 
     async def _partition_exists(self, partition_name: str) -> bool:
         """检查分区表是否存在.
