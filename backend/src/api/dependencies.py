@@ -158,7 +158,52 @@ async def require_finance(token: CurrentUserToken) -> dict:
     return token
 
 
+async def require_headset_token(token: CurrentUserToken) -> dict:
+    """Require headset token (for headset server APIs only).
+
+    This dependency ensures that only headset tokens (not regular operator
+    login tokens) can access headset server APIs like game authorization.
+
+    Args:
+        token: Current token payload
+
+    Returns:
+        dict: Token payload
+
+    Raises:
+        HTTPException: If token is not a headset token or not for an operator
+
+    Example:
+        >>> @app.post("/game/authorize")
+        ... async def authorize(token: dict = Depends(require_headset_token)):
+        ...     # Only headset tokens can reach here
+        ...     ...
+    """
+    # Must be a headset type token
+    if token.get("type") != "headset":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INVALID_TOKEN_TYPE",
+                "message": "This endpoint requires a headset token. Please use the token provided when launching the application."
+            },
+        )
+
+    # Must be for an operator account
+    if token.get("user_type") != "operator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INVALID_USER_TYPE",
+                "message": "Headset token must be associated with an operator account"
+            },
+        )
+
+    return token
+
+
 # Type annotations for user types
 AdminUser = Annotated[dict, Depends(require_admin)]
 OperatorUser = Annotated[dict, Depends(require_operator)]
 FinanceUser = Annotated[dict, Depends(require_finance)]
+HeadsetToken = Annotated[dict, Depends(require_headset_token)]

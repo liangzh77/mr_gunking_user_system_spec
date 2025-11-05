@@ -118,12 +118,12 @@ export const useOperatorStore = defineStore('operator', () => {
     page_size?: number
   }): Promise<PaginationResponse<UsageRecord>> {
     const response = await http.get('/operators/me/usage-records', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   async function getUsageRecord(recordId: string): Promise<UsageRecord> {
     const response = await http.get(`/operators/me/usage-records/${recordId}`)
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   // ========== 统计数据 ==========

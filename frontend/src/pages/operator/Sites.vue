@@ -421,7 +421,7 @@ const handleConfirmLaunch = async () => {
   launching.value = true
   try {
     // 1. 生成TOKEN
-    const tokenResponse = await http.post('/operators/generate-token')
+    const tokenResponse = await http.post('/operators/generate-headset-token')
     const token = tokenResponse.data.data.token
 
     // 2. 构建启动URL

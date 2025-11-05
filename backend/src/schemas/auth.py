@@ -261,7 +261,6 @@ class GameAuthorizeData(BaseModel):
     """授权成功响应数据
 
     响应字段:
-    - authorization_token: UUID格式授权令牌
     - session_id: 会话ID(幂等性标识)
     - app_name: 应用名称
     - player_count: 玩家数量
@@ -270,12 +269,6 @@ class GameAuthorizeData(BaseModel):
     - balance_after: 扣费后余额(字符串)
     - authorized_at: 授权时间(ISO 8601)
     """
-
-    authorization_token: str = Field(
-        ...,
-        description="授权Token(UUID格式)",
-        examples=["550e8400-e29b-41d4-a716-446655440000"]
-    )
 
     session_id: str = Field(
         ...,
@@ -351,7 +344,6 @@ class GameAuthorizeData(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "authorization_token": "550e8400-e29b-41d4-a716-446655440000",
                 "session_id": "op_12345_1704067200_a1b2c3d4e5f6g7h8",
                 "app_name": "太空探险",
                 "player_count": 5,
@@ -388,7 +380,6 @@ class GameAuthorizeResponse(BaseModel):
             "example": {
                 "success": True,
                 "data": {
-                    "authorization_token": "550e8400-e29b-41d4-a716-446655440000",
                     "session_id": "op_12345_1704067200_a1b2c3d4e5f6g7h8",
                     "app_name": "太空探险",
                     "player_count": 5,

@@ -22,7 +22,7 @@ from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, st
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import require_operator
+from ...api.dependencies import require_operator, require_headset_token
 from ...db.session import get_db
 from ...schemas.auth import (
     ErrorResponse,
@@ -67,7 +67,7 @@ router = APIRouter(prefix="/auth", tags=["授权"])
         },
         403: {
             "model": ErrorResponse,
-            "description": "应用未授权或账户已锁定"
+            "description": "应用未授权、账户已锁定、或使用了错误的Token类型(必须使用Headset Token，不能使用运营商登录Token)"
         },
         409: {
             "description": "会话重复(幂等性处理，返回已授权信息)"
@@ -103,7 +103,7 @@ router = APIRouter(prefix="/auth", tags=["授权"])
 async def authorize_game(
     request_body: GameAuthorizeRequest,
     request: Request,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GameAuthorizeResponse:
     """游戏授权API
@@ -115,7 +115,7 @@ async def authorize_game(
     Args:
         request_body: 请求体(app_code, site_id, player_count)
         request: FastAPI Request对象
-        token: Headset Token payload (包含operator_id)
+        token: Headset Token payload (包含operator_id) - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
@@ -209,7 +209,6 @@ async def authorize_game(
         return GameAuthorizeResponse(
             success=True,
             data=GameAuthorizeData(
-                authorization_token=existing_record.authorization_token,
                 session_id=existing_record.session_id,
                 app_name=application.app_name,
                 player_count=existing_record.player_count,
@@ -244,7 +243,6 @@ async def authorize_game(
 
     # ========== STEP 10: 构造响应 ==========
     response_data = GameAuthorizeData(
-        authorization_token=usage_record.authorization_token,
         session_id=usage_record.session_id,
         app_name=application.app_name,
         player_count=usage_record.player_count,
@@ -276,7 +274,7 @@ async def authorize_game(
         },
         403: {
             "model": ErrorResponse,
-            "description": "应用未授权或账户已锁定"
+            "description": "应用未授权、账户已锁定、或使用了错误的Token类型(必须使用Headset Token，不能使用运营商登录Token)"
         },
         500: {
             "model": ErrorResponse,
@@ -288,7 +286,7 @@ async def authorize_game(
     查询游戏授权资格，不执行实际扣费操作。
 
     **认证要求**:
-    - Authorization: Bearer {TOKEN} (由/operators/generate-token生成的24小时TOKEN)
+    - Authorization: Bearer {TOKEN} (由/operators/generate-headset-token生成的24小时TOKEN)
 
     **业务逻辑**:
     1. 验证Bearer Token有效性
@@ -301,7 +299,7 @@ async def authorize_game(
 )
 async def pre_authorize_game(
     request_body: GameAuthorizeRequest,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GamePreAuthorizeResponse:
     """游戏授权查询API (预授权,不扣费)
@@ -310,7 +308,7 @@ async def pre_authorize_game(
 
     Args:
         request_body: 请求体(app_id, site_id, player_count)
-        token: Bearer Token payload (由require_operator验证)
+        token: Headset Token payload - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
@@ -439,7 +437,7 @@ async def pre_authorize_game(
 )
 async def upload_game_session(
     request_body: GameSessionUploadRequest,
-    token: dict = Depends(require_operator),
+    token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GameSessionUploadResponse:
     """上传游戏Session信息API
@@ -448,7 +446,7 @@ async def upload_game_session(
 
     Args:
         request_body: 请求体(session_id, start_time, end_time, process_info, headset_devices)
-        token: Bearer Token payload
+        token: Headset Token payload - 必须使用Headset Token
         db: 数据库会话
 
     Returns:
@@ -486,7 +484,28 @@ async def upload_game_session(
                 }
             )
 
-        # ========== STEP 2: 创建游戏Session记录 ==========
+        # ========== STEP 2: 删除旧的游戏Session记录(覆盖模式) ==========
+        # 删除该usage_record的所有旧GameSession记录
+        stmt_delete_sessions = select(GameSession).where(GameSession.usage_record_id == usage_record.id)
+        result_sessions = await db.execute(stmt_delete_sessions)
+        old_sessions = result_sessions.scalars().all()
+
+        for old_session in old_sessions:
+            # 先删除关联的头显游戏记录
+            stmt_delete_headset_records = select(HeadsetGameRecord).where(
+                HeadsetGameRecord.game_session_id == old_session.id
+            )
+            result_headset_records = await db.execute(stmt_delete_headset_records)
+            old_headset_records = result_headset_records.scalars().all()
+            for record in old_headset_records:
+                await db.delete(record)
+
+            # 删除GameSession
+            await db.delete(old_session)
+
+        await db.flush()
+
+        # 创建新的游戏Session记录
         game_session = GameSession(
             usage_record_id=usage_record.id,
             start_time=request_body.start_time,
@@ -519,6 +538,11 @@ async def upload_game_session(
                     db.add(headset_device)
                     await db.flush()
                 else:
+                    # 更新设备信息
+                    # 如果提供了新的设备名称，则更新
+                    if device_record.device_name:
+                        headset_device.device_name = device_record.device_name
+
                     # 更新最后使用时间
                     if device_record.end_time:
                         headset_device.last_used_at = device_record.end_time

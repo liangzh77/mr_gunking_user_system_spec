@@ -816,6 +816,37 @@ class UsageListResponse(BaseModel):
     }
 
 
+# ========== 使用记录详情相关 Schema ==========
+
+class HeadsetDeviceDetail(BaseModel):
+    """头显设备详情"""
+
+    device_id: str = Field(..., description="设备ID")
+    device_name: Optional[str] = Field(None, description="设备名称")
+    start_time: Optional[datetime] = Field(None, description="设备开始时间")
+    end_time: Optional[datetime] = Field(None, description="设备结束时间")
+    process_info: Optional[str] = Field(None, description="设备过程信息")
+
+
+class GameSessionDetail(BaseModel):
+    """游戏局详情"""
+
+    session_number: int = Field(..., description="局号(第几局)")
+    start_time: Optional[datetime] = Field(None, description="游戏开始时间")
+    end_time: Optional[datetime] = Field(None, description="游戏结束时间")
+    process_info: Optional[str] = Field(None, description="游戏过程信息(YAML/JSON格式)")
+    headset_devices: list[HeadsetDeviceDetail] = Field(default_factory=list, description="头显设备列表")
+
+
+class UsageDetail(UsageItem):
+    """使用记录详细信息(扩展UsageItem)"""
+
+    game_sessions: list[GameSessionDetail] = Field(
+        default_factory=list,
+        description="游戏局列表"
+    )
+
+
 # ========== 运营点管理相关 Schema (T087/T092-T096) ==========
 
 class SiteCreateRequest(BaseModel):

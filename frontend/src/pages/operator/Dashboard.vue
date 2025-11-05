@@ -208,12 +208,13 @@ const getTransactionTypeLabel = (type: string) => {
 
 // 获取金额CSS类
 const getAmountClass = (type: string) => {
-  return type === 'recharge' || type === 'refund' ? 'amount-positive' : 'amount-negative'
+  // 充值是加钱（绿色），消费和退款都是减钱（红色）
+  return type === 'recharge' ? 'amount-positive' : 'amount-negative'
 }
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  // 后端返回的amount已经带有正负号（消费为负数，充值/退款为正数）
+  // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
   const numAmount = parseFloat(amount)
   const absAmount = Math.abs(numAmount).toFixed(2)
   const prefix = numAmount >= 0 ? '+' : '-'

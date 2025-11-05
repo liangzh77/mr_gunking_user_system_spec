@@ -232,17 +232,19 @@ class FinanceRefundService:
         refund.reviewed_at = datetime.now(timezone.utc)
         refund.actual_amount = actual_refund_amount
 
-        # Add refund amount to operator balance (refund = return money to operator)
+        # Subtract refund amount from operator balance (refund = withdraw money to bank)
+        # When finance approves refund, money is transferred to operator's bank account
+        # So the balance in system should decrease
         balance_before = current_balance
-        operator.balance = current_balance + actual_refund_amount
+        operator.balance = current_balance - actual_refund_amount
         balance_after = operator.balance
 
         # Create transaction record
-        # Note: amount should be positive for refund (balance increases)
+        # Note: amount should be negative for refund (balance decreases, money withdrawn)
         transaction = TransactionRecord(
             operator_id=refund.operator_id,
             transaction_type="refund",
-            amount=actual_refund_amount,  # Positive because balance increases (refund)
+            amount=-actual_refund_amount,  # Negative because balance decreases (money withdrawn)
             balance_before=balance_before,
             balance_after=balance_after,
             description=f"退款审核通过: {note}" if note else "退款审核通过",

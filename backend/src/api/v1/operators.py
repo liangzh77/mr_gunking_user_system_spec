@@ -29,6 +29,8 @@ from ...schemas.operator import (
     AuthorizedApplicationItem,
     AuthorizedApplicationListResponse,
     BalanceResponse,
+    GameSessionDetail,
+    HeadsetDeviceDetail,
     OperatorProfile,
     OperatorUpdateRequest,
     RefundApplyRequest,
@@ -40,6 +42,7 @@ from ...schemas.operator import (
     SiteUpdateRequest,
     TransactionItem,
     TransactionListResponse,
+    UsageDetail,
     UsageItem,
     UsageListResponse,
 )
@@ -1480,8 +1483,30 @@ async def get_usage_record(
             record_id=usage_uuid
         )
 
+        # 转换game_sessions为响应格式
+        game_sessions = []
+        for idx, session in enumerate(usage_record.game_sessions, start=1):
+            # 转换headset_records
+            headset_devices = []
+            for hr in session.headset_records:
+                headset_devices.append(HeadsetDeviceDetail(
+                    device_id=hr.headset_device.device_id if hr.headset_device else f"device_{hr.headset_device_id}",
+                    device_name=hr.headset_device.device_name if hr.headset_device else None,
+                    start_time=hr.start_time,
+                    end_time=hr.end_time,
+                    process_info=hr.process_info
+                ))
+
+            game_sessions.append(GameSessionDetail(
+                session_number=idx,
+                start_time=session.start_time,
+                end_time=session.end_time,
+                process_info=session.process_info,
+                headset_devices=headset_devices
+            ))
+
         # 转换为响应格式
-        usage_item = UsageItem(
+        usage_detail = UsageDetail(
             usage_id=f"usage_{usage_record.id}",
             session_id=usage_record.session_id,
             site_id=f"site_{usage_record.site_id}",
@@ -1492,12 +1517,13 @@ async def get_usage_record(
             unit_price=str(usage_record.price_per_player),
             total_cost=str(usage_record.total_cost),
             game_duration=usage_record.game_duration_minutes * 60 if usage_record.game_duration_minutes else None,
-            created_at=usage_record.game_started_at
+            created_at=usage_record.game_started_at,
+            game_sessions=game_sessions
         )
 
         return {
             "success": True,
-            "data": usage_item
+            "data": usage_detail
         }
 
     except HTTPException:
@@ -2994,7 +3020,7 @@ async def get_application_requests(
 
 
 @router.post(
-    "/generate-token",
+    "/generate-headset-token",
     response_model=dict,
     status_code=status.HTTP_200_OK,
     summary="生成头显Server TOKEN",
