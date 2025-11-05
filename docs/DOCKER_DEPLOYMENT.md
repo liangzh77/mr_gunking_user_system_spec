@@ -23,10 +23,17 @@
   # 7. 查看backend启动日志，确认路由注册成功
   docker-compose logs backend | grep -i "router\|startup\|application_ready"
 
+
+  # 重启backend
+  docker-compose --env-file .env.production up -d --force-recreate backend
+
+  # 查看backend启动日志
+  docker logs mr_game_ops_backend --tail 50
+
   关键点：
   - docker-compose build --no-cache 强制重新构建，不使用缓存
   - docker-compose down 确保旧容器完全停止
   - docker-compose up -d 使用新镜像启动
 
   执行完后，再测试一下：
-  curl -k https://mrgun.chu-jiao.com/api/v1/health
+  curl -k https://mrgun.chu-jiao.com/health

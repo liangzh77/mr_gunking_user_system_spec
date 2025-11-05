@@ -45,16 +45,10 @@
             :default-sort="{ prop: 'total_cost', order: 'descending' }"
           >
             <el-table-column prop="site_name" label="运营点" min-width="150" />
-            <el-table-column prop="total_sessions" label="总场次" width="120" align="center" sortable />
             <el-table-column prop="total_players" label="总玩家数" width="120" align="center" sortable />
             <el-table-column prop="total_cost" label="总费用" width="150" sortable>
               <template #default="{ row }">
                 <span class="total-cost">¥{{ row.total_cost }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="平均场次费用" width="150">
-              <template #default="{ row }">
-                ¥{{ calculateAvgCost(row.total_cost, row.total_sessions) }}
               </template>
             </el-table-column>
           </el-table>
@@ -74,13 +68,7 @@
             :default-sort="{ prop: 'total_cost', order: 'descending' }"
           >
             <el-table-column prop="app_name" label="应用名称" min-width="150" />
-            <el-table-column prop="total_sessions" label="总场次" width="120" align="center" sortable />
             <el-table-column prop="total_players" label="总玩家数" width="120" align="center" sortable />
-            <el-table-column prop="avg_players_per_session" label="场均玩家数" width="120" align="center">
-              <template #default="{ row }">
-                {{ row.avg_players_per_session.toFixed(1) }}
-              </template>
-            </el-table-column>
             <el-table-column prop="total_cost" label="总费用" width="150" sortable>
               <template #default="{ row }">
                 <span class="total-cost">¥{{ row.total_cost }}</span>
@@ -105,17 +93,11 @@
 
           <div v-loading="trendLoading" class="trend-summary">
             <el-descriptions :column="2" border>
-              <el-descriptions-item label="总场次">
-                {{ trendSummary.total_sessions }}
-              </el-descriptions-item>
               <el-descriptions-item label="总玩家数">
                 {{ trendSummary.total_players }}
               </el-descriptions-item>
               <el-descriptions-item label="总费用">
                 <span class="total-cost">¥{{ trendSummary.total_cost }}</span>
-              </el-descriptions-item>
-              <el-descriptions-item label="场均玩家数">
-                {{ trendSummary.avg_players_per_session.toFixed(1) }}
               </el-descriptions-item>
             </el-descriptions>
           </div>
@@ -127,7 +109,6 @@
             style="width: 100%; margin-top: 20px"
           >
             <el-table-column prop="date" label="日期" width="180" />
-            <el-table-column prop="total_sessions" label="场次" width="120" align="center" />
             <el-table-column prop="total_players" label="玩家数" width="120" align="center" />
             <el-table-column prop="total_cost" label="费用" width="150">
               <template #default="{ row }">
