@@ -209,7 +209,6 @@ async def authorize_game(
         return GameAuthorizeResponse(
             success=True,
             data=GameAuthorizeData(
-                authorization_token=existing_record.authorization_token,
                 session_id=existing_record.session_id,
                 app_name=application.app_name,
                 player_count=existing_record.player_count,
@@ -244,7 +243,6 @@ async def authorize_game(
 
     # ========== STEP 10: 构造响应 ==========
     response_data = GameAuthorizeData(
-        authorization_token=usage_record.authorization_token,
         session_id=usage_record.session_id,
         app_name=application.app_name,
         player_count=usage_record.player_count,

@@ -213,10 +213,7 @@ class BillingService:
             operator.balance = balance_before - total_cost
             balance_after = operator.balance
 
-            # STEP 4: 生成授权令牌
-            authorization_token = str(uuid4())
-
-            # STEP 5: 创建使用记录
+            # STEP 4: 创建使用记录
             usage_record = UsageRecord(
                 session_id=session_id,
                 operator_id=operator_id,
@@ -225,7 +222,6 @@ class BillingService:
                 player_count=player_count,
                 price_per_player=application.price_per_player,
                 total_cost=total_cost,
-                authorization_token=authorization_token,
                 game_started_at=datetime.utcnow(),
                 client_ip=client_ip,
                 headset_ids=headset_ids
@@ -235,7 +231,7 @@ class BillingService:
             # 需要flush来获取usage_record.id用于交易记录关联
             await self.db.flush()
 
-            # STEP 6: 创建交易记录
+            # STEP 5: 创建交易记录
             transaction_record = TransactionRecord(
                 operator_id=operator_id,
                 transaction_type="consumption",
@@ -247,10 +243,10 @@ class BillingService:
             )
             self.db.add(transaction_record)
 
-            # STEP 7: 提交事务
+            # STEP 6: 提交事务
             await self.db.commit()
 
-            # STEP 8: 检查余额并发送低余额通知（如果需要）
+            # STEP 7: 检查余额并发送低余额通知（如果需要）
             await self._check_and_notify_low_balance(operator_id, balance_after)
 
             return usage_record, transaction_record, balance_after
@@ -275,7 +271,6 @@ class BillingService:
                             "message": "会话已存在，返回已授权信息(幂等性保护)",
                             "data": {
                                 "session_id": existing_record.session_id,
-                                "authorization_token": existing_record.authorization_token,
                                 "total_cost": str(existing_record.total_cost),
                                 "created_at": existing_record.created_at.isoformat()
                             }

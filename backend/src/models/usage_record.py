@@ -104,13 +104,6 @@ class UsageRecord(Base):
         comment="头显设备ID列表"
     )
 
-    # ==================== 授权信息 ====================
-    authorization_token: Mapped[str] = mapped_column(
-        String(64),
-        nullable=False,
-        comment="授权令牌(返回给头显Server)"
-    )
-
     # ==================== 会话生命周期 ====================
     game_started_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
