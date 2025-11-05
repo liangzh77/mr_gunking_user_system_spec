@@ -123,7 +123,7 @@ export const useOperatorStore = defineStore('operator', () => {
 
   async function getUsageRecord(recordId: string): Promise<UsageRecord> {
     const response = await http.get(`/operators/me/usage-records/${recordId}`)
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   // ========== 统计数据 ==========
