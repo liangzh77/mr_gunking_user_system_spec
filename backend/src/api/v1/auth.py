@@ -484,7 +484,28 @@ async def upload_game_session(
                 }
             )
 
-        # ========== STEP 2: 创建游戏Session记录 ==========
+        # ========== STEP 2: 删除旧的游戏Session记录(覆盖模式) ==========
+        # 删除该usage_record的所有旧GameSession记录
+        stmt_delete_sessions = select(GameSession).where(GameSession.usage_record_id == usage_record.id)
+        result_sessions = await db.execute(stmt_delete_sessions)
+        old_sessions = result_sessions.scalars().all()
+
+        for old_session in old_sessions:
+            # 先删除关联的头显游戏记录
+            stmt_delete_headset_records = select(HeadsetGameRecord).where(
+                HeadsetGameRecord.game_session_id == old_session.id
+            )
+            result_headset_records = await db.execute(stmt_delete_headset_records)
+            old_headset_records = result_headset_records.scalars().all()
+            for record in old_headset_records:
+                await db.delete(record)
+
+            # 删除GameSession
+            await db.delete(old_session)
+
+        await db.flush()
+
+        # 创建新的游戏Session记录
         game_session = GameSession(
             usage_record_id=usage_record.id,
             start_time=request_body.start_time,
@@ -517,6 +538,11 @@ async def upload_game_session(
                     db.add(headset_device)
                     await db.flush()
                 else:
+                    # 更新设备信息
+                    # 如果提供了新的设备名称，则更新
+                    if device_record.device_name:
+                        headset_device.device_name = device_record.device_name
+
                     # 更新最后使用时间
                     if device_record.end_time:
                         headset_device.last_used_at = device_record.end_time
