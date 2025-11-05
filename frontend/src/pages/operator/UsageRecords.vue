@@ -170,51 +170,49 @@
             </el-descriptions-item>
           </el-descriptions>
 
-          <!-- 游戏局信息 -->
+          <!-- 游戏信息 -->
           <div v-if="detailData.game_sessions && detailData.game_sessions.length > 0" style="margin-top: 20px">
-            <h3 style="margin-bottom: 10px">游戏局信息</h3>
-            <el-collapse>
-              <el-collapse-item
-                v-for="session in detailData.game_sessions"
-                :key="session.session_number"
-                :title="`第 ${session.session_number} 局`"
-              >
-                <el-descriptions :column="2" border size="small">
-                  <el-descriptions-item label="开始时间">
-                    {{ session.start_time ? formatDateTime(session.start_time) : '-' }}
-                  </el-descriptions-item>
-                  <el-descriptions-item label="结束时间">
-                    {{ session.end_time ? formatDateTime(session.end_time) : '-' }}
-                  </el-descriptions-item>
-                  <el-descriptions-item v-if="session.process_info" label="过程信息" :span="2">
-                    <pre style="white-space: pre-wrap; font-family: monospace">{{ session.process_info }}</pre>
-                  </el-descriptions-item>
-                </el-descriptions>
+            <h3 style="margin-bottom: 10px">游戏信息</h3>
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item label="开始时间">
+                {{ detailData.game_sessions[0].start_time ? formatDateTime(detailData.game_sessions[0].start_time) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="结束时间">
+                {{ detailData.game_sessions[0].end_time ? formatDateTime(detailData.game_sessions[0].end_time) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="detailData.game_sessions[0].process_info" label="过程信息" :span="2">
+                <pre style="white-space: pre-wrap; font-family: monospace">{{ detailData.game_sessions[0].process_info }}</pre>
+              </el-descriptions-item>
+            </el-descriptions>
 
-                <!-- 头显设备信息 -->
-                <div v-if="session.headset_devices && session.headset_devices.length > 0" style="margin-top: 10px">
-                  <h4 style="margin-bottom: 8px">头显设备</h4>
-                  <el-table :data="session.headset_devices" border size="small">
-                    <el-table-column prop="device_id" label="设备ID" width="150" />
-                    <el-table-column prop="device_name" label="设备名称" width="150" />
-                    <el-table-column prop="start_time" label="开始时间" width="180">
-                      <template #default="{ row }">
-                        {{ row.start_time ? formatDateTime(row.start_time) : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="end_time" label="结束时间" width="180">
-                      <template #default="{ row }">
-                        {{ row.end_time ? formatDateTime(row.end_time) : '-' }}
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
+            <!-- 头显设备信息 -->
+            <div v-if="detailData.game_sessions[0].headset_devices && detailData.game_sessions[0].headset_devices.length > 0" style="margin-top: 10px">
+              <h4 style="margin-bottom: 8px">头显设备</h4>
+              <el-table :data="detailData.game_sessions[0].headset_devices" border size="small">
+                <el-table-column prop="device_id" label="设备ID" width="120" />
+                <el-table-column prop="device_name" label="设备名称" width="120" />
+                <el-table-column prop="start_time" label="开始时间" width="160">
+                  <template #default="{ row }">
+                    {{ row.start_time ? formatDateTime(row.start_time) : '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="end_time" label="结束时间" width="160">
+                  <template #default="{ row }">
+                    {{ row.end_time ? formatDateTime(row.end_time) : '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="process_info" label="过程信息" min-width="200">
+                  <template #default="{ row }">
+                    <pre v-if="row.process_info" style="white-space: pre-wrap; font-family: monospace; margin: 0">{{ row.process_info }}</pre>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
           </div>
 
           <div v-else style="margin-top: 20px">
-            <el-empty description="暂无游戏局信息" />
+            <el-empty description="暂无游戏信息" />
           </div>
         </template>
       </div>
