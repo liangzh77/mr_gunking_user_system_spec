@@ -360,12 +360,12 @@ onMounted(() => {
   color: #303133;
 }
 
-.stat-value.recharge-total,
-.stat-value.refund-total {
+.stat-value.recharge-total {
   color: #67C23A;
 }
 
-.stat-value.billing-total {
+.stat-value.billing-total,
+.stat-value.refund-total {
   color: #F56C6C;
 }
 </style>
