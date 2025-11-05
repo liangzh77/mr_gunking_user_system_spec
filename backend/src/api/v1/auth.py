@@ -288,7 +288,7 @@ async def authorize_game(
     查询游戏授权资格，不执行实际扣费操作。
 
     **认证要求**:
-    - Authorization: Bearer {TOKEN} (由/operators/generate-token生成的24小时TOKEN)
+    - Authorization: Bearer {TOKEN} (由/operators/generate-headset-token生成的24小时TOKEN)
 
     **业务逻辑**:
     1. 验证Bearer Token有效性

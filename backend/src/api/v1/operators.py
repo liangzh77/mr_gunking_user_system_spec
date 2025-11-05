@@ -2994,7 +2994,7 @@ async def get_application_requests(
 
 
 @router.post(
-    "/generate-token",
+    "/generate-headset-token",
     response_model=dict,
     status_code=status.HTTP_200_OK,
     summary="生成头显Server TOKEN",
