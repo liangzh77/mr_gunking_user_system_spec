@@ -139,7 +139,7 @@ export const useOperatorStore = defineStore('operator', () => {
     start_time?: string
     end_time?: string
   }): Promise<{ applications: ApplicationStatistics[] }> {
-    const response = await http.get('/operators/me/statistics/by-application', { params })
+    const response = await http.get('/operators/me/statistics/by-app', { params })  // 后端路由是 by-app 不是 by-application
     return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
@@ -148,7 +148,7 @@ export const useOperatorStore = defineStore('operator', () => {
     start_time?: string
     end_time?: string
   }): Promise<ConsumptionStatistics> {
-    const response = await http.get('/operators/me/statistics/by-time', { params })
+    const response = await http.get('/operators/me/statistics/consumption', { params })  // 后端路由是 consumption 不是 by-time
     return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
