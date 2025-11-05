@@ -41,15 +41,15 @@
    ↓
 4. 头显Server解析URL参数，获取Token、app_code、site_id
    ↓
-5. 头显Server调用 POST /api/v1/auth/game/pre-authorize 预授权（可选）
+5. 玩家佩戴头显，确定玩家数量
    ↓
-6. 玩家佩戴头显，确定玩家数量
+6. 头显Server调用 POST /api/v1/auth/game/pre-authorize 预授权（可选，传入确定的玩家数量）
    ↓
 7. 头显Server请求正式授权 [POST /api/v1/auth/game/authorize]
    ↓
 8. 系统验证Token、运营商资质、余额，扣费
    ↓
-9. 返回授权Token
+9. 返回session_id和扣费信息
    ↓
 10. 游戏运行
    ↓
