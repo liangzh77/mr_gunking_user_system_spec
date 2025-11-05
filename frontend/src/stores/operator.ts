@@ -132,7 +132,7 @@ export const useOperatorStore = defineStore('operator', () => {
     end_time?: string
   }): Promise<{ sites: SiteStatistics[] }> {
     const response = await http.get('/operators/me/statistics/by-site', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   async function getStatisticsByApplication(params?: {
@@ -140,7 +140,7 @@ export const useOperatorStore = defineStore('operator', () => {
     end_time?: string
   }): Promise<{ applications: ApplicationStatistics[] }> {
     const response = await http.get('/operators/me/statistics/by-application', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   async function getStatisticsByTime(params: {
@@ -149,7 +149,7 @@ export const useOperatorStore = defineStore('operator', () => {
     end_time?: string
   }): Promise<ConsumptionStatistics> {
     const response = await http.get('/operators/me/statistics/by-time', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   async function getPlayerDistribution(params?: {
@@ -157,7 +157,7 @@ export const useOperatorStore = defineStore('operator', () => {
     end_time?: string
   }): Promise<PlayerDistribution> {
     const response = await http.get('/operators/me/statistics/player-distribution', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   // ========== 数据导出 ==========
@@ -169,7 +169,7 @@ export const useOperatorStore = defineStore('operator', () => {
     app_id?: string
   }): Promise<{ download_url: string; filename: string }> {
     const response = await http.get('/operators/me/usage-records/export', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   async function exportStatistics(params: {
@@ -180,7 +180,7 @@ export const useOperatorStore = defineStore('operator', () => {
     dimension?: 'day' | 'week' | 'month'
   }): Promise<{ download_url: string; filename: string }> {
     const response = await http.get('/operators/me/statistics/export', { params })
-    return response.data
+    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
   }
 
   return {
