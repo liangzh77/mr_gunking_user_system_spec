@@ -81,6 +81,8 @@
         :data="records"
         stripe
         style="width: 100%"
+        @row-click="handleRowClick"
+        :row-style="{ cursor: 'pointer' }"
       >
         <el-table-column prop="session_id" label="会话ID" width="180" show-overflow-tooltip />
         <el-table-column prop="site_name" label="运营点" width="150" />
@@ -99,6 +101,13 @@
         <el-table-column prop="created_at" label="使用时间" width="180">
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click.stop="showDetail(row)">
+              详情
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -138,6 +147,81 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 详情Dialog -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="使用记录详情"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="loadingDetail" class="detail-container">
+        <template v-if="detailData">
+          <!-- 基本信息 -->
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="会话ID">{{ detailData.session_id }}</el-descriptions-item>
+            <el-descriptions-item label="运营点">{{ detailData.site_name }}</el-descriptions-item>
+            <el-descriptions-item label="应用">{{ detailData.app_name }}</el-descriptions-item>
+            <el-descriptions-item label="玩家数">{{ detailData.player_count }}</el-descriptions-item>
+            <el-descriptions-item label="单价">¥{{ detailData.unit_price }}</el-descriptions-item>
+            <el-descriptions-item label="总费用">¥{{ detailData.total_cost }}</el-descriptions-item>
+            <el-descriptions-item label="使用时间" :span="2">
+              {{ formatDateTime(detailData.created_at) }}
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <!-- 游戏局信息 -->
+          <div v-if="detailData.game_sessions && detailData.game_sessions.length > 0" style="margin-top: 20px">
+            <h3 style="margin-bottom: 10px">游戏局信息</h3>
+            <el-collapse>
+              <el-collapse-item
+                v-for="session in detailData.game_sessions"
+                :key="session.session_number"
+                :title="`第 ${session.session_number} 局`"
+              >
+                <el-descriptions :column="2" border size="small">
+                  <el-descriptions-item label="开始时间">
+                    {{ session.start_time ? formatDateTime(session.start_time) : '-' }}
+                  </el-descriptions-item>
+                  <el-descriptions-item label="结束时间">
+                    {{ session.end_time ? formatDateTime(session.end_time) : '-' }}
+                  </el-descriptions-item>
+                  <el-descriptions-item v-if="session.process_info" label="过程信息" :span="2">
+                    <pre style="white-space: pre-wrap; font-family: monospace">{{ session.process_info }}</pre>
+                  </el-descriptions-item>
+                </el-descriptions>
+
+                <!-- 头显设备信息 -->
+                <div v-if="session.headset_devices && session.headset_devices.length > 0" style="margin-top: 10px">
+                  <h4 style="margin-bottom: 8px">头显设备</h4>
+                  <el-table :data="session.headset_devices" border size="small">
+                    <el-table-column prop="device_id" label="设备ID" width="150" />
+                    <el-table-column prop="device_name" label="设备名称" width="150" />
+                    <el-table-column prop="start_time" label="开始时间" width="180">
+                      <template #default="{ row }">
+                        {{ row.start_time ? formatDateTime(row.start_time) : '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="end_time" label="结束时间" width="180">
+                      <template #default="{ row }">
+                        {{ row.end_time ? formatDateTime(row.end_time) : '-' }}
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+
+          <div v-else style="margin-top: 20px">
+            <el-empty description="暂无游戏局信息" />
+          </div>
+        </template>
+      </div>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -167,6 +251,11 @@ const pagination = ref({
   page_size: 20,
   total: 0,
 })
+
+// 详情相关
+const detailDialogVisible = ref(false)
+const loadingDetail = ref(false)
+const detailData = ref<any>(null)
 
 // 计算当前页总费用
 const pageTotal = computed(() => {
@@ -298,6 +387,29 @@ const handleExport = async () => {
   } finally {
     exporting.value = false
   }
+}
+
+// 显示详情
+const showDetail = async (record: UsageRecord) => {
+  loadingDetail.value = true
+  detailDialogVisible.value = true
+  detailData.value = null
+
+  try {
+    const response = await operatorStore.getUsageRecord(record.usage_id)
+    detailData.value = response
+  } catch (error) {
+    console.error('Get usage record detail error:', error)
+    ElMessage.error('获取详情失败')
+    detailDialogVisible.value = false
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+// 行点击事件
+const handleRowClick = (row: UsageRecord) => {
+  showDetail(row)
 }
 
 onMounted(() => {

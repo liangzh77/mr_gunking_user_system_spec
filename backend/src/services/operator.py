@@ -1863,14 +1863,14 @@ class OperatorService:
     ):
         """获取单条使用记录详情 (T111)
 
-        返回指定ID的使用记录详细信息,包括关联的运营点和应用信息。
+        返回指定ID的使用记录详细信息,包括关联的运营点、应用信息、游戏局和头显设备记录。
 
         Args:
             operator_id: 运营商ID
             record_id: 使用记录ID
 
         Returns:
-            UsageRecord: 使用记录对象(含关联的site和application)
+            UsageRecord: 使用记录对象(含关联的site/application/game_sessions/headset_records)
 
         Raises:
             HTTPException 404: 运营商或使用记录不存在
@@ -1879,6 +1879,9 @@ class OperatorService:
         from ..models.usage_record import UsageRecord
         from ..models.site import OperationSite
         from ..models.application import Application
+        from ..models.game_session import GameSession
+        from ..models.headset_game_record import HeadsetGameRecord
+        from sqlalchemy.orm import selectinload
 
         # 1. 验证运营商存在
         operator_stmt = select(OperatorAccount).where(
@@ -1897,10 +1900,16 @@ class OperatorService:
                 }
             )
 
-        # 2. 查询使用记录(必须属于该运营商)
-        stmt = select(UsageRecord).where(
-            UsageRecord.id == record_id,
-            UsageRecord.operator_id == operator_id
+        # 2. 查询使用记录(必须属于该运营商)，同时加载game_sessions和headset_records
+        stmt = (
+            select(UsageRecord)
+            .where(
+                UsageRecord.id == record_id,
+                UsageRecord.operator_id == operator_id
+            )
+            .options(
+                selectinload(UsageRecord.game_sessions).selectinload(GameSession.headset_records)
+            )
         )
         result = await self.db.execute(stmt)
         usage_record = result.scalar_one_or_none()
