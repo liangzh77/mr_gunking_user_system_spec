@@ -73,7 +73,7 @@ class Application(Base):
     launch_exe_path: Mapped[Optional[str]] = mapped_column(
         String(500),
         nullable=True,
-        comment="启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe"
+        comment="自定义协议名(如 notepad)，头显Server安装时会自动注册 mrgun-{协议名}:// 协议"
     )
 
     # ==================== 定价规则 ====================
