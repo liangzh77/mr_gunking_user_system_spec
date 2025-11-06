@@ -144,14 +144,14 @@
           />
         </el-form-item>
 
-        <el-form-item label="启动exe路径" prop="launch_exe_path">
+        <el-form-item label="协议名" prop="launch_exe_path">
           <el-input
             v-model="editFormData.launch_exe_path"
-            placeholder="例如: C:\Program Files\MRGaming\HeadsetServer.exe (可选)"
+            placeholder="例如: notepad (可选)"
             clearable
-            maxlength="500"
+            maxlength="100"
           />
-          <div class="form-tip">启动exe的绝对路径，用于生成注册表脚本</div>
+          <div class="form-tip">自定义协议名称，头显Server安装时会自动注册 mrgun-{协议名}:// 协议</div>
         </el-form-item>
 
         <el-form-item label="状态" prop="is_active">

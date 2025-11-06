@@ -130,25 +130,12 @@
             >
               <span>{{ app.app_name }}</span>
               <span v-if="!app.launch_exe_path" style="color: #999; font-size: 12px; margin-left: 8px">
-                (未配置exe路径)
+                (未配置协议名)
               </span>
             </el-option>
           </el-select>
           <div v-if="selectedApp && selectedApp.launch_exe_path" class="form-tip">
-            协议: {{ getProtocolName(selectedApp.launch_exe_path) }}://
-          </div>
-        </el-form-item>
-
-        <el-form-item v-if="selectedApp && selectedApp.launch_exe_path" label="注册表脚本">
-          <el-button
-            type="success"
-            :icon="Download"
-            @click="handleDownloadRegScript"
-          >
-            下载注册表脚本
-          </el-button>
-          <div class="form-tip">
-            下载并运行此脚本后，即可通过自定义协议启动应用
+            协议: mrgun-{{ selectedApp.launch_exe_path }}://
           </div>
         </el-form-item>
       </el-form>
@@ -171,7 +158,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Download } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { OperationSite } from '@/types'
 import dayjs from 'dayjs'
@@ -367,53 +353,6 @@ const loadAuthorizedApps = async () => {
   }
 }
 
-// 从exe路径提取文件名并生成协议名称
-const getProtocolName = (exePath: string): string => {
-  if (!exePath) return 'mrgun'
-
-  // 提取文件名（去除路径和扩展名）
-  const fileName = exePath.split(/[\\\/]/).pop() || ''
-  const nameWithoutExt = fileName.replace(/\.(exe|EXE)$/, '')
-
-  // 使用连字符而不是下划线（Windows协议不支持下划线）
-  return `mrgun-${nameWithoutExt}`
-}
-
-// 下载注册表脚本
-const handleDownloadRegScript = async () => {
-  if (!selectedApp.value || !selectedApp.value.launch_exe_path) {
-    ElMessage.error('未配置exe路径')
-    return
-  }
-
-  try {
-    const response = await http.post('/operators/registry-script', {
-      app_id: selectedApp.value.id,
-    }, {
-      responseType: 'blob'
-    })
-
-    // 创建下载链接
-    const blob = new Blob([response.data], { type: 'text/plain' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-
-    const protocolName = getProtocolName(selectedApp.value.launch_exe_path)
-    link.download = `register-${protocolName}.reg`
-
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-
-    ElMessage.success('注册表脚本已下载，请双击运行')
-  } catch (error: any) {
-    console.error('Download registry script error:', error)
-    ElMessage.error('下载注册表脚本失败')
-  }
-}
-
 // 确认启动应用
 const handleConfirmLaunch = async () => {
   if (!currentSite.value || !selectedApp.value) return
@@ -425,7 +364,7 @@ const handleConfirmLaunch = async () => {
     const token = tokenResponse.data.data.token
 
     // 2. 构建启动URL
-    const protocol = getProtocolName(selectedApp.value.launch_exe_path || '')
+    const protocol = `mrgun-${selectedApp.value.launch_exe_path}`
     const appCode = selectedApp.value.app_code
     const siteId = currentSite.value.site_id
 

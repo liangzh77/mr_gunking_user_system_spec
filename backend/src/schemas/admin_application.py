@@ -61,7 +61,7 @@ class UpdateApplicationRequest(BaseModel):
     max_players: int | None = Field(None, ge=1, description="Maximum number of players")
     description: str | None = Field(None, max_length=500, description="Application description")
     is_active: bool | None = Field(None, description="Application active status")
-    launch_exe_path: str | None = Field(None, max_length=500, description="启动exe的绝对路径")
+    launch_exe_path: str | None = Field(None, max_length=100, description="自定义协议名(如 notepad)")
 
     @field_validator("max_players")
     @classmethod
@@ -96,7 +96,7 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
     max_players: int = Field(description="Maximum number of players")
     description: str | None = Field(default=None, description="Application description")
     is_active: bool = Field(description="Application active status")
-    launch_exe_path: str | None = Field(default=None, description="启动exe的绝对路径")
+    launch_exe_path: str | None = Field(default=None, description="自定义协议名(如 notepad)")
     created_by: UUID | None = Field(default=None, description="Creator admin ID")
 
     class Config:
