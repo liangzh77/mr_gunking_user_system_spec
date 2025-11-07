@@ -110,7 +110,7 @@ docker load -i /tmp/frontend-v2.0.tar
 
 # 5. 重启服务
 docker-compose down
-docker-compose up -d
+docker-compose -f docker-compose.yml --env-file .env.production up -ds
 
 # 6. 执行数据库迁移
 docker-compose exec backend alembic upgrade head

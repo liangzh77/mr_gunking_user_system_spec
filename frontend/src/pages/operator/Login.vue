@@ -11,6 +11,7 @@
       <el-form ref="formRef" :model="loginForm" :rules="rules" @keyup.enter="handleLogin">
         <el-form-item prop="username">
           <el-input
+            ref="usernameInputRef"
             v-model="loginForm.username"
             placeholder="请输入用户名"
             prefix-icon="User"
@@ -62,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -73,9 +74,15 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const formRef = ref<FormInstance>()
+const usernameInputRef = ref()
 const loginForm = reactive<LoginRequest>({
   username: '',
   password: '',
+})
+
+// 页面加载时自动聚焦到用户名输入框
+onMounted(() => {
+  usernameInputRef.value?.focus()
 })
 
 const rules: FormRules = {
