@@ -11,6 +11,7 @@
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" @keyup.enter="handleLogin">
         <el-form-item prop="username">
           <el-input
+            ref="usernameInputRef"
             v-model="loginForm.username"
             placeholder="请输入用户名"
             prefix-icon="User"
@@ -55,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useFinanceAuthStore } from '@/stores/financeAuth'
@@ -66,11 +67,17 @@ const financeAuthStore = useFinanceAuthStore()
 
 // 表单引用
 const loginFormRef = ref<FormInstance>()
+const usernameInputRef = ref()
 
 // 登录表单
 const loginForm = reactive({
   username: '',
   password: '',
+})
+
+// 页面加载时自动聚焦到用户名输入框
+onMounted(() => {
+  usernameInputRef.value?.focus()
 })
 
 // 验证规则
