@@ -205,16 +205,16 @@ async def authorize_game(
 
     if existing_record:
         # 30秒内已有相同授权,返回已授权信息(幂等性保护)
-        from ...core.utils import cents_to_yuan
+        # 注意：数据库中所有金额字段都是以元为单位存储的，无需转换
         return GameAuthorizeResponse(
             success=True,
             data=GameAuthorizeData(
                 session_id=existing_record.session_id,
                 app_name=application.app_name,
                 player_count=existing_record.player_count,
-                unit_price=str(cents_to_yuan(existing_record.price_per_player)),
-                total_cost=str(cents_to_yuan(existing_record.total_cost)),
-                balance_after=str(cents_to_yuan(operator.balance)),  # 使用当前余额
+                unit_price=str(existing_record.price_per_player),
+                total_cost=str(existing_record.total_cost),
+                balance_after=str(operator.balance),  # 使用当前余额
                 authorized_at=existing_record.game_started_at
             )
         )
@@ -385,15 +385,15 @@ async def pre_authorize_game(
         can_authorize = False
 
     # ========== STEP 8: 构造响应 ==========
-    from ...core.utils import cents_to_yuan
+    # 注意：数据库中所有金额字段都是以元为单位存储的，无需转换
     response_data = GamePreAuthorizeData(
         can_authorize=can_authorize,
         app_code=application.app_code,
         app_name=application.app_name,
         player_count=request_body.player_count,
-        unit_price=str(cents_to_yuan(application.price_per_player)),
-        total_cost=str(cents_to_yuan(total_cost)),
-        current_balance=str(cents_to_yuan(operator.balance))
+        unit_price=str(application.price_per_player),
+        total_cost=str(total_cost),
+        current_balance=str(operator.balance)
     )
 
     return GamePreAuthorizeResponse(success=True, data=response_data)
