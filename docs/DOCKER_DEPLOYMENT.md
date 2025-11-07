@@ -25,7 +25,7 @@
 
 
   # 重启backend
-  docker-compose --env-file .env.production up -d --force-recreate backend
+  docker-compose -f docker-compose.yml --env-file .env.production up -d --force-recreate backend
 
   # 查看backend启动日志
   docker logs mr_game_ops_backend --tail 50

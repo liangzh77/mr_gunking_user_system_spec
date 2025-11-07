@@ -11,9 +11,9 @@
 #
 # 使用方法：
 # 1. 复制 .env.production.template 为 .env.production 并配置
-# 2. 运行: docker-compose -f docker-compose.yml up -d
-# 3. 查看日志: docker-compose -f docker-compose.yml logs -f
-# 4. 停止服务: docker-compose -f docker-compose.yml down
+# 2. 运行: docker-compose -f docker-compose.prod.yml up -d
+# 3. 查看日志: docker-compose -f docker-compose.prod.yml logs -f
+# 4. 停止服务: docker-compose -f docker-compose.prod.yml down
 # =============================================================================
 
 version: '3.8'
@@ -89,7 +89,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile
       args:
         - BUILD_DATE=${BUILD_DATE}
         - VERSION=${VERSION}
@@ -151,7 +151,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL}
         - BUILD_DATE=${BUILD_DATE}
