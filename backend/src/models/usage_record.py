@@ -205,6 +205,8 @@ class UsageRecord(Base):
         Index("idx_usage_date", "game_started_at"),
         # 普通索引: 消费统计
         Index("idx_usage_cost", "total_cost"),
+        # 复合索引: 幂等性检查优化(operator+app+site+players+时间)
+        Index("idx_usage_idempotency", "operator_id", "application_id", "site_id", "player_count", "created_at"),
     )
 
     def __repr__(self) -> str:

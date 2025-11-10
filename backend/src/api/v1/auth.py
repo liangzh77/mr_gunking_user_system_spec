@@ -121,6 +121,8 @@ async def authorize_game(
     Returns:
         GameAuthorizeResponse: 授权成功响应,包含服务器生成的session_id
     """
+    import asyncio
+
     # 初始化服务
     auth_service = AuthService(db)
     billing_service = BillingService(db)
@@ -167,13 +169,10 @@ async def authorize_game(
             }
         )
 
-    # ========== STEP 3: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator_id)
-
-    # ========== STEP 4: 通过app_code查询应用并验证授权 ==========
-    application, authorization = await auth_service.verify_application_authorization_by_code(
-        app_code,
-        operator_id
+    # ========== 优化: STEP 3-4 并行执行（验证运营点 + 验证应用授权） ==========
+    site, (application, authorization) = await asyncio.gather(
+        auth_service.verify_site_ownership(site_id, operator_id),
+        auth_service.verify_application_authorization_by_code(app_code, operator_id)
     )
 
     # ========== STEP 5: 验证玩家数量 ==========
@@ -359,13 +358,11 @@ async def pre_authorize_game(
             }
         )
 
-    # ========== STEP 3: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator_id)
-
-    # ========== STEP 4: 通过app_code验证应用授权 ==========
-    application, authorization = await auth_service.verify_application_authorization_by_code(
-        app_code,
-        operator_id
+    # ========== 优化: STEP 3-4 并行执行（验证运营点 + 验证应用授权） ==========
+    import asyncio
+    site, (application, authorization) = await asyncio.gather(
+        auth_service.verify_site_ownership(site_id, operator_id),
+        auth_service.verify_application_authorization_by_code(app_code, operator_id)
     )
 
     # ========== STEP 5: 验证玩家数量 ==========
