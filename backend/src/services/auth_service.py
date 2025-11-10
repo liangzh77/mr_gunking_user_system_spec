@@ -245,7 +245,7 @@ class AuthService:
         app_code: str,
         operator_id: UUID
     ) -> tuple[Application, OperatorAppAuthorization]:
-        """通过应用代码验证应用授权状态
+        """通过应用代码验证应用授权状态（优化版：使用JOIN一次查询）
 
         验证逻辑:
         1. 通过app_code查询应用
@@ -264,39 +264,47 @@ class AuthService:
             HTTPException 404: 应用不存在
             HTTPException 403: 应用未授权或授权已过期
         """
-        # 查询应用（通过app_code）
-        stmt = select(Application).where(Application.app_code == app_code)
-        result = await self.db.execute(stmt)
-        application = result.scalar_one_or_none()
+        # ========== 优化：使用JOIN一次性查询应用和授权关系 ==========
+        from sqlalchemy.orm import joinedload
 
-        if not application:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "error_code": "APP_NOT_FOUND",
-                    "message": f"应用不存在: {app_code}"
-                }
+        stmt = (
+            select(Application, OperatorAppAuthorization)
+            .join(
+                OperatorAppAuthorization,
+                (Application.id == OperatorAppAuthorization.application_id) &
+                (OperatorAppAuthorization.operator_id == operator_id) &
+                (OperatorAppAuthorization.is_active == True)
             )
-
-        if not application.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error_code": "APP_INACTIVE",
-                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
-                }
-            )
-
-        # 查询授权关系
-        stmt = select(OperatorAppAuthorization).where(
-            OperatorAppAuthorization.operator_id == operator_id,
-            OperatorAppAuthorization.application_id == application.id,
-            OperatorAppAuthorization.is_active == True
+            .where(Application.app_code == app_code)
         )
-        result = await self.db.execute(stmt)
-        authorization = result.scalar_one_or_none()
 
-        if not authorization:
+        result = await self.db.execute(stmt)
+        row = result.first()
+
+        if not row:
+            # 需要区分是应用不存在还是未授权
+            stmt_app = select(Application).where(Application.app_code == app_code)
+            result_app = await self.db.execute(stmt_app)
+            application = result_app.scalar_one_or_none()
+
+            if not application:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "error_code": "APP_NOT_FOUND",
+                        "message": f"应用不存在: {app_code}"
+                    }
+                )
+
+            if not application.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error_code": "APP_INACTIVE",
+                        "message": f"应用 '{application.app_name}' 已下架，暂不可用"
+                    }
+                )
+
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -306,6 +314,17 @@ class AuthService:
                         "app_code": app_code,
                         "app_name": application.app_name
                     }
+                }
+            )
+
+        application, authorization = row
+
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_INACTIVE",
+                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
                 }
             )
 
