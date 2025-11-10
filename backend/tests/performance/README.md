@@ -4,7 +4,79 @@
 
 ## 测试工具
 
+### 1. Locust - 负载测试工具
+
 使用 [Locust](https://locust.io/) 进行性能测试和负载测试。
+
+### 2. 头显API测试工具 (新增)
+
+专门用于测试头显Server对接的3个核心API接口的性能和可靠性：
+
+- **预授权查询** (pre-authorize)
+- **游戏授权** (authorize)
+- **上传游戏会话数据** (session/upload)
+
+#### 快速使用
+
+**Windows系统 - 使用批处理脚本（推荐）**:
+
+```bash
+cd backend/tests/performance
+test_headset_api.bat
+```
+
+脚本会引导你选择：
+- 服务器类型（生产/开发）
+- 测试次数
+- 测试间隔
+
+**直接使用Python脚本**:
+
+```bash
+cd backend/tests/performance
+
+# 生产服务器测试
+python test_headset_api.py \
+    --base-url https://mrgun.chu-jiao.com/api/v1 \
+    --username operator1 \
+    --password operator123 \
+    --count 20 \
+    --delay 1.0
+
+# 开发服务器测试
+python test_headset_api.py \
+    --base-url https://10.10.3.9/api/v1 \
+    --username operator1 \
+    --password operator123 \
+    --count 10 \
+    --delay 0.5
+```
+
+#### 测试报告
+
+测试完成后会自动显示统计报告：
+
+```
+接口名称             成功率       平均延迟     最小延迟     最大延迟
+----------------------------------------------------------------------
+预授权查询           95.0%        120ms       85ms        250ms
+游戏授权             100.0%       150ms       110ms       300ms
+上传会话数据         100.0%       80ms        60ms        150ms
+```
+
+#### 参数说明
+
+- `--base-url`: API基础URL（必需）
+- `--username`: 运营商用户名（必需）
+- `--password`: 运营商密码（必需）
+- `--count`: 测试次数，默认10次
+- `--delay`: 测试间隔秒数，默认1.0秒
+
+#### 依赖要求
+
+```bash
+pip install requests urllib3
+```
 
 ## 快速开始
 

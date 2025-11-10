@@ -121,6 +121,8 @@ async def authorize_game(
     Returns:
         GameAuthorizeResponse: 授权成功响应,包含服务器生成的session_id
     """
+    import asyncio
+
     # 初始化服务
     auth_service = AuthService(db)
     billing_service = BillingService(db)
@@ -131,11 +133,13 @@ async def authorize_game(
     # 查询运营商对象（用于后续余额检查）
     from ...models.operator import OperatorAccount
     from sqlalchemy import select
+    from sqlalchemy.orm import noload
 
+    # 优化：禁用所有relationship加载，我们只需要balance字段
     stmt = select(OperatorAccount).where(
         OperatorAccount.id == operator_id,
         OperatorAccount.deleted_at.is_(None)
-    )
+    ).options(noload('*'))
     result = await db.execute(stmt)
     operator = result.scalar_one_or_none()
 
@@ -167,14 +171,118 @@ async def authorize_game(
             }
         )
 
-    # ========== STEP 3: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator_id)
+    # ========== 优化: STEP 3-4 使用Redis缓存 + 合并SQL查询 ==========
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    redis_cache = get_cache()
+    cache_service = CacheService(redis_cache)
 
-    # ========== STEP 4: 通过app_code查询应用并验证授权 ==========
-    application, authorization = await auth_service.verify_application_authorization_by_code(
-        app_code,
-        operator_id
-    )
+    # 尝试从缓存获取
+    cached_app = await cache_service.get_application_by_code(app_code)
+    cached_auth = await cache_service.get_authorization(operator_id, app_code)
+    cached_site = await cache_service.get_site(site_id)
+
+    if cached_app and cached_auth and cached_site:
+        # 🎯 缓存全命中 - 直接使用缓存数据
+        from ...models.application import Application
+        from ...models.authorization import OperatorAppAuthorization
+        from ...models.site import OperationSite
+        from decimal import Decimal
+        from datetime import datetime
+
+        # 从缓存重建对象 (注意类型转换)
+        application = Application(
+            id=UUID(cached_app["id"]),
+            app_code=cached_app["app_code"],
+            app_name=cached_app["app_name"],
+            price_per_player=Decimal(cached_app["price_per_player"]),
+            min_players=cached_app["min_players"],
+            max_players=cached_app["max_players"],
+            is_active=cached_app["is_active"]
+        )
+        authorization = OperatorAppAuthorization(
+            operator_id=UUID(cached_auth["operator_id"]),
+            application_id=UUID(cached_auth["application_id"]),
+            is_active=cached_auth["is_active"],
+            expires_at=datetime.fromisoformat(cached_auth["expires_at"]) if cached_auth.get("expires_at") else None
+        )
+        site = OperationSite(
+            id=UUID(cached_site["id"]),
+            operator_id=UUID(cached_site["operator_id"]),
+            name=cached_site["name"],
+            is_active=cached_site["is_active"]
+        )
+
+        # 验证运营点归属
+        if site.operator_id != operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SITE_NOT_OWNED",
+                    "message": "该运营点不属于您，无权使用"
+                }
+            )
+
+        # 验证运营点状态
+        if not site.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SITE_INACTIVE",
+                    "message": "该运营点已停用，无法发起授权"
+                }
+            )
+
+        # 验证应用状态
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_INACTIVE",
+                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
+                }
+            )
+    else:
+        # ⚡ 缓存未命中 - 使用合并SQL查询
+        operator_obj, site, application, authorization = await auth_service.verify_all_in_one_query(
+            operator_id, site_id, app_code
+        )
+
+        # 异步写入缓存
+        asyncio.create_task(cache_service.set_application(
+            app_code,
+            {
+                "id": str(application.id),
+                "app_code": application.app_code,
+                "app_name": application.app_name,
+                "price_per_player": str(application.price_per_player),
+                "min_players": application.min_players,
+                "max_players": application.max_players,
+                "is_active": application.is_active
+            },
+            ttl=1800  # 30分钟
+        ))
+        asyncio.create_task(cache_service.set_authorization(
+            operator_id,
+            app_code,
+            {
+                "operator_id": str(authorization.operator_id),
+                "application_id": str(authorization.application_id),
+                "is_active": authorization.is_active,
+                "expires_at": authorization.expires_at.isoformat() if authorization.expires_at else None
+            },
+            ttl=600  # 10分钟
+        ))
+        asyncio.create_task(cache_service.set_site(
+            site_id,
+            {
+                "id": str(site.id),
+                "operator_id": str(site.operator_id),
+                "name": site.name,
+                "is_active": site.is_active
+            },
+            ttl=1800  # 30分钟
+        ))
 
     # ========== STEP 5: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
@@ -302,9 +410,14 @@ async def pre_authorize_game(
     token: dict = Depends(require_headset_token),
     db: AsyncSession = Depends(get_db)
 ) -> GamePreAuthorizeResponse:
-    """游戏授权查询API (预授权,不扣费)
+    """游戏授权查询API (预授权,不扣费) - 优化版 (Redis缓存 + 合并SQL)
 
     处理头显Server的游戏授权查询请求，验证资格但不执行扣费。
+
+    性能优化:
+    - 使用Redis缓存应用、授权、运营点信息 (TTL: 10-30分钟)
+    - 使用合并SQL查询减少数据库往返 (3次 → 1次)
+    - 运营商余额实时查询确保准确性
 
     Args:
         request_body: 请求体(app_id, site_id, player_count)
@@ -318,16 +431,24 @@ async def pre_authorize_game(
     auth_service = AuthService(db)
     billing_service = BillingService(db)
 
+    # 初始化缓存服务
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    redis_cache = get_cache()
+    cache_service = CacheService(redis_cache)
+
     # ========== STEP 1: 从Token中提取operator_id并查询运营商 ==========
     operator_id = UUID(token.get("sub"))
 
     # 查询运营商对象（用于后续余额检查）
     from ...models.operator import OperatorAccount
+    from sqlalchemy.orm import noload
 
+    # 优化：禁用所有relationship加载
     stmt = select(OperatorAccount).where(
         OperatorAccount.id == operator_id,
         OperatorAccount.deleted_at.is_(None)
-    )
+    ).options(noload('*'))
     result = await db.execute(stmt)
     operator = result.scalar_one_or_none()
 
@@ -359,14 +480,125 @@ async def pre_authorize_game(
             }
         )
 
-    # ========== STEP 3: 验证运营点归属 ==========
-    site = await auth_service.verify_site_ownership(site_id, operator_id)
+    # ========== STEP 3-4: 尝试从缓存获取 (方案1: Redis缓存) ==========
+    cached_app = await cache_service.get_application_by_code(app_code)
+    cached_auth = await cache_service.get_authorization(operator_id, app_code)
+    cached_site = await cache_service.get_site(site_id)
 
-    # ========== STEP 4: 通过app_code验证应用授权 ==========
-    application, authorization = await auth_service.verify_application_authorization_by_code(
-        app_code,
-        operator_id
-    )
+    if cached_app and cached_auth and cached_site:
+        # 🎯 缓存全命中 - 直接使用缓存数据,无需查询数据库!
+        from ...models.application import Application
+        from ...models.authorization import OperatorAppAuthorization
+        from ...models.site import OperationSite
+        from decimal import Decimal
+        from datetime import datetime
+
+        # 从缓存重建对象 (注意类型转换: str -> UUID, str -> Decimal, str -> datetime)
+        application = Application(
+            id=UUID(cached_app["id"]),
+            app_code=cached_app["app_code"],
+            app_name=cached_app["app_name"],
+            price_per_player=Decimal(cached_app["price_per_player"]),
+            min_players=cached_app["min_players"],
+            max_players=cached_app["max_players"],
+            is_active=cached_app["is_active"]
+        )
+        authorization = OperatorAppAuthorization(
+            operator_id=UUID(cached_auth["operator_id"]),
+            application_id=UUID(cached_auth["application_id"]),
+            is_active=cached_auth["is_active"],
+            expires_at=datetime.fromisoformat(cached_auth["expires_at"]) if cached_auth.get("expires_at") else None
+        )
+        site = OperationSite(
+            id=UUID(cached_site["id"]),
+            operator_id=UUID(cached_site["operator_id"]),
+            name=cached_site["name"],
+            is_active=cached_site["is_active"]
+        )
+
+        # 验证运营点归属
+        if site.operator_id != operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SITE_NOT_OWNED",
+                    "message": "该运营点不属于您，无权使用"
+                }
+            )
+
+        # 验证运营点状态
+        if not site.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SITE_INACTIVE",
+                    "message": "该运营点已停用，无法发起授权"
+                }
+            )
+
+        # 验证应用状态
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_INACTIVE",
+                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
+                }
+            )
+
+        # 验证授权是否过期
+        from datetime import datetime
+        if authorization.expires_at and authorization.expires_at < datetime.now(authorization.expires_at.tzinfo):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "AUTHORIZATION_EXPIRED",
+                    "message": f"应用授权已过期"
+                }
+            )
+
+    else:
+        # ⚡ 缓存未命中 - 使用合并SQL查询 (方案2: 1条SQL替代3条)
+        operator, site, application, authorization = await auth_service.verify_all_in_one_query(
+            operator_id, site_id, app_code
+        )
+
+        # 缓存查询结果 (异步写入,不阻塞主流程)
+        import asyncio
+        asyncio.create_task(cache_service.set_application(
+            app_code,
+            {
+                "id": str(application.id),
+                "app_code": application.app_code,
+                "app_name": application.app_name,
+                "price_per_player": str(application.price_per_player),
+                "min_players": application.min_players,
+                "max_players": application.max_players,
+                "is_active": application.is_active
+            },
+            ttl=1800  # 30分钟
+        ))
+        asyncio.create_task(cache_service.set_authorization(
+            operator_id,
+            app_code,
+            {
+                "operator_id": str(authorization.operator_id),
+                "application_id": str(authorization.application_id),
+                "is_active": authorization.is_active,
+                "expires_at": authorization.expires_at.isoformat() if authorization.expires_at else None
+            },
+            ttl=600  # 10分钟
+        ))
+        asyncio.create_task(cache_service.set_site(
+            site_id,
+            {
+                "id": str(site.id),
+                "operator_id": str(site.operator_id),
+                "name": site.name,
+                "is_active": site.is_active
+            },
+            ttl=1800  # 30分钟
+        ))
 
     # ========== STEP 5: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
@@ -484,26 +716,15 @@ async def upload_game_session(
                 }
             )
 
-        # ========== STEP 2: 删除旧的游戏Session记录(覆盖模式) ==========
-        # 删除该usage_record的所有旧GameSession记录
-        stmt_delete_sessions = select(GameSession).where(GameSession.usage_record_id == usage_record.id)
-        result_sessions = await db.execute(stmt_delete_sessions)
-        old_sessions = result_sessions.scalars().all()
+        # ========== STEP 2: 批量删除旧的游戏Session记录(覆盖模式) ==========
+        # 🚀 优化: 使用批量DELETE替代循环删除，利用CASCADE自动删除子记录
+        # 由于HeadsetGameRecord配置了ondelete="CASCADE"，删除GameSession时会自动级联删除关联记录
+        from sqlalchemy import delete
 
-        for old_session in old_sessions:
-            # 先删除关联的头显游戏记录
-            stmt_delete_headset_records = select(HeadsetGameRecord).where(
-                HeadsetGameRecord.game_session_id == old_session.id
-            )
-            result_headset_records = await db.execute(stmt_delete_headset_records)
-            old_headset_records = result_headset_records.scalars().all()
-            for record in old_headset_records:
-                await db.delete(record)
-
-            # 删除GameSession
-            await db.delete(old_session)
-
-        await db.flush()
+        await db.execute(
+            delete(GameSession).where(GameSession.usage_record_id == usage_record.id)
+        )
+        # 注意: 不需要flush，批量DELETE已经立即执行
 
         # 创建新的游戏Session记录
         game_session = GameSession(
@@ -515,19 +736,23 @@ async def upload_game_session(
         db.add(game_session)
         await db.flush()  # 获取game_session.id
 
-        # ========== STEP 3: 处理头显设备记录 ==========
+        # ========== STEP 3: 批量处理头显设备记录 ==========
         if request_body.headset_devices:
+            # 🚀 优化: 批量查询所有设备，避免N次数据库查询
+            device_ids = [d.device_id for d in request_body.headset_devices]
+            stmt = select(HeadsetDevice).where(HeadsetDevice.device_id.in_(device_ids))
+            result = await db.execute(stmt)
+            existing_devices = {d.device_id: d for d in result.scalars().all()}
+
+            # 收集需要创建的新设备和游戏记录
+            new_devices = []
+            game_records_to_add = []
+
             for device_record in request_body.headset_devices:
-                # 查找或创建头显设备
-                stmt = select(HeadsetDevice).where(
-                    HeadsetDevice.device_id == device_record.device_id,
-                    HeadsetDevice.site_id == usage_record.site_id
-                )
-                result = await db.execute(stmt)
-                headset_device = result.scalar_one_or_none()
+                headset_device = existing_devices.get(device_record.device_id)
 
                 if not headset_device:
-                    # 创建新设备
+                    # 创建新设备对象
                     headset_device = HeadsetDevice(
                         device_id=device_record.device_id,
                         site_id=usage_record.site_id,
@@ -535,11 +760,11 @@ async def upload_game_session(
                         first_used_at=device_record.start_time or datetime.utcnow(),
                         last_used_at=device_record.end_time or datetime.utcnow()
                     )
-                    db.add(headset_device)
-                    await db.flush()
+                    new_devices.append(headset_device)
+                    # 添加到字典，后续创建游戏记录时使用
+                    existing_devices[device_record.device_id] = headset_device
                 else:
-                    # 更新设备信息
-                    # 如果提供了新的设备名称，则更新
+                    # 更新现有设备信息
                     if device_record.device_name:
                         headset_device.device_name = device_record.device_name
 
@@ -549,15 +774,27 @@ async def upload_game_session(
                     else:
                         headset_device.last_used_at = datetime.utcnow()
 
-                # 创建头显游戏记录
-                headset_game_record = HeadsetGameRecord(
-                    game_session_id=game_session.id,
-                    headset_device_id=headset_device.id,
-                    start_time=device_record.start_time,
-                    end_time=device_record.end_time,
-                    process_info=device_record.process_info
+            # 🚀 优化: 批量插入新设备
+            if new_devices:
+                db.add_all(new_devices)
+                await db.flush()  # 必须flush以获取新设备的ID
+
+            # 🚀 优化: 批量创建游戏记录
+            for device_record in request_body.headset_devices:
+                headset_device = existing_devices[device_record.device_id]
+                game_records_to_add.append(
+                    HeadsetGameRecord(
+                        game_session_id=game_session.id,
+                        headset_device_id=headset_device.id,
+                        start_time=device_record.start_time,
+                        end_time=device_record.end_time,
+                        process_info=device_record.process_info
+                    )
                 )
-                db.add(headset_game_record)
+
+            # 批量添加游戏记录
+            if game_records_to_add:
+                db.add_all(game_records_to_add)
 
         # ========== STEP 4: 提交事务 ==========
         await db.commit()

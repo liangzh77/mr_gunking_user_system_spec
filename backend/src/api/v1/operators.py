@@ -1826,6 +1826,12 @@ async def update_site(
             updated_at=site.updated_at
         )
 
+        # 使运营点缓存失效
+        from ...core.cache import get_cache
+        from ...services.cache_service import CacheService
+        cache_service = CacheService(get_cache())
+        await cache_service.invalidate_site_cache(site_uuid)
+
         return {
             "success": True,
             "message": "运营点信息已更新",
@@ -1920,6 +1926,12 @@ async def delete_site(
             operator_id=operator_id,
             site_id=site_uuid
         )
+
+        # 使运营点缓存失效
+        from ...core.cache import get_cache
+        from ...services.cache_service import CacheService
+        cache_service = CacheService(get_cache())
+        await cache_service.invalidate_site_cache(site_uuid)
 
         return {
             "success": True,

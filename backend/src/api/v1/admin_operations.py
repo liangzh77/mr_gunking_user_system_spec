@@ -169,6 +169,12 @@ async def update_operator(
         is_active=operator_data.is_active,
     )
 
+    # 使该运营商的所有授权缓存失效
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_all_authorizations_for_operator(op_uuid)
+
     return OperatorDetailResponse.model_validate(operator_dict)
 
 
@@ -212,6 +218,12 @@ async def delete_operator(
     service = AdminService(db)
 
     result = await service.delete_operator(operator_id=op_uuid)
+
+    # 使该运营商的所有授权缓存失效
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_all_authorizations_for_operator(op_uuid)
 
     return MessageResponse(
         success=result["success"],
@@ -469,6 +481,13 @@ async def update_application(
         launch_exe_path=app_data.launch_exe_path,
     )
 
+    # 使应用缓存失效
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_application_cache(app.app_code)
+    await cache_service.invalidate_all_authorizations_for_app(app.app_code)
+
     return ApplicationResponse.model_validate(app)
 
 
@@ -497,10 +516,24 @@ async def update_application_price(
         dict: Updated application data
     """
     service = AdminService(db)
-    return await service.update_application_price(
+    result = await service.update_application_price(
         app_id=app_id,
         new_price=price_data["new_price"]
     )
+
+    # 使应用缓存失效（价格变化影响计费）
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    from ...models.application import Application
+    from sqlalchemy import select
+    app_stmt = select(Application).where(Application.id == app_id)
+    app_result = await db.execute(app_stmt)
+    app = app_result.scalar_one_or_none()
+    if app:
+        cache_service = CacheService(get_cache())
+        await cache_service.invalidate_application_cache(app.app_code)
+
+    return result
 
 
 @router.put(
@@ -580,6 +613,15 @@ async def authorize_application(
         application_request_id=auth_data.application_request_id,
     )
 
+    # 使授权缓存失效
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_authorization_cache(
+        operator_uuid,
+        authorization.application.app_code
+    )
+
     # Build response with operator and app names from relationships
     return AuthorizationResponse(
         id=authorization.id,
@@ -634,6 +676,15 @@ async def revoke_authorization(
     authorization = await service.revoke_authorization(
         operator_id=operator_uuid,
         application_id=app_uuid
+    )
+
+    # 使授权缓存失效
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_authorization_cache(
+        operator_uuid,
+        authorization.application.app_code
     )
 
     # Build response with operator and app names from relationships

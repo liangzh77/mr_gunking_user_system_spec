@@ -77,7 +77,7 @@ class BillingService:
         player_count: int,
         since: datetime
     ) -> Optional[UsageRecord]:
-        """检查最近的相同授权请求(基于业务键的幂等性检查)
+        """检查最近的相同授权请求(基于业务键的幂等性检查) - 优化版
 
         根据业务键(运营商+应用+运营点+玩家数)检查指定时间窗口内
         是否已有相同的授权记录。用于防止短时间内的重复授权请求。
@@ -92,13 +92,14 @@ class BillingService:
         Returns:
             Optional[UsageRecord]: 最近的相同授权记录,如果不存在则返回None
         """
+        # 优化：添加limit(1)快速返回
         stmt = select(UsageRecord).where(
             UsageRecord.operator_id == operator_id,
             UsageRecord.application_id == application_id,
             UsageRecord.site_id == site_id,
             UsageRecord.player_count == player_count,
             UsageRecord.created_at >= since
-        ).order_by(UsageRecord.created_at.desc())
+        ).order_by(UsageRecord.created_at.desc()).limit(1)
 
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

@@ -21,6 +21,7 @@ from .core.metrics import prometheus  # Import to register metrics
 # 临时禁用性能优化系统以避免导入问题
 from .db import close_db, health_check, init_db
 from .middleware import register_exception_handlers, SecurityHeadersMiddleware
+from .middleware.performance import PerformanceMonitoringMiddleware
 from .schemas import HealthCheckResponse
 # from .api.v1.monitoring.endpoints import router as monitoring_router  # 临时禁用
 
@@ -269,6 +270,9 @@ def create_app() -> FastAPI:
     # Add security headers middleware
     # Note: HTTPS redirect is handled by reverse proxy in production
     app.add_middleware(SecurityHeadersMiddleware)
+
+    # Add performance monitoring middleware
+    app.add_middleware(PerformanceMonitoringMiddleware)
 
     # Register exception handlers
     register_exception_handlers(app)
