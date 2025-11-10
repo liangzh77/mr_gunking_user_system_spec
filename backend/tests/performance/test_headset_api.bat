@@ -16,8 +16,9 @@ REM 选择服务器
 echo 请选择测试服务器:
 echo [1] 生产服务器 (https://mrgun.chu-jiao.com)
 echo [2] 开发服务器 (https://10.10.3.9)
+echo [3] 本地服务器 (https://localhost)
 echo.
-set /p SERVER_TYPE="请输入选项 (1 或 2): "
+set /p SERVER_TYPE="请输入选项 (1, 2 或 3): "
 
 if "%SERVER_TYPE%"=="1" (
     set "BASE_URL=https://mrgun.chu-jiao.com/api/v1"
@@ -25,9 +26,12 @@ if "%SERVER_TYPE%"=="1" (
 ) else if "%SERVER_TYPE%"=="2" (
     set "BASE_URL=https://10.10.3.9/api/v1"
     echo 已选择: 开发服务器
+) else if "%SERVER_TYPE%"=="3" (
+    set "BASE_URL=https://localhost/api/v1"
+    echo 已选择: 本地服务器
 ) else (
-    echo 无效选项，使用默认: 生产服务器
-    set "BASE_URL=https://mrgun.chu-jiao.com/api/v1"
+    echo 无效选项，使用默认: 本地服务器
+    set "BASE_URL=https://localhost/api/v1"
 )
 echo.
 

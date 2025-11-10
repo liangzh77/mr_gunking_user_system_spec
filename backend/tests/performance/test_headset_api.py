@@ -416,8 +416,10 @@ def main():
 
     args = parser.parse_args()
 
-    # 判断是否需要禁用SSL验证 (开发服务器)
-    verify_ssl = not args.base_url.startswith('https://10.')
+    # 判断是否需要禁用SSL验证 (开发服务器和localhost)
+    verify_ssl = not (args.base_url.startswith('https://10.') or
+                      'localhost' in args.base_url or
+                      '127.0.0.1' in args.base_url)
 
     # 创建测试器
     tester = HeadsetAPITester(args.base_url, args.username, args.password, verify_ssl)
