@@ -15,7 +15,7 @@
         label-width="100px"
         @submit.prevent="handleRegister"
       >
-        <el-form-item label="用户名" prop="username">
+        <el-form-item label="用户名" prop="username" required>
           <el-input
             v-model="registerForm.username"
             placeholder="3-20个字符,支持字母数字下划线"
@@ -23,7 +23,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="密码" prop="password">
+        <el-form-item label="密码" prop="password" required>
           <el-input
             v-model="registerForm.password"
             type="password"
@@ -32,7 +32,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="确认密码" prop="confirmPassword">
+        <el-form-item label="确认密码" prop="confirmPassword" required>
           <el-input
             v-model="registerForm.confirmPassword"
             type="password"
@@ -41,7 +41,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="邮箱" prop="email">
+        <el-form-item label="邮箱" prop="email" required>
           <el-input
             v-model="registerForm.email"
             type="email"
@@ -50,7 +50,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="手机号" prop="phone">
+        <el-form-item label="手机号" prop="phone" required>
           <el-input
             v-model="registerForm.phone"
             placeholder="请输入手机号码"
@@ -58,7 +58,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="姓名/公司" prop="name">
+        <el-form-item label="姓名/公司" prop="name" required>
           <el-input
             v-model="registerForm.name"
             placeholder="真实姓名或公司名称"
