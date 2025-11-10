@@ -473,3 +473,191 @@ class AuthService:
                     }
                 }
             )
+
+    async def verify_all_in_one_query(
+        self,
+        operator_id: UUID,
+        site_id: UUID,
+        app_code: str
+    ) -> tuple[OperatorAccount, OperationSite, Application, OperatorAppAuthorization]:
+        """一次SQL查询获取所有数据 (方案2: 极致性能优化)
+
+        使用单条JOIN查询替代3条独立查询,减少网络往返次数。
+
+        Args:
+            operator_id: 运营商ID
+            site_id: 运营点ID
+            app_code: 应用代码
+
+        Returns:
+            tuple: (运营商, 运营点, 应用, 授权关系)
+
+        Raises:
+            HTTPException 404: 任一资源不存在
+            HTTPException 403: 权限或状态验证失败
+        """
+        from sqlalchemy import and_
+
+        # 构建多表JOIN查询
+        stmt = (
+            select(
+                OperatorAccount,
+                OperationSite,
+                Application,
+                OperatorAppAuthorization
+            )
+            .join(
+                OperationSite,
+                and_(
+                    OperationSite.operator_id == OperatorAccount.id,
+                    OperationSite.id == site_id,
+                    OperationSite.deleted_at.is_(None)
+                )
+            )
+            .join(
+                Application,
+                Application.app_code == app_code
+            )
+            .join(
+                OperatorAppAuthorization,
+                and_(
+                    OperatorAppAuthorization.operator_id == OperatorAccount.id,
+                    OperatorAppAuthorization.application_id == Application.id,
+                    OperatorAppAuthorization.is_active == True
+                )
+            )
+            .where(
+                and_(
+                    OperatorAccount.id == operator_id,
+                    OperatorAccount.deleted_at.is_(None)
+                )
+            )
+        )
+
+        result = await self.db.execute(stmt)
+        row = result.first()
+
+        if not row:
+            # 需要二次查询确定具体哪个资源不存在
+            # 优先检查运营商
+            stmt_op = select(OperatorAccount).where(
+                OperatorAccount.id == operator_id,
+                OperatorAccount.deleted_at.is_(None)
+            )
+            result_op = await self.db.execute(stmt_op)
+            operator = result_op.scalar_one_or_none()
+
+            if not operator:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "error_code": "OPERATOR_NOT_FOUND",
+                        "message": f"运营商不存在: {operator_id}"
+                    }
+                )
+
+            # 检查运营点
+            stmt_site = select(OperationSite).where(
+                OperationSite.id == site_id,
+                OperationSite.deleted_at.is_(None)
+            )
+            result_site = await self.db.execute(stmt_site)
+            site = result_site.scalar_one_or_none()
+
+            if not site:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "error_code": "SITE_NOT_FOUND",
+                        "message": f"运营点不存在: {site_id}"
+                    }
+                )
+
+            if site.operator_id != operator_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error_code": "SITE_NOT_OWNED",
+                        "message": "该运营点不属于您，无权使用"
+                    }
+                )
+
+            # 检查应用
+            stmt_app = select(Application).where(Application.app_code == app_code)
+            result_app = await self.db.execute(stmt_app)
+            application = result_app.scalar_one_or_none()
+
+            if not application:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "error_code": "APP_NOT_FOUND",
+                        "message": f"应用不存在: {app_code}"
+                    }
+                )
+
+            # 如果都存在,那么就是授权关系不存在
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_NOT_AUTHORIZED",
+                    "message": f"您未被授权使用此应用",
+                    "details": {
+                        "app_code": app_code,
+                        "app_name": application.app_name
+                    }
+                }
+            )
+
+        operator, site, application, authorization = row
+
+        # 验证运营商状态
+        if not operator.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "ACCOUNT_DEACTIVATED",
+                    "message": "账户已注销，无法使用授权服务"
+                }
+            )
+
+        if operator.is_locked:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "ACCOUNT_LOCKED",
+                    "message": f"账户已被锁定，原因: {operator.locked_reason or '未知'}"
+                }
+            )
+
+        # 验证运营点状态
+        if not site.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "SITE_INACTIVE",
+                    "message": "该运营点已停用，无法发起授权"
+                }
+            )
+
+        # 验证应用状态
+        if not application.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "APP_INACTIVE",
+                    "message": f"应用 '{application.app_name}' 已下架，暂不可用"
+                }
+            )
+
+        # 验证授权是否过期
+        if authorization.expires_at and authorization.expires_at < datetime.now(authorization.expires_at.tzinfo):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "AUTHORIZATION_EXPIRED",
+                    "message": f"应用授权已过期，过期时间: {authorization.expires_at.isoformat()}"
+                }
+            )
+
+        return operator, site, application, authorization

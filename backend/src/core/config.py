@@ -26,14 +26,14 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://mr_admin:mr_password@localhost:5432/mr_game_ops",
         description="PostgreSQL database connection URL with asyncpg driver",
     )
-    DATABASE_POOL_SIZE: int = Field(default=20, ge=1, le=100)
-    DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)
+    DATABASE_POOL_SIZE: int = Field(default=30, ge=1, le=100)
+    DATABASE_MAX_OVERFLOW: int = Field(default=20, ge=0, le=50)
     DATABASE_ECHO: bool = Field(default=False, description="Enable SQL query logging")
 
     # ========== Redis Configuration ==========
     REDIS_URL: str = Field(
-        default="redis://localhost:6379/0",
-        description="Redis connection URL for caching and sessions",
+        default="redis://redis:6379/0",
+        description="Redis connection URL for caching and sessions (no password in URL)",
     )
     REDIS_PASSWORD: str = Field(default="", description="Redis password (if required)")
     REDIS_MAX_CONNECTIONS: int = Field(default=50, ge=1, le=500)

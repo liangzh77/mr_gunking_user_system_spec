@@ -17,8 +17,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 
-from ..core.cache.enhanced_cache import get_multi_cache, smart_cache
-from ..core.metrics.enhanced_metrics import record_api_operation
+# 注释掉不存在的依赖
+# from ..core.cache.enhanced_cache import get_multi_cache, smart_cache
+# from ..core.metrics.enhanced_metrics import record_api_operation
 
 logger = structlog.get_logger(__name__)
 
@@ -157,7 +158,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         self.cacheable_methods = cacheable_methods or ["GET"]
         self.cacheable_status_codes = cacheable_status_codes or [200, 301, 302]
         self.cache_key_builder = cache_key_builder
-        self.cache = get_multi_cache()
+        # self.cache = get_multi_cache()  # 暂时禁用，依赖不存在
 
     async def dispatch(self, request: Request, call_next):
         # 只缓存GET请求
@@ -423,13 +424,16 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
     def _record_metrics(self, metrics: PerformanceMetrics):
         """记录指标到监控系统"""
         try:
-            # 记录API操作指标
-            record_api_operation(
-                endpoint=metrics.path,
-                method=metrics.method,
-                success=metrics.status_code < 400,
-                duration_seconds=metrics.duration_ms / 1000
-            )
+            # 记录API操作指标（使用简单日志）
+            if not metrics.path.startswith("/static") and metrics.path != "/health":
+                logger.info(
+                    "api_request",
+                    method=metrics.method,
+                    path=metrics.path,
+                    duration_ms=round(metrics.duration_ms, 2),
+                    status_code=metrics.status_code,
+                    success=metrics.status_code < 400
+                )
 
             # 记录慢请求
             if metrics.duration_ms > 1000:  # 超过1秒的请求
@@ -437,7 +441,7 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
                            request_id=metrics.request_id,
                            method=metrics.method,
                            path=metrics.path,
-                           duration_ms=metrics.duration_ms,
+                           duration_ms=round(metrics.duration_ms, 2),
                            status_code=metrics.status_code)
 
         except Exception as e:
@@ -573,29 +577,12 @@ def rate_limit(max_requests: int, window_seconds: int = 60):
 
 
 def async_response_cache(ttl: int = 300, key_prefix: str = "async_cache"):
-    """异步响应缓存装饰器"""
+    """异步响应缓存装饰器 - 暂时禁用（依赖不存在）"""
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            cache = get_multi_cache()
-
-            # 生成缓存键
-            cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args) + str(kwargs))}"
-
-            # 尝试从缓存获取
-            cached_result = await cache.get(cache_key)
-            if cached_result is not None:
-                logger.debug("async_cache_hit", function=func.__name__)
-                return cached_result
-
-            # 执行函数
-            logger.debug("async_cache_miss", function=func.__name__)
-            result = await func(*args, **kwargs)
-
-            # 存储到缓存
-            await cache.set(cache_key, result, ttl=ttl)
-
-            return result
+            # 暂时直接执行，不使用缓存
+            return await func(*args, **kwargs)
 
         return wrapper
     return decorator
