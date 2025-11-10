@@ -11,6 +11,7 @@
 
 import sys
 import io
+import os
 import argparse
 import requests
 import json
@@ -22,9 +23,11 @@ from typing import Dict, Any, List, Optional
 # 禁用 HTTPS 警告 (用于开发服务器)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Fix Windows console encoding
+# Fix Windows console encoding and enable ANSI colors
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    # Enable ANSI escape sequences in Windows 10+
+    os.system('')  # This enables ANSI escape codes in Windows console
 
 
 class Colors:
