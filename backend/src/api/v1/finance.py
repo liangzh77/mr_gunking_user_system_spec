@@ -1501,8 +1501,10 @@ async def get_operators(
     from sqlalchemy import select, or_, func
     from ...models.operator import OperatorAccount
 
-    # 构建查询
-    query = select(OperatorAccount).where(OperatorAccount.deleted_at.is_(None))
+    # 🚀 性能优化: 构建WHERE条件列表,同时用于COUNT和数据查询
+    # 原方案: 使用subquery包装完整查询再COUNT,需要执行两次复杂查询
+    # 新方案: 复用WHERE条件,COUNT和SELECT分别执行,避免不必要的子查询
+    conditions = [OperatorAccount.deleted_at.is_(None)]
 
     # 搜索条件
     if search:
@@ -1512,20 +1514,26 @@ async def get_operators(
             OperatorAccount.email.ilike(f"%{search}%"),
             OperatorAccount.phone.ilike(f"%{search}%"),
         )
-        query = query.where(search_filter)
+        conditions.append(search_filter)
 
     # 状态筛选
     if status_filter == "active":
-        query = query.where(OperatorAccount.is_active == True, OperatorAccount.is_locked == False)
+        conditions.extend([
+            OperatorAccount.is_active == True,
+            OperatorAccount.is_locked == False
+        ])
     elif status_filter == "inactive":
-        query = query.where(OperatorAccount.is_active == False)
+        conditions.append(OperatorAccount.is_active == False)
     elif status_filter == "locked":
-        query = query.where(OperatorAccount.is_locked == True)
+        conditions.append(OperatorAccount.is_locked == True)
 
-    # 计算总数
-    count_query = select(func.count()).select_from(query.subquery())
+    # 计算总数 - 使用相同条件直接COUNT
+    count_query = select(func.count(OperatorAccount.id)).where(*conditions)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
+
+    # 构建数据查询 - 使用相同条件
+    query = select(OperatorAccount).where(*conditions)
 
     # 分页查询
     query = query.order_by(OperatorAccount.created_at.desc())
@@ -1720,9 +1728,13 @@ async def manual_recharge(
             filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{actual_operator_id}.{file_extension}"
             file_path = os.path.join(upload_dir, filename)
 
+            # 🚀 性能优化: 使用异步文件I/O,避免阻塞事件循环
+            # 原方案: 同步写入文件,阻塞整个事件循环
+            # 新方案: 异步写入文件,不阻塞其他请求
             content = await payment_proof.read()
-            with open(file_path, "wb") as f:
-                f.write(content)
+            import aiofiles
+            async with aiofiles.open(file_path, "wb") as f:
+                await f.write(content)
 
             payment_proof_path = file_path
 

@@ -21,6 +21,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..core.security.jwt import create_access_token
 from ..core.utils.password import hash_password, verify_password
@@ -918,7 +919,9 @@ class OperatorService:
         total_result = await self.db.execute(count_stmt)
         total = total_result.scalar() or 0
 
-        # 4. 分页查询使用记录(联表查询site和application)
+        # 🚀 性能优化: 预加载site和application,避免N+1查询
+        # 原方案: 1次查询 + N次site查询 + N次application查询 = 1+2N次
+        # 新方案: 1次查询 + 2次批量加载 = 3次
         offset = (page - 1) * page_size
         stmt = (
             select(UsageRecord)
@@ -926,6 +929,10 @@ class OperatorService:
             .order_by(desc(UsageRecord.game_started_at))  # 按游戏启动时间降序
             .offset(offset)
             .limit(page_size)
+            .options(
+                selectinload(UsageRecord.site),
+                selectinload(UsageRecord.application)
+            )
         )
 
         result = await self.db.execute(stmt)
@@ -1900,7 +1907,9 @@ class OperatorService:
                 }
             )
 
-        # 2. 查询使用记录(必须属于该运营商)，同时加载game_sessions和headset_records
+        # 🚀 性能优化: 预加载所有关联数据,避免N+1查询
+        # 原方案: 1 + N(sessions) + N*M(records) + N*M(devices) + 2次查询 = 大量查询
+        # 新方案: 1次查询加载所有数据
         stmt = (
             select(UsageRecord)
             .where(
@@ -1908,7 +1917,14 @@ class OperatorService:
                 UsageRecord.operator_id == operator_id
             )
             .options(
-                selectinload(UsageRecord.game_sessions).selectinload(GameSession.headset_records)
+                # 预加载运营点信息
+                selectinload(UsageRecord.site),
+                # 预加载应用信息
+                selectinload(UsageRecord.application),
+                # 预加载游戏局 -> 头显记录 -> 头显设备 (三层嵌套预加载)
+                selectinload(UsageRecord.game_sessions).selectinload(
+                    GameSession.headset_records
+                ).selectinload(HeadsetGameRecord.headset_device)
             )
         )
         result = await self.db.execute(stmt)

@@ -254,8 +254,10 @@ class AdminService:
         # Order by created_at desc (newest first)
         query = query.order_by(desc(OperatorAccount.created_at))
 
-        # Get total count
-        count_query = select(OperatorAccount).where(OperatorAccount.deleted_at.is_(None))
+        # 🚀 性能优化: 使用func.count()而不是加载所有记录
+        # 原方案: 加载所有记录到内存后用len()计数
+        # 新方案: 直接在数据库层面COUNT,避免内存占用
+        count_query = select(func.count(OperatorAccount.id)).where(OperatorAccount.deleted_at.is_(None))
         if search:
             search_pattern = f"%{search}%"
             count_query = count_query.where(
@@ -278,7 +280,7 @@ class AdminService:
                 count_query = count_query.where(OperatorAccount.is_locked == True)
 
         count_result = await self.db.execute(count_query)
-        total = len(count_result.scalars().all())
+        total = count_result.scalar() or 0
 
         # Apply pagination
         offset = (page - 1) * page_size
