@@ -73,7 +73,7 @@
 
         <el-table-column prop="created_at" label="时间" width="160">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
 
@@ -117,7 +117,7 @@
           <el-tag :type="getTypeTagType(currentMessage.type)" size="small">
             {{ getTypeLabel(currentMessage.type) }}
           </el-tag>
-          <span class="message-time">{{ formatDate(currentMessage.created_at) }}</span>
+          <span class="message-time">{{ formatDateTime(currentMessage.created_at) }}</span>
         </div>
 
         <div class="message-content">
@@ -155,6 +155,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { SuccessFilled } from '@element-plus/icons-vue'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 interface Message {
@@ -289,11 +290,6 @@ const getTypeLabel = (type: string) => {
     review_result: '审核结果',
   }
   return labels[type] || type
-}
-
-// 格式化日期
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
 }
 
 onMounted(() => {

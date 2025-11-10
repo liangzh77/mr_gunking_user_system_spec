@@ -127,7 +127,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAdminStore } from '@/stores/admin'
 import type { Site, Operator } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const adminAuthStore = useAdminAuthStore()
 const adminStore = useAdminStore()
@@ -167,11 +167,6 @@ const formRules: FormRules = {
 const dialogTitle = computed(() => {
   return editingSite.value ? '编辑运营点' : '创建运营点'
 })
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 加载运营点列表
 const loadSites = async () => {

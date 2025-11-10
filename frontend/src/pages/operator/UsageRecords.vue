@@ -228,7 +228,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { UsageRecord, OperationSite, AuthorizedApplication } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
@@ -261,11 +261,6 @@ const pageTotal = computed(() => {
     .reduce((sum, record) => sum + parseFloat(record.total_cost), 0)
     .toFixed(2)
 })
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 加载使用记录
 const loadRecords = async () => {

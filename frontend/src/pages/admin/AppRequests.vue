@@ -51,12 +51,12 @@
         </el-table-column>
         <el-table-column prop="created_at" label="申请时间" width="160">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
         <el-table-column prop="reviewed_at" label="审核时间" width="160">
           <template #default="{ row }">
-            {{ row.reviewed_at ? formatDate(row.reviewed_at) : '-' }}
+            {{ row.reviewed_at ? formatDateTime(row.reviewed_at) : '-' }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -116,10 +116,10 @@
           {{ currentRequest.reject_reason }}
         </el-descriptions-item>
         <el-descriptions-item label="申请时间">
-          {{ formatDate(currentRequest.created_at) }}
+          {{ formatDateTime(currentRequest.created_at) }}
         </el-descriptions-item>
         <el-descriptions-item label="审核时间">
-          {{ currentRequest.reviewed_at ? formatDate(currentRequest.reviewed_at) : '-' }}
+          {{ currentRequest.reviewed_at ? formatDateTime(currentRequest.reviewed_at) : '-' }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -133,6 +133,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 interface AppRequest {
@@ -247,11 +248,6 @@ const handleReview = async (row: AppRequest, action: 'approve' | 'reject') => {
   } finally {
     loading.value = false
   }
-}
-
-// 格式化日期
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
 }
 
 onMounted(() => {

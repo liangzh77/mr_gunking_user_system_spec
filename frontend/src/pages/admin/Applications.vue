@@ -51,7 +51,7 @@
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="160">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
@@ -178,6 +178,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 const router = useRouter()
@@ -249,11 +250,6 @@ const fetchApplications = async () => {
 const handleSearch = () => {
   pagination.page = 1
   fetchApplications()
-}
-
-// 格式化日期
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
 }
 
 // 玩家数量范围验证
