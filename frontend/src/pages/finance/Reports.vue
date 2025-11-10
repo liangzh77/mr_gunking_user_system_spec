@@ -159,7 +159,11 @@
                 ¥{{ scope.row.net_income }}
               </template>
             </el-table-column>
-            <el-table-column prop="generated_at" label="生成时间" width="160" />
+            <el-table-column prop="generated_at" label="生成时间" width="160">
+              <template #default="{ row }">
+                {{ formatDateTime(row.generated_at) }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="120" align="center">
               <template #default="scope">
                 <el-button
@@ -197,6 +201,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentAdd, Calendar, Refresh, Download } from '@element-plus/icons-vue'
 import http from '@/utils/http'
+import { formatDateTime } from '@/utils/format'
 
 // 报表表单
 const reportForm = reactive({
