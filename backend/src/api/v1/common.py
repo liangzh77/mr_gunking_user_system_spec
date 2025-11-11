@@ -150,8 +150,16 @@ async def verify_captcha(
     Returns:
         True if captcha is valid, False otherwise
     """
+    import os
+
     if not captcha_key or not captcha_code:
         return False
+
+    # 测试环境绕过码: "0000"
+    # 仅在开发和测试环境有效，生产环境不启用
+    environment = os.getenv("ENVIRONMENT", "production").lower()
+    if environment in ["development", "testing"] and captcha_code == "0000":
+        return True
 
     # Get stored captcha from Redis
     stored_captcha = await redis.get(f"captcha:{captcha_key}")
