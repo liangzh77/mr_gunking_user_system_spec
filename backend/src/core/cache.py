@@ -276,6 +276,21 @@ async def close_cache() -> None:
     await cache.disconnect()
 
 
+async def get_redis():
+    """Get raw Redis client for advanced operations.
+
+    This is a FastAPI dependency that returns the underlying Redis client
+    from the cache instance, allowing direct Redis operations.
+
+    Yields:
+        redis.Redis: Raw async Redis client
+    """
+    cache = get_cache()
+    if cache._client is None:
+        await cache.connect()
+    return cache._client
+
+
 def cache_result(
     key_prefix: str,
     ttl: int = 300,

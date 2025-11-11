@@ -19,10 +19,12 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator, require_headset_token
+from ...core import get_redis
 from ...db.session import get_db
 from ...schemas.auth import (
     ErrorResponse,
@@ -863,23 +865,44 @@ async def upload_game_session(
 )
 async def register_operator(
     request: OperatorRegisterRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis)
 ) -> OperatorRegisterResponse:
     """运营商注册API (T066)
 
     处理运营商注册请求,创建账户并生成API Key。
 
     Args:
-        request: 注册请求数据(包含username, password, name, phone, email)
+        request: 注册请求数据(包含username, password, name, phone, email, sms_key, sms_code)
         db: 数据库会话
+        redis: Redis连接
 
     Returns:
         OperatorRegisterResponse: 注册成功响应(包含operator_id和api_key)
 
     Raises:
         HTTPException 400: 参数错误(用户名已存在、密码不符合要求等)
+        HTTPException 401: 短信验证码错误
         HTTPException 500: 服务器内部错误
     """
+    # 验证短信验证码
+    from .common import verify_sms_code
+    is_sms_valid = await verify_sms_code(
+        request.sms_key,
+        request.sms_code,
+        request.phone,
+        redis
+    )
+
+    if not is_sms_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_SMS_CODE",
+                "message": "短信验证码错误或已过期"
+            }
+        )
+
     operator_service = OperatorService(db)
 
     try:
@@ -966,26 +989,45 @@ async def register_operator(
 async def login_operator(
     request: OperatorLoginRequest,
     http_request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis)
 ) -> LoginResponse:
     """运营商登录API (T067)
 
     处理运营商登录请求,验证凭证并返回JWT Token。
 
     Args:
-        request: 登录请求数据(包含username, password)
+        request: 登录请求数据(包含username, password, captcha_key, captcha_code)
         http_request: FastAPI Request对象(用于获取客户端IP)
         db: 数据库会话
+        redis: Redis连接
 
     Returns:
         LoginResponse: 登录成功响应(包含access_token和operator信息)
 
     Raises:
         HTTPException 400: 参数错误(缺少必填字段)
-        HTTPException 401: 认证失败(用户名或密码错误)
+        HTTPException 401: 认证失败(用户名或密码错误、验证码错误)
         HTTPException 403: 账户已注销或被锁定
         HTTPException 500: 服务器内部错误
     """
+    # 验证验证码
+    from .common import verify_captcha
+    is_captcha_valid = await verify_captcha(
+        request.captcha_key,
+        request.captcha_code,
+        redis
+    )
+
+    if not is_captcha_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_CAPTCHA",
+                "message": "验证码错误或已过期"
+            }
+        )
+
     operator_service = OperatorService(db)
 
     try:
@@ -1164,23 +1206,25 @@ async def logout_operator(
 async def login_finance(
     request_data: dict = Body(...),
     http_request: Request = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis)
 ) -> dict:
     """财务人员登录API (T162)
 
     处理财务人员登录请求,验证凭证并返回JWT Token。
 
     Args:
-        request_data: 登录请求数据(包含username, password)
+        request_data: 登录请求数据(包含username, password, captcha_key, captcha_code)
         http_request: FastAPI Request对象(用于获取客户端IP)
         db: 数据库会话
+        redis: Redis连接
 
     Returns:
         dict: 登录成功响应(包含access_token和finance信息)
 
     Raises:
         HTTPException 400: 参数错误(缺少必填字段)
-        HTTPException 401: 认证失败(用户名或密码错误)
+        HTTPException 401: 认证失败(用户名或密码错误、验证码错误)
         HTTPException 500: 服务器内部错误
     """
     from ...services.finance_service import FinanceService
@@ -1189,6 +1233,23 @@ async def login_finance(
     try:
         # 解析请求
         login_request = FinanceLoginRequest(**request_data)
+
+        # 验证验证码
+        from .common import verify_captcha
+        is_captcha_valid = await verify_captcha(
+            login_request.captcha_key,
+            login_request.captcha_code,
+            redis
+        )
+
+        if not is_captcha_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_CAPTCHA",
+                    "message": "验证码错误或已过期"
+                }
+            )
 
         # 获取客户端IP
         client_ip = http_request.client.host if http_request.client else None

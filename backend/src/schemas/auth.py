@@ -33,6 +33,8 @@ class OperatorLoginRequest(BaseModel):
     字段要求:
     - username: 必填,用户名
     - password: 必填,密码
+    - captcha_key: 必填,验证码key
+    - captcha_code: 必填,验证码
     """
     username: str = Field(
         ...,
@@ -46,6 +48,21 @@ class OperatorLoginRequest(BaseModel):
         min_length=1,
         description="密码",
         examples=["StrongPass123"]
+    )
+
+    captcha_key: str = Field(
+        ...,
+        min_length=1,
+        description="验证码key",
+        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+    )
+
+    captcha_code: str = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="验证码",
+        examples=["AB12"]
     )
 
     model_config = {

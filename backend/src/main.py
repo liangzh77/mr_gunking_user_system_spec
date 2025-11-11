@@ -68,6 +68,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_cache()
         logger.info("redis_cache_initialized", redis_url=settings.REDIS_URL)
 
+        # Initialize SMS service
+        from .utils.sms import init_sms_service
+        init_sms_service(
+            provider_type=settings.SMS_PROVIDER,
+            access_key_id=settings.ALIYUN_ACCESS_KEY_ID or None,
+            access_key_secret=settings.ALIYUN_ACCESS_KEY_SECRET or None,
+            sign_name=settings.ALIYUN_SMS_SIGN_NAME or None,
+            template_code=settings.ALIYUN_SMS_TEMPLATE_CODE or None,
+        )
+        logger.info("sms_service_initialized", provider=settings.SMS_PROVIDER)
+
         # Ensure database partitions exist (create next 6 months)
         from .db.partition_manager import ensure_partitions
         await ensure_partitions(months_ahead=6)

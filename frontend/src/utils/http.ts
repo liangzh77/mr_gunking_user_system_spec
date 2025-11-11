@@ -58,13 +58,14 @@ http.interceptors.response.use(
         case 401:
           const currentPath = router.currentRoute.value.path
 
-          // 判断是否在登录页面
-          const isLoginPage = currentPath === '/operator/login' ||
-                             currentPath === '/admin/login' ||
-                             currentPath === '/finance/login'
+          // 判断是否在登录/注册页面（这些页面的401错误不应该跳转）
+          const isPublicPage = currentPath === '/operator/login' ||
+                              currentPath === '/operator/register' ||
+                              currentPath === '/admin/login' ||
+                              currentPath === '/finance/login'
 
-          if (isLoginPage) {
-            // 在登录页面的401错误 = 用户名或密码错误
+          if (isPublicPage) {
+            // 在登录/注册页面的401错误 = 认证失败（用户名密码错误或验证码错误）
             ElMessage.error({
               message: data?.message || data?.error?.message || data?.detail?.message || '用户名或密码错误',
               duration: 3000,

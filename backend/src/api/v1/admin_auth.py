@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
+from ...core import get_redis
 from ...schemas.admin import (
     AdminChangePasswordRequest,
     AdminLoginRequest,
@@ -29,6 +30,7 @@ async def admin_login(
     request: Request,
     login_data: AdminLoginRequest,
     db: DatabaseSession,
+    redis = Depends(get_redis)
 ) -> AdminLoginResponse:
     """Admin login endpoint.
 
@@ -36,10 +38,28 @@ async def admin_login(
         request: FastAPI request object (for client IP)
         login_data: Login credentials
         db: Database session
+        redis: Redis connection
 
     Returns:
         AdminLoginResponse: Access token and user info
     """
+    # 验证验证码
+    from .common import verify_captcha
+    is_captcha_valid = await verify_captcha(
+        login_data.captcha_key,
+        login_data.captcha_code,
+        redis
+    )
+
+    if not is_captcha_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_CAPTCHA",
+                "message": "验证码错误或已过期"
+            }
+        )
+
     service = AdminAuthService(db)
     client_ip = request.client.host if request.client else "unknown"
 

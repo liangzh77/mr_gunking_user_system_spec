@@ -67,6 +67,21 @@ class OperatorRegisterRequest(BaseModel):
         examples=["operator@example.com"]
     )
 
+    sms_key: str = Field(
+        ...,
+        min_length=1,
+        description="短信验证码key(从发送短信接口获取)",
+        examples=["550e8400-e29b-41d4-a716-446655440000"]
+    )
+
+    sms_code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        description="短信验证码(6位数字)",
+        examples=["123456"]
+    )
+
     @field_validator("username")
     @classmethod
     def validate_username_format(cls, v: str) -> str:
