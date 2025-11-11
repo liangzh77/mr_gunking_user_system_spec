@@ -86,7 +86,7 @@ const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 const usernameInputRef = ref()
 const captchaRef = ref()
-const loginForm = reactive<LoginRequest & { captcha_key: string; captcha_code: string }>({
+const loginForm = reactive<LoginRequest>({
   username: '',
   password: '',
   captcha_key: '',
