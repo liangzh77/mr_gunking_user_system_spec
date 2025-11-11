@@ -36,6 +36,8 @@ export interface OperatorProfile {
 export interface LoginRequest {
   username: string
   password: string
+  captcha_key: string
+  captcha_code: string
 }
 
 export interface RegisterRequest {
