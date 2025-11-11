@@ -155,7 +155,9 @@ class HeadsetAPITester:
         url = f"{self.base_url}/auth/operators/login"
         payload = {
             "username": self.username,
-            "password": self.password
+            "password": self.password,
+            "captcha_key": "test-bypass",  # 测试环境绕过key
+            "captcha_code": "0000"          # 测试环境绕过码
         }
 
         try:
