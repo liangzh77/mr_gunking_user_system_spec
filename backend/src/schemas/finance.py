@@ -30,6 +30,8 @@ class FinanceLoginRequest(BaseModel):
     字段要求:
     - username: 财务人员用户名
     - password: 密码
+    - captcha_key: 验证码key
+    - captcha_code: 验证码
     """
     username: str = Field(
         ...,
@@ -45,6 +47,21 @@ class FinanceLoginRequest(BaseModel):
         max_length=32,
         description="密码",
         examples=["FinancePass123"]
+    )
+
+    captcha_key: str = Field(
+        ...,
+        min_length=1,
+        description="验证码key",
+        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+    )
+
+    captcha_code: str = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="验证码",
+        examples=["AB12"]
     )
 
     model_config = {

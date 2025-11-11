@@ -55,7 +55,11 @@
         </el-table-column>
         <el-table-column prop="operation_desc" label="操作描述" min-width="200" />
         <el-table-column prop="ip_address" label="IP地址" width="140" />
-        <el-table-column prop="created_at" label="操作时间" width="180" />
+        <el-table-column prop="created_at" label="操作时间" width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
@@ -107,6 +111,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { Refresh as RefreshIcon } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import http from '@/utils/http'
+import { formatDateTime } from '@/utils/format'
 
 // 筛选表单
 const queryForm = reactive({

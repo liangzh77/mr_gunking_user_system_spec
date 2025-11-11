@@ -59,9 +59,9 @@ class FinanceDashboardService:
         )
         today_recharge = recharge_result.scalar() or Decimal("0.00")
 
-        # Calculate today's consumption
+        # Calculate today's consumption (use abs to get positive value)
         consumption_result = await self.db.execute(
-            select(func.sum(TransactionRecord.amount)).where(
+            select(func.sum(func.abs(TransactionRecord.amount))).where(
                 and_(
                     TransactionRecord.transaction_type == "consumption",
                     TransactionRecord.created_at >= today_start,
@@ -258,11 +258,11 @@ class FinanceDashboardService:
         if limit < 1 or limit > 100:
             raise BadRequestException("Limit must be between 1 and 100")
 
-        # Build query for total consumption by operator
+        # Build query for total consumption by operator (use abs to get positive values)
         consumption_query = (
             select(
                 TransactionRecord.operator_id,
-                func.sum(TransactionRecord.amount).label('total_consumption'),
+                func.sum(func.abs(TransactionRecord.amount)).label('total_consumption'),
                 func.count(func.distinct(TransactionRecord.related_usage_id)).label('total_sessions')
             )
             .where(TransactionRecord.transaction_type == "consumption")
@@ -284,8 +284,8 @@ class FinanceDashboardService:
         consumption_result = await self.db.execute(consumption_query)
         consumption_data = consumption_result.all()
 
-        # Calculate total consumption across all customers
-        total_consumption_query = select(func.sum(TransactionRecord.amount)).where(
+        # Calculate total consumption across all customers (use abs to get positive value)
+        total_consumption_query = select(func.sum(func.abs(TransactionRecord.amount))).where(
             TransactionRecord.transaction_type == "consumption"
         )
         if start_time:

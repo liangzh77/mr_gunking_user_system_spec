@@ -30,6 +30,15 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captcha_code">
+          <Captcha
+            size="large"
+            @update:captcha-key="loginForm.captcha_key = $event"
+            @update:captcha-code="loginForm.captcha_code = $event"
+            ref="captchaRef"
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -68,6 +77,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginRequest } from '@/types'
+import Captcha from '@/components/Captcha.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -75,9 +85,12 @@ const authStore = useAuthStore()
 
 const formRef = ref<FormInstance>()
 const usernameInputRef = ref()
-const loginForm = reactive<LoginRequest>({
+const captchaRef = ref()
+const loginForm = reactive<LoginRequest & { captcha_key: string; captcha_code: string }>({
   username: '',
   password: '',
+  captcha_key: '',
+  captcha_code: '',
 })
 
 // 页面加载时自动聚焦到用户名输入框
@@ -94,6 +107,10 @@ const rules: FormRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 8, max: 64, message: '密码长度在8-64个字符', trigger: 'blur' },
   ],
+  captcha_code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { len: 4, message: '验证码长度为4位', trigger: 'blur' },
+  ],
 }
 
 const handleLogin = async () => {
@@ -109,8 +126,10 @@ const handleLogin = async () => {
       // 跳转到原页面或仪表盘
       const redirect = route.query.redirect as string
       router.push(redirect || '/operator/dashboard')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error)
+      // 登录失败后刷新验证码
+      captchaRef.value?.refresh()
     }
   })
 }

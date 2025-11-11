@@ -16,6 +16,8 @@ class AdminLoginRequest(BaseModel):
 
     username: str = Field(..., min_length=3, max_length=64, description="Admin username")
     password: str = Field(..., min_length=6, max_length=128, description="Admin password")
+    captcha_key: str = Field(..., min_length=1, description="Captcha key")
+    captcha_code: str = Field(..., min_length=4, max_length=4, description="Captcha code")
 
 
 class AdminLoginResponse(TokenResponse):

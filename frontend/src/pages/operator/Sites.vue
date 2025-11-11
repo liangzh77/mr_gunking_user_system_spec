@@ -160,7 +160,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { OperationSite } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 const operatorStore = useOperatorStore()
@@ -195,11 +195,6 @@ const formRules: FormRules = {
 const dialogTitle = computed(() => {
   return editingSite.value ? '编辑运营点' : '创建运营点'
 })
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 加载运营点列表
 const loadSites = async () => {

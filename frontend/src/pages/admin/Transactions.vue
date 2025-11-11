@@ -100,7 +100,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" />
-        <el-table-column prop="created_at" label="交易时间" width="180" />
+        <el-table-column prop="created_at" label="交易时间" width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
       </el-table>
 
       <!-- 分页 -->
@@ -124,6 +128,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Coin, Search, RefreshLeft } from '@element-plus/icons-vue'
 import http from '@/utils/http'
+import { formatDateTime } from '@/utils/format'
 
 interface Transaction {
   id: string

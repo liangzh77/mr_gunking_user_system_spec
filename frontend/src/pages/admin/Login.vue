@@ -32,6 +32,16 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captcha_code">
+          <Captcha
+            size="large"
+            api-base-url="/admin"
+            @update:captcha-key="loginForm.captcha_key = $event"
+            @update:captcha-code="loginForm.captcha_code = $event"
+            ref="captchaRef"
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -64,6 +74,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import type { AdminLoginRequest } from '@/types'
+import Captcha from '@/components/Captcha.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -71,9 +82,12 @@ const adminAuthStore = useAdminAuthStore()
 
 const formRef = ref<FormInstance>()
 const usernameInputRef = ref()
-const loginForm = reactive<AdminLoginRequest>({
+const captchaRef = ref()
+const loginForm = reactive<AdminLoginRequest & { captcha_key: string; captcha_code: string }>({
   username: '',
   password: '',
+  captcha_key: '',
+  captcha_code: '',
 })
 
 // 页面加载时自动聚焦到用户名输入框
@@ -90,6 +104,10 @@ const rules: FormRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 64, message: '密码长度在6-64个字符', trigger: 'blur' },
   ],
+  captcha_code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { len: 4, message: '验证码长度为4位', trigger: 'blur' },
+  ],
 }
 
 const handleLogin = async () => {
@@ -105,9 +123,10 @@ const handleLogin = async () => {
       // 跳转到原页面或管理后台首页
       const redirect = route.query.redirect as string
       router.push(redirect || '/admin/dashboard')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error)
-      // 错误已在http拦截器中处理，这里不需要再显示
+      // 登录失败后刷新验证码
+      captchaRef.value?.refresh()
     }
   })
 }

@@ -139,7 +139,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
@@ -189,11 +189,6 @@ const formRules: FormRules = {
     { required: true, message: '请输入退款原因', trigger: 'blur' },
     { min: 1, max: 500, message: '退款原因长度应在 1-500 个字符之间', trigger: 'blur' },
   ],
-}
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
 }
 
 // 获取状态标签类型

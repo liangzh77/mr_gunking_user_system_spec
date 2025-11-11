@@ -84,12 +84,12 @@
         </el-table-column>
         <el-table-column prop="last_login_at" label="最后登录" width="160">
           <template #default="{ row }">
-            {{ row.last_login_at ? formatDate(row.last_login_at) : '-' }}
+            {{ row.last_login_at ? formatDateTime(row.last_login_at) : '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="160">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
@@ -211,6 +211,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Search, QuestionFilled } from '@element-plus/icons-vue'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 interface Operator {
@@ -418,11 +419,6 @@ const handleUnlock = async (row: Operator) => {
   } catch (error) {
     // 用户取消
   }
-}
-
-// 格式化日期
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
 }
 
 // 获取客户等级类型

@@ -16,11 +16,44 @@
       </div>
     </el-card>
 
+    <!-- 搜索栏 -->
+    <el-card class="filter-card" style="margin-top: 20px">
+      <el-form :inline="true">
+        <el-form-item label="运营商">
+          <el-select
+            v-model="searchOperatorId"
+            placeholder="全部运营商"
+            clearable
+            filterable
+            style="width: 250px"
+            @change="handleSearch"
+          >
+            <el-option
+              v-for="operator in operators"
+              :key="operator.id"
+              :label="operator.full_name"
+              :value="operator.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><RefreshLeft /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <!-- 运营点列表 -->
     <el-card class="list-card" style="margin-top: 20px">
       <el-table
         v-loading="loading"
-        :data="sites"
+        :data="filteredSites"
         stripe
         style="width: 100%"
       >
@@ -45,9 +78,9 @@
         </el-table-column>
       </el-table>
 
-      <div v-if="!loading && sites.length === 0" class="empty-state">
-        <el-empty description="暂无运营点">
-          <el-button type="primary" @click="handleCreate">创建第一个运营点</el-button>
+      <div v-if="!loading && filteredSites.length === 0" class="empty-state">
+        <el-empty :description="searchOperatorId ? '该运营商暂无运营点' : '暂无运营点'">
+          <el-button v-if="!searchOperatorId" type="primary" @click="handleCreate">创建第一个运营点</el-button>
         </el-empty>
       </div>
     </el-card>
@@ -127,7 +160,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAdminStore } from '@/stores/admin'
 import type { Site, Operator } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const adminAuthStore = useAdminAuthStore()
 const adminStore = useAdminStore()
@@ -135,6 +168,7 @@ const adminStore = useAdminStore()
 const loading = ref(false)
 const sites = ref<Site[]>([])
 const operators = ref<Operator[]>([])
+const searchOperatorId = ref<string>('')
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
@@ -168,10 +202,13 @@ const dialogTitle = computed(() => {
   return editingSite.value ? '编辑运营点' : '创建运营点'
 })
 
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
+// 筛选后的运营点列表
+const filteredSites = computed(() => {
+  if (!searchOperatorId.value) {
+    return sites.value
+  }
+  return sites.value.filter(site => site.operator_id === searchOperatorId.value)
+})
 
 // 加载运营点列表
 const loadSites = async () => {
@@ -292,6 +329,16 @@ const handleSubmit = async () => {
 const handleDialogClose = () => {
   formRef.value?.resetFields()
   editingSite.value = null
+}
+
+// 搜索
+const handleSearch = () => {
+  // 筛选逻辑在computed中自动处理
+}
+
+// 重置搜索
+const handleReset = () => {
+  searchOperatorId.value = ''
 }
 
 onMounted(() => {

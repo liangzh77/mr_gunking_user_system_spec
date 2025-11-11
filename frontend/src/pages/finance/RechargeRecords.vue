@@ -141,6 +141,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh as RefreshIcon, Right } from '@element-plus/icons-vue'
+import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 // 查询表单
@@ -228,21 +229,6 @@ const handleReset = () => {
 const handleViewDetail = (row: any) => {
   currentRecord.value = row
   detailDialogVisible.value = true
-}
-
-// 格式化日期时间
-const formatDateTime = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
 }
 
 // 页面加载

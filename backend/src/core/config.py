@@ -130,6 +130,28 @@ class Settings(BaseSettings):
         description="Maximum upload file size in bytes",
     )
 
+    # ========== SMS Configuration ==========
+    SMS_PROVIDER: Literal["mock", "aliyun"] = Field(
+        default="mock",
+        description="SMS service provider (mock for development, aliyun for production)",
+    )
+    ALIYUN_ACCESS_KEY_ID: str = Field(
+        default="",
+        description="Aliyun AccessKey ID for SMS service",
+    )
+    ALIYUN_ACCESS_KEY_SECRET: str = Field(
+        default="",
+        description="Aliyun AccessKey Secret for SMS service",
+    )
+    ALIYUN_SMS_SIGN_NAME: str = Field(
+        default="",
+        description="Aliyun SMS signature name",
+    )
+    ALIYUN_SMS_TEMPLATE_CODE: str = Field(
+        default="",
+        description="Aliyun SMS template code for verification code",
+    )
+
     # ========== Business Configuration ==========
     # Note: These are backup values. Actual values are stored in database (system_configs table)
     BALANCE_THRESHOLD: float = Field(

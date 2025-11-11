@@ -30,6 +30,16 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captcha_code">
+          <Captcha
+            size="large"
+            api-base-url="/finance"
+            @update:captcha-key="loginForm.captcha_key = $event"
+            @update:captcha-code="loginForm.captcha_code = $event"
+            ref="captchaRef"
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -60,6 +70,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useFinanceAuthStore } from '@/stores/financeAuth'
+import Captcha from '@/components/Captcha.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -68,11 +79,14 @@ const financeAuthStore = useFinanceAuthStore()
 // 表单引用
 const loginFormRef = ref<FormInstance>()
 const usernameInputRef = ref()
+const captchaRef = ref()
 
 // 登录表单
 const loginForm = reactive({
   username: '',
   password: '',
+  captcha_key: '',
+  captcha_code: '',
 })
 
 // 页面加载时自动聚焦到用户名输入框
@@ -90,6 +104,10 @@ const rules = reactive<FormRules>({
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 8, max: 32, message: '密码长度为8-32个字符', trigger: 'blur' },
   ],
+  captcha_code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { len: 4, message: '验证码长度为4位', trigger: 'blur' },
+  ],
 })
 
 // 处理登录
@@ -102,6 +120,8 @@ const handleLogin = async () => {
     await financeAuthStore.login({
       username: loginForm.username,
       password: loginForm.password,
+      captcha_key: loginForm.captcha_key,
+      captcha_code: loginForm.captcha_code,
     })
 
     ElMessage.success('登录成功')
@@ -110,6 +130,9 @@ const handleLogin = async () => {
     const redirect = route.query.redirect as string
     router.push(redirect || '/finance/dashboard')
   } catch (error: any) {
+    // 登录失败后刷新验证码
+    captchaRef.value?.refresh()
+
     if (error.response?.status === 401) {
       ElMessage.error('用户名或密码错误')
     } else if (error.errors) {

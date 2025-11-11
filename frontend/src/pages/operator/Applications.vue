@@ -99,7 +99,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { AuthorizedApplication, ApplicationRequest } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
@@ -108,11 +108,6 @@ const applications = ref<AuthorizedApplication[]>([])
 const requestsDialogVisible = ref(false)
 const requestsLoading = ref(false)
 const requests = ref<ApplicationRequest[]>([])
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 获取状态标签类型
 const getStatusTagType = (status: string) => {

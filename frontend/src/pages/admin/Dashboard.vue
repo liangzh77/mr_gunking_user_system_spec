@@ -43,8 +43,8 @@
             <el-icon :size="32"><Money /></el-icon>
           </div>
           <div class="stat-content">
-            <div class="stat-label">今日收入</div>
-            <div class="stat-value">¥{{ stats.todayRevenue }}</div>
+            <div class="stat-label">今日消费</div>
+            <div class="stat-value">¥{{ stats.todayConsumption }}</div>
           </div>
         </el-card>
       </el-col>
@@ -157,7 +157,7 @@ const stats = reactive({
   operatorsCount: 0,
   applicationsCount: 0,
   todayTransactions: 0,
-  todayRevenue: '0.00',
+  todayConsumption: '0.00',
   pendingRequests: 0,
 })
 
@@ -180,7 +180,7 @@ const loadDashboardStats = async () => {
     try {
       const dashboardStats = await adminStore.getDashboardStats()
       stats.todayTransactions = dashboardStats.today_transactions_count
-      stats.todayRevenue = dashboardStats.today_revenue
+      stats.todayConsumption = dashboardStats.today_consumption
     } catch (err) {
       // Dashboard统计API未实现或失败，使用默认值
       console.log('Dashboard stats API not available, using default values')

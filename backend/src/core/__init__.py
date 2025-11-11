@@ -1,6 +1,6 @@
 """Core module containing configuration, security, and utilities."""
 
-from .cache import RedisCache, get_cache, cache_result
+from .cache import RedisCache, get_cache, cache_result, get_redis
 # from .cache.enhanced_cache import (
 #     get_multi_cache,
 #     get_cache_warmer,
@@ -72,6 +72,7 @@ __all__ = [
     "RedisCache",
     "get_cache",
     "cache_result",
+    "get_redis",
     # "get_multi_cache",
     # "get_cache_warmer",
     # "MultiLevelCache",

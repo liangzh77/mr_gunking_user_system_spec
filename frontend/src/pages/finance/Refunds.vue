@@ -45,7 +45,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="reason" label="退款原因" />
-        <el-table-column prop="requested_at" label="申请时间" width="160" />
+        <el-table-column prop="requested_at" label="申请时间" width="160">
+          <template #default="{ row }">
+            {{ formatDateTime(row.requested_at) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.status)">
@@ -120,6 +124,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import http from '@/utils/http'
+import { formatDateTime } from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({

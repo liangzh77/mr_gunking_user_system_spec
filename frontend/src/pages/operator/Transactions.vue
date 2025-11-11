@@ -143,7 +143,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
@@ -184,11 +184,6 @@ const pageRefundTotal = computed(() => {
   // 退款金额后端返回负数（余额减少），这里取绝对值用于显示
   return Math.abs(total).toFixed(2)
 })
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 获取交易类型标签
 const getTransactionTypeTag = (type: string) => {

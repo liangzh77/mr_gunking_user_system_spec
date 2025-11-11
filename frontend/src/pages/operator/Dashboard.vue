@@ -142,7 +142,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
-import dayjs from 'dayjs'
+import { formatDateTime } from '@/utils/format'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -180,11 +180,6 @@ const tierLabel = computed(() => {
       return '未知'
   }
 })
-
-// 格式化日期时间
-const formatDateTime = (datetime: string) => {
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
-}
 
 // 获取交易类型标签
 const getTransactionTypeTag = (type: string) => {
