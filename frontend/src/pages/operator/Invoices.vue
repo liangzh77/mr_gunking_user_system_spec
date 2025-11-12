@@ -37,8 +37,8 @@
         <el-table-column prop="tax_id" label="税号" width="180" show-overflow-tooltip />
         <el-table-column prop="invoice_type" label="发票类型" width="80" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.invoice_type === 'vat' ? 'success' : 'info'" size="small">
-              {{ row.invoice_type === 'vat' ? '专用' : '普通' }}
+            <el-tag :type="row.invoice_type === 'vat_special' ? 'success' : 'info'" size="small">
+              {{ row.invoice_type === 'vat_special' ? '专用' : '普通' }}
             </el-tag>
           </template>
         </el-table-column>
