@@ -53,6 +53,10 @@ export const useOperatorStore = defineStore('operator', () => {
     return response.data
   }
 
+  async function cancelRefund(refundId: string): Promise<void> {
+    await http.delete(`/operators/me/refunds/${refundId}`)
+  }
+
   // ========== 发票 ==========
   async function applyInvoice(data: InvoiceRequest): Promise<Invoice> {
     const response = await http.post('/operators/me/invoices', data)
@@ -197,6 +201,7 @@ export const useOperatorStore = defineStore('operator', () => {
     // 退款
     applyRefund,
     getRefunds,
+    cancelRefund,
     // 发票
     applyInvoice,
     getInvoices,

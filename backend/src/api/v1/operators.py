@@ -941,6 +941,130 @@ async def get_refunds(
         )
 
 
+@router.delete(
+    "/me/refunds/{refund_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "description": "退款申请已被审核，无法取消"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户或无权取消此退款申请)"
+        },
+        404: {
+            "description": "退款申请不存在"
+        }
+    },
+    summary="取消退款申请",
+    description="""
+    取消pending状态的退款申请。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **业务规则**:
+    - 只能取消自己的退款申请
+    - 只能取消pending状态的退款申请
+    - 已审核(approved/rejected)的退款申请不能取消
+
+    **注意事项**:
+    - 成功取消后返回204 No Content
+    - 取消操作会直接删除退款记录
+    """
+)
+async def cancel_refund(
+    refund_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> Response:
+    """取消退款申请API
+
+    Args:
+        refund_id: 退款ID (格式: refund_{uuid})
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        Response: 204 No Content
+
+    Raises:
+        HTTPException 400: 退款申请已被审核，无法取消
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 退款申请不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析refund_id (格式: refund_{uuid})
+    if not refund_id.startswith("refund_"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_REFUND_ID",
+                "message": f"无效的退款ID格式: {refund_id}"
+            }
+        )
+
+    try:
+        refund_uuid = UUID(refund_id.replace("refund_", ""))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_REFUND_ID",
+                "message": f"无效的退款ID格式: {refund_id}"
+            }
+        )
+
+    # 调用服务层取消退款
+    try:
+        await operator_service.cancel_refund(
+            operator_id=operator_id,
+            refund_id=refund_uuid
+        )
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except HTTPException:
+        # 重新抛出服务层异常(如403, 404, 400)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"取消退款申请失败: {str(e)}"
+            }
+        )
+
+
 # ========== 发票管理接口 (T076-T077) ==========
 
 @router.post(

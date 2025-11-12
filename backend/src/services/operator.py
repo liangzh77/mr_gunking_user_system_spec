@@ -675,6 +675,69 @@ class OperatorService:
 
         return refund
 
+    async def cancel_refund(
+        self,
+        operator_id: UUID,
+        refund_id: UUID
+    ):
+        """取消退款申请
+
+        业务规则:
+        - 只能取消pending状态的退款申请
+        - 只能取消自己的退款申请
+        - 已审核(approved/rejected)的退款申请不能取消
+
+        Args:
+            operator_id: 运营商ID
+            refund_id: 退款记录ID
+
+        Raises:
+            HTTPException 403: 无权取消此退款申请
+            HTTPException 404: 退款申请不存在
+            HTTPException 400: 退款申请已被审核,无法取消
+        """
+        from ..models.refund import RefundRecord
+
+        # 1. 查询退款记录
+        refund_stmt = select(RefundRecord).where(
+            RefundRecord.id == refund_id
+        )
+        refund_result = await self.db.execute(refund_stmt)
+        refund = refund_result.scalar_one_or_none()
+
+        if not refund:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "REFUND_NOT_FOUND",
+                    "message": "退款申请不存在"
+                }
+            )
+
+        # 2. 验证是否属于当前运营商
+        if refund.operator_id != operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "PERMISSION_DENIED",
+                    "message": "无权取消此退款申请"
+                }
+            )
+
+        # 3. 验证状态是否为pending
+        if refund.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_STATUS",
+                    "message": f"退款申请已被审核(状态: {refund.status}),无法取消"
+                }
+            )
+
+        # 4. 删除退款记录
+        await self.db.delete(refund)
+        await self.db.commit()
+
     async def apply_invoice(
         self,
         operator_id: UUID,

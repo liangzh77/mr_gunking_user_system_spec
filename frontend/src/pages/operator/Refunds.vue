@@ -52,6 +52,20 @@
             {{ formatDateTime(row.updated_at) }}
           </template>
         </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'pending'"
+              type="danger"
+              size="small"
+              text
+              @click="handleCancel(row)"
+            >
+              取消
+            </el-button>
+            <span v-else class="empty-text">-</span>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div v-if="!loading && refunds.length === 0" class="empty-state">
@@ -136,7 +150,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -290,6 +304,30 @@ const handlePageSizeChange = () => {
 // 对话框关闭时重置表单
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+}
+
+// 取消退款申请
+const handleCancel = async (refund: Refund) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要取消这个退款申请吗？退款金额: ¥${refund.requested_amount}`,
+      '取消退款申请',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await operatorStore.cancelRefund(refund.refund_id)
+    ElMessage.success('退款申请已取消')
+    await loadRefunds()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Cancel refund error:', error)
+      ElMessage.error('取消退款申请失败')
+    }
+  }
 }
 
 onMounted(() => {
