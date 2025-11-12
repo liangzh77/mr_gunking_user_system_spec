@@ -115,6 +115,7 @@
       title="申请发票"
       width="600px"
       :close-on-press-escape="false"
+      :close-on-click-modal="false"
       @close="handleDialogClose"
     >
       <el-form
