@@ -89,13 +89,17 @@ class FinanceInvoiceService:
                 operator_category=operator.customer_tier if operator else None,
                 amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
+                invoice_type=invoice.invoice_type,
                 tax_id=invoice.tax_id,
                 email=operator.email if operator else None,
                 status=invoice.status,
+                reject_reason=invoice.reject_reason,
+                invoice_number=invoice.invoice_number,
                 pdf_url=invoice.invoice_file_url,
                 reviewed_by=str(invoice.reviewed_by) if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
-                created_at=invoice.requested_at
+                requested_at=invoice.requested_at,
+                created_at=invoice.created_at
             ))
 
         return InvoiceListResponse(

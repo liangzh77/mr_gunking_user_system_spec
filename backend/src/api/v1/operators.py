@@ -1066,12 +1066,12 @@ async def apply_invoice(
             "message": "发票申请已提交，等待财务审核",
             "data": InvoiceResponse(
                 invoice_id=f"inv_{invoice.id}",
-                amount=str(invoice.amount),
+                amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
                 tax_id=invoice.tax_id,
-                email=invoice.email,
+                email=getattr(invoice, 'email', None),
                 status=invoice.status,
-                pdf_url=invoice.pdf_url,
+                pdf_url=getattr(invoice, 'invoice_file_url', None),
                 reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
                 created_at=invoice.created_at
@@ -1088,6 +1088,129 @@ async def apply_invoice(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"申请发票失败: {str(e)}"
+            }
+        )
+
+
+@router.delete(
+    "/me/invoices/{invoice_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "发票不存在"
+        },
+        400: {
+            "description": "无法取消(发票已审核或状态不允许)"
+        }
+    },
+    summary="取消发票申请",
+    description="""
+    取消当前登录运营商的待审核发票申请。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **路径参数**:
+    - invoice_id: 发票ID(格式: inv_{uuid})
+
+    **业务规则**:
+    - 只能取消状态为 pending(待审核) 的发票
+    - 已审核(approved/rejected)或已开具(issued)的发票无法取消
+    - 只能取消自己的发票申请
+
+    **响应**:
+    - 成功: HTTP 204 No Content (无响应体)
+    - 失败: 返回错误信息
+    """
+)
+async def cancel_invoice(
+    invoice_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+):
+    """取消发票申请API
+
+    Args:
+        invoice_id: 发票ID (格式: inv_{uuid})
+        token: JWT Token payload
+        db: 数据库会话
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 发票不存在
+        HTTPException 400: 无法取消(状态不允许)
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析invoice_id (移除 "inv_" 前缀)
+    if not invoice_id.startswith("inv_"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_INVOICE_ID",
+                "message": f"无效的发票ID格式: {invoice_id}"
+            }
+        )
+
+    try:
+        invoice_uuid = UUID(invoice_id[4:])  # 移除 "inv_" 前缀
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_INVOICE_ID",
+                "message": f"无效的发票ID格式: {invoice_id}"
+            }
+        )
+
+    # 调用服务层取消发票
+    try:
+        await operator_service.cancel_invoice(
+            operator_id=operator_id,
+            invoice_id=invoice_uuid
+        )
+        return None  # HTTP 204 No Content
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404, 400)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"取消发票申请失败: {str(e)}"
             }
         )
 
@@ -1208,12 +1331,15 @@ async def get_invoices(
         for invoice in invoices:
             items.append(InvoiceResponse(
                 invoice_id=f"inv_{invoice.id}",
-                amount=str(invoice.amount),
+                amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
+                invoice_type=invoice.invoice_type,
                 tax_id=invoice.tax_id,
-                email=invoice.email,
+                email=getattr(invoice, 'email', None),
                 status=invoice.status,
-                pdf_url=invoice.pdf_url,
+                reject_reason=invoice.reject_reason,
+                invoice_number=invoice.invoice_number,
+                pdf_url=getattr(invoice, 'invoice_file_url', None),
                 reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
                 created_at=invoice.created_at

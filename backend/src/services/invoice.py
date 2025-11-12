@@ -114,10 +114,10 @@ class InvoiceService:
         # 5. 创建发票申请记录
         invoice = InvoiceRecord(
             operator_id=operator_id,
-            amount=amount,
+            invoice_type="vat_normal",  # 默认增值税普通发票
+            invoice_amount=amount,
             invoice_title=invoice_title,
             tax_id=tax_id.upper(),  # 统一为大写
-            email=final_email,
             status="pending"  # 初始状态为待审核
         )
 

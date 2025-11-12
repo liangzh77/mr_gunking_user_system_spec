@@ -61,7 +61,11 @@ export const useOperatorStore = defineStore('operator', () => {
 
   async function getInvoices(params?: PaginationParams): Promise<PaginationResponse<Invoice>> {
     const response = await http.get('/operators/me/invoices', { params })
-    return response.data
+    return response.data.data || { items: [], total: 0, page: 1, page_size: 20, total_pages: 0 }
+  }
+
+  async function cancelInvoice(invoiceId: string): Promise<void> {
+    await http.delete(`/operators/me/invoices/${invoiceId}`)
   }
 
   // ========== 运营点管理 ==========
@@ -196,6 +200,7 @@ export const useOperatorStore = defineStore('operator', () => {
     // 发票
     applyInvoice,
     getInvoices,
+    cancelInvoice,
     // 运营点
     createSite,
     getSites,

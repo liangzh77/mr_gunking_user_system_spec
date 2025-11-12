@@ -145,9 +145,13 @@ export interface Invoice {
   invoice_id: string
   amount: string
   invoice_title: string
+  invoice_type?: string
   tax_id: string
   email?: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'rejected' | 'issued'
+  reject_reason?: string
+  invoice_number?: string
+  invoice_url?: string
   pdf_url?: string
   reviewed_by?: string
   reviewed_at?: string

@@ -865,6 +865,12 @@ class InvoiceItemFinance(BaseModel):
         examples=["北京星空娱乐有限公司"]
     )
 
+    invoice_type: Optional[str] = Field(
+        None,
+        description="发票类型: vat_normal/vat_special",
+        examples=["vat_normal"]
+    )
+
     tax_id: str = Field(
         ...,
         description="纳税人识别号",
@@ -881,6 +887,18 @@ class InvoiceItemFinance(BaseModel):
         ...,
         description="审核状态: pending/approved/rejected",
         examples=["pending"]
+    )
+
+    reject_reason: Optional[str] = Field(
+        None,
+        description="拒绝原因（status=rejected时）",
+        examples=[None]
+    )
+
+    invoice_number: Optional[str] = Field(
+        None,
+        description="发票号码（status=approved时）",
+        examples=[None]
     )
 
     pdf_url: Optional[str] = Field(
@@ -901,9 +919,15 @@ class InvoiceItemFinance(BaseModel):
         examples=[None]
     )
 
-    created_at: datetime = Field(
+    requested_at: datetime = Field(
         ...,
         description="申请时间",
+        examples=["2025-01-15T17:00:00.000Z"]
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="创建时间",
         examples=["2025-01-15T17:00:00.000Z"]
     )
 

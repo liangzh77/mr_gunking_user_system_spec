@@ -95,6 +95,12 @@ class InvoiceResponse(BaseModel):
         examples=["北京星空娱乐有限公司"]
     )
 
+    invoice_type: Optional[str] = Field(
+        None,
+        description="发票类型: vat_normal/vat_special",
+        examples=["vat_normal"]
+    )
+
     tax_id: str = Field(
         ...,
         description="纳税人识别号",
@@ -109,8 +115,20 @@ class InvoiceResponse(BaseModel):
 
     status: str = Field(
         ...,
-        description="审核状态: pending/approved/rejected",
+        description="审核状态: pending/approved/rejected/issued",
         examples=["pending"]
+    )
+
+    reject_reason: Optional[str] = Field(
+        None,
+        description="拒绝原因(status=rejected时)",
+        examples=[None]
+    )
+
+    invoice_number: Optional[str] = Field(
+        None,
+        description="发票号码",
+        examples=[None]
     )
 
     pdf_url: Optional[str] = Field(
