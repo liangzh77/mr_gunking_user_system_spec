@@ -136,6 +136,13 @@
           </el-input>
         </el-form-item>
 
+        <el-form-item label="发票类型" prop="invoice_type">
+          <el-radio-group v-model="formData.invoice_type">
+            <el-radio value="vat_normal">普通发票</el-radio>
+            <el-radio value="vat_special">增值税专用发票</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
         <el-form-item label="发票抬头" prop="invoice_title">
           <el-input
             v-model="formData.invoice_title"
@@ -184,6 +191,7 @@ const formData = ref({
   amount: '',
   invoice_title: '',
   tax_id: '',
+  invoice_type: 'vat_normal',
 })
 
 const pagination = ref({
@@ -220,6 +228,9 @@ const formRules: FormRules = {
       message: '税号格式不正确（应为15-20位大写字母或数字）',
       trigger: 'blur',
     },
+  ],
+  invoice_type: [
+    { required: true, message: '请选择发票类型', trigger: 'change' },
   ],
 }
 
@@ -271,6 +282,7 @@ const handleCreate = () => {
     amount: '',
     invoice_title: '',
     tax_id: '',
+    invoice_type: 'vat_normal',
   }
   dialogVisible.value = true
 }

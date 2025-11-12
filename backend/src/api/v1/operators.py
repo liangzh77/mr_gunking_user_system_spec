@@ -1057,6 +1057,7 @@ async def apply_invoice(
             amount=request.amount,
             invoice_title=request.invoice_title,
             tax_id=request.tax_id,
+            invoice_type=request.invoice_type,
             email=request.email
         )
 

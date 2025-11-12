@@ -681,6 +681,7 @@ class OperatorService:
         amount: str,
         invoice_title: str,
         tax_id: str,
+        invoice_type: str = "vat_normal",
         email: Optional[str] = None
     ):
         """申请开具发票 (T076)
@@ -751,7 +752,7 @@ class OperatorService:
         # 4. 创建发票申请记录
         invoice = InvoiceRecord(
             operator_id=operator_id,
-            invoice_type="vat_normal",  # 默认普通增值税发票
+            invoice_type=invoice_type,
             invoice_amount=invoice_amount,
             invoice_title=invoice_title,
             tax_id=tax_id.upper(),  # 统一为大写
