@@ -136,23 +136,22 @@ export interface Refund {
 // 发票相关类型
 export interface InvoiceRequest {
   amount: string
-  invoice_type: 'regular' | 'vat'
   invoice_title: string
-  tax_number: string
+  tax_id: string
+  email?: string
 }
 
 export interface Invoice {
   invoice_id: string
-  operator_id: string
   amount: string
-  invoice_type: string
   invoice_title: string
-  tax_number: string
-  status: 'pending' | 'approved' | 'rejected' | 'issued'
-  invoice_number?: string
-  invoice_url?: string
+  tax_id: string
+  email?: string
+  status: 'pending' | 'approved' | 'rejected'
+  pdf_url?: string
+  reviewed_by?: string
+  reviewed_at?: string
   created_at: string
-  updated_at: string
 }
 
 // 使用记录类型

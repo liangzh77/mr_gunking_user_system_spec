@@ -23,20 +23,13 @@
         style="width: 100%"
       >
         <el-table-column prop="invoice_id" label="发票ID" width="200" show-overflow-tooltip />
-        <el-table-column prop="invoice_type" label="发票类型" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.invoice_type === 'vat' ? 'warning' : 'info'" size="small">
-              {{ row.invoice_type === 'vat' ? '增值税' : '普通' }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column prop="amount" label="发票金额" width="120">
           <template #default="{ row }">
             <span class="invoice-amount">¥{{ row.amount }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="invoice_title" label="发票抬头" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="tax_number" label="税号" width="180" show-overflow-tooltip />
+        <el-table-column prop="tax_id" label="税号" width="180" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)" size="small">
@@ -116,13 +109,6 @@
           </el-input>
         </el-form-item>
 
-        <el-form-item label="发票类型" prop="invoice_type">
-          <el-radio-group v-model="formData.invoice_type">
-            <el-radio value="regular">普通发票</el-radio>
-            <el-radio value="vat">增值税专用发票</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
         <el-form-item label="发票抬头" prop="invoice_title">
           <el-input
             v-model="formData.invoice_title"
@@ -132,11 +118,11 @@
           />
         </el-form-item>
 
-        <el-form-item label="税号" prop="tax_number">
+        <el-form-item label="税号" prop="tax_id">
           <el-input
-            v-model="formData.tax_number"
-            placeholder="请输入纳税人识别号"
-            maxlength="50"
+            v-model="formData.tax_id"
+            placeholder="请输入纳税人识别号（15-20位大写字母或数字）"
+            maxlength="20"
             show-word-limit
           />
         </el-form-item>
@@ -169,9 +155,8 @@ const formRef = ref<FormInstance>()
 
 const formData = ref({
   amount: '',
-  invoice_type: 'regular' as 'regular' | 'vat',
   invoice_title: '',
-  tax_number: '',
+  tax_id: '',
 })
 
 const pagination = ref({
@@ -197,14 +182,11 @@ const formRules: FormRules = {
       trigger: 'blur',
     },
   ],
-  invoice_type: [
-    { required: true, message: '请选择发票类型', trigger: 'change' },
-  ],
   invoice_title: [
     { required: true, message: '请输入发票抬头', trigger: 'blur' },
     { min: 2, max: 100, message: '发票抬头长度应在 2-100 个字符之间', trigger: 'blur' },
   ],
-  tax_number: [
+  tax_id: [
     { required: true, message: '请输入税号', trigger: 'blur' },
     {
       pattern: /^[A-Z0-9]{15,20}$/,
@@ -260,9 +242,8 @@ const loadInvoices = async () => {
 const handleCreate = () => {
   formData.value = {
     amount: '',
-    invoice_type: 'regular',
     invoice_title: '',
-    tax_number: '',
+    tax_id: '',
   }
   dialogVisible.value = true
 }
