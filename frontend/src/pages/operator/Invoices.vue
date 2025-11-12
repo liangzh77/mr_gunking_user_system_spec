@@ -114,6 +114,7 @@
       v-model="dialogVisible"
       title="申请发票"
       width="600px"
+      :close-on-press-escape="false"
       @close="handleDialogClose"
     >
       <el-form
