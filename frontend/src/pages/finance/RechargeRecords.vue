@@ -5,7 +5,10 @@
       <template #header>
         <div class="card-header">
           <span>充值记录</span>
-          <el-button type="primary" :icon="RefreshIcon" @click="fetchRecords">刷新</el-button>
+          <div class="header-actions">
+            <el-button type="warning" :icon="Money" @click="showRechargeDialog = true">手动充值</el-button>
+            <el-button type="primary" :icon="RefreshIcon" @click="fetchRecords">刷新</el-button>
+          </div>
         </div>
       </template>
 
@@ -134,13 +137,106 @@
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 手动充值对话框 -->
+    <el-dialog
+      v-model="showRechargeDialog"
+      title="手动充值"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="rechargeFormRef"
+        :model="rechargeForm"
+        :rules="rechargeRules"
+        label-width="100px"
+      >
+        <el-form-item label="运营商" prop="operator_id">
+          <el-select
+            v-model="rechargeForm.operator_id"
+            placeholder="请选择运营商"
+            filterable
+            clearable
+            style="width: 100%"
+            @change="handleOperatorChange"
+          >
+            <el-option
+              v-for="operator in operators"
+              :key="operator.id"
+              :label="`${operator.username} (${operator.full_name})`"
+              :value="operator.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="当前余额">
+          <el-input
+            v-model="currentOperatorBalance"
+            placeholder="请先选择运营商"
+            readonly
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="充值金额" prop="amount">
+          <el-input-number
+            v-model="rechargeForm.amount"
+            :min="0.01"
+            :max="999999.99"
+            :precision="2"
+            :step="100"
+            controls-position="right"
+            placeholder="请输入充值金额"
+            style="width: 100%"
+          />
+          <div class="form-tip">充值金额必须大于0</div>
+        </el-form-item>
+
+        <el-form-item label="备注" prop="description">
+          <el-input
+            v-model="rechargeForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入充值备注（可选）"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="付款凭证">
+          <el-upload
+            v-model:file-list="paymentFiles"
+            :limit="1"
+            :on-exceed="handleExceed"
+            :before-upload="beforeUpload"
+            accept=".jpg,.jpeg,.png,.pdf"
+            list-type="picture-card"
+          >
+            <el-icon><Plus /></el-icon>
+            <div class="el-upload__text">上传凭证</div>
+          </el-upload>
+          <div class="form-tip">支持 JPG、PNG、PDF 格式，最大 5MB</div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="showRechargeDialog = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="rechargeLoading"
+          @click="handleRechargeSubmit"
+        >
+          确认充值
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh as RefreshIcon, Right } from '@element-plus/icons-vue'
+import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
+import { Refresh as RefreshIcon, Right, Money, Plus } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
@@ -231,6 +327,106 @@ const handleViewDetail = (row: any) => {
   detailDialogVisible.value = true
 }
 
+// 手动充值相关状态
+const showRechargeDialog = ref(false)
+const rechargeLoading = ref(false)
+const rechargeFormRef = ref<FormInstance>()
+const currentOperatorBalance = ref('')
+const paymentFiles = ref<UploadFile[]>([])
+
+// 充值表单数据
+const rechargeForm = reactive({
+  operator_id: '',
+  amount: 0,
+  description: '',
+})
+
+// 充值表单验证规则
+const rechargeRules = {
+  operator_id: [
+    { required: true, message: '请选择运营商', trigger: 'change' }
+  ],
+  amount: [
+    { required: true, message: '请输入充值金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '充值金额必须大于0', trigger: 'blur' }
+  ]
+}
+
+// 运营商选择变化
+const handleOperatorChange = (operatorId: string) => {
+  if (operatorId) {
+    const operator = operators.value.find(op => op.id === operatorId)
+    if (operator) {
+      currentOperatorBalance.value = `¥${operator.balance.toFixed(2)}`
+    }
+  } else {
+    currentOperatorBalance.value = ''
+  }
+}
+
+// 文件上传前检查
+const beforeUpload = (file: File) => {
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    ElMessage.error('文件大小不能超过 5MB!')
+    return false
+  }
+  return true
+}
+
+// 文件超出限制
+const handleExceed = () => {
+  ElMessage.warning('最多只能上传一个文件')
+}
+
+// 提交充值
+const handleRechargeSubmit = async () => {
+  if (!rechargeFormRef.value) return
+
+  await rechargeFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      rechargeLoading.value = true
+
+      // 构建表单数据
+      const formData = new FormData()
+      formData.append('operator_id', rechargeForm.operator_id)
+      formData.append('amount', rechargeForm.amount.toString())
+      formData.append('description', rechargeForm.description)
+
+      // 添加付款凭证文件
+      if (paymentFiles.value.length > 0 && paymentFiles.value[0].raw) {
+        formData.append('payment_proof', paymentFiles.value[0].raw)
+      }
+
+      // 调用后端API
+      await http.post('/finance/recharge', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      ElMessage.success('充值成功')
+
+      // 重置表单
+      rechargeFormRef.value.resetFields()
+      paymentFiles.value = []
+      currentOperatorBalance.value = ''
+      showRechargeDialog.value = false
+
+      // 刷新充值记录列表
+      fetchRecords()
+
+    } catch (error: any) {
+      console.error('充值失败:', error)
+      // 错误已在http拦截器中处理
+    } finally {
+      rechargeLoading.value = false
+    }
+  })
+}
+
 // 页面加载
 onMounted(() => {
   fetchOperators()
@@ -249,6 +445,11 @@ onMounted(() => {
   align-items: center;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .filter-form {
   margin-bottom: 16px;
 }
@@ -257,6 +458,13 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 pre {
