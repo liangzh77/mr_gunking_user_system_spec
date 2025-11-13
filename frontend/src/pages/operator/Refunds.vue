@@ -22,7 +22,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="refund_id" label="退款ID" width="200" show-overflow-tooltip />
+        <el-table-column label="退款ID" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.refund_id.replace('refund_', '') }}
+          </template>
+        </el-table-column>
         <el-table-column prop="requested_amount" label="退款金额" width="120">
           <template #default="{ row }">
             <span class="refund-amount">¥{{ row.requested_amount }}</span>
