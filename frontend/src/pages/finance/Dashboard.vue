@@ -60,8 +60,10 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
-            <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
-            <div class="stat-hint">点击查看余额排行</div>
+            <div class="stat-value-row">
+              <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
+              <div class="stat-hint">点击查看余额排行</div>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -594,6 +596,12 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
+.stat-value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .stat-value {
   font-size: 24px;
   font-weight: 600;
@@ -603,7 +611,7 @@ onMounted(() => {
 .stat-hint {
   font-size: 12px;
   color: #409eff;
-  margin-top: 4px;
+  white-space: nowrap;
 }
 
 .card-header {
