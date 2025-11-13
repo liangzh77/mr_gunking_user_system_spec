@@ -118,6 +118,55 @@
       </el-col>
     </el-row>
 
+    <!-- 运营商余额排行 -->
+    <el-row :gutter="20" style="margin-top: 20px">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <span>运营商余额排行</span>
+              <el-button type="primary" size="small" @click="fetchBalanceRanking">刷新</el-button>
+            </div>
+          </template>
+          <el-table :data="balanceRanking" stripe v-loading="balanceLoading">
+            <el-table-column label="排名" width="80" align="center">
+              <template #default="scope">
+                <el-tag
+                  :type="scope.$index === 0 ? 'danger' : scope.$index === 1 ? 'warning' : scope.$index === 2 ? 'success' : 'info'"
+                  effect="dark"
+                >
+                  {{ scope.$index + 1 }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="username" label="用户名" width="150" />
+            <el-table-column prop="full_name" label="运营商名称" min-width="200" />
+            <el-table-column prop="balance" label="账户余额" width="150" align="right">
+              <template #default="scope">
+                <span style="color: #67c23a; font-weight: bold; font-size: 16px">
+                  ¥{{ scope.row.balance.toFixed(2) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="customer_tier" label="客户分类" width="120" align="center">
+              <template #default="scope">
+                <el-tag :type="getTierType(scope.row.customer_tier)">
+                  {{ getTierLabel(scope.row.customer_tier) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100" align="center">
+              <template #default="scope">
+                <el-tag :type="scope.row.is_active && !scope.row.is_locked ? 'success' : 'info'">
+                  {{ scope.row.is_active && !scope.row.is_locked ? '正常' : '异常' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 待处理事项 -->
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="12">
@@ -295,6 +344,10 @@ const dashboard = ref({
 // Top客户列表
 const topCustomers = ref<any[]>([])
 
+// 运营商余额排行
+const balanceRanking = ref<any[]>([])
+const balanceLoading = ref(false)
+
 // 待处理数量
 const pendingRefunds = ref(0)
 const pendingInvoices = ref(0)
@@ -344,6 +397,30 @@ const fetchTopCustomers = async () => {
     topCustomers.value = response.data.customers || []
   } catch (error: any) {
     ElMessage.error('获取Top客户失败')
+  }
+}
+
+// 获取运营商余额排行
+const fetchBalanceRanking = async () => {
+  balanceLoading.value = true
+  try {
+    const response = await http.get('/finance/operators', {
+      params: {
+        page: 1,
+        page_size: 10,
+        status: 'active',
+        sort_by: 'balance',
+        sort_order: 'desc'
+      }
+    })
+    // 获取运营商列表并按余额降序排序
+    const operators = response.data.items || []
+    balanceRanking.value = operators.sort((a: any, b: any) => b.balance - a.balance)
+  } catch (error: any) {
+    console.error('获取余额排行失败:', error)
+    ElMessage.error('获取余额排行失败')
+  } finally {
+    balanceLoading.value = false
   }
 }
 
@@ -463,6 +540,7 @@ const handleRechargeSubmit = async () => {
 onMounted(() => {
   fetchDashboard()
   fetchTopCustomers()
+  fetchBalanceRanking()
   fetchOperators()
 })
 </script>
