@@ -54,13 +54,14 @@
     <!-- 运营商统计 -->
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="12">
-        <el-card class="stat-card">
+        <el-card class="stat-card clickable-card" @click="showBalanceRankingDialog">
           <div class="stat-icon" style="background-color: #909399">
             <el-icon :size="32"><UserFilled /></el-icon>
           </div>
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
             <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
+            <div class="stat-hint">点击查看余额排行</div>
           </div>
         </el-card>
       </el-col>
@@ -110,55 +111,6 @@
               <template #default="scope">
                 <el-tag :type="getTierType(scope.row.customer_tier)">
                   {{ getTierLabel(scope.row.customer_tier) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 运营商余额排行 -->
-    <el-row :gutter="20" style="margin-top: 20px">
-      <el-col :span="24">
-        <el-card>
-          <template #header>
-            <div class="card-header">
-              <span>运营商余额排行</span>
-              <el-button type="primary" size="small" @click="fetchBalanceRanking">刷新</el-button>
-            </div>
-          </template>
-          <el-table :data="balanceRanking" stripe v-loading="balanceLoading">
-            <el-table-column label="排名" width="80" align="center">
-              <template #default="scope">
-                <el-tag
-                  :type="scope.$index === 0 ? 'danger' : scope.$index === 1 ? 'warning' : scope.$index === 2 ? 'success' : 'info'"
-                  effect="dark"
-                >
-                  {{ scope.$index + 1 }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="username" label="用户名" width="150" />
-            <el-table-column prop="full_name" label="运营商名称" min-width="200" />
-            <el-table-column prop="balance" label="账户余额" width="150" align="right">
-              <template #default="scope">
-                <span style="color: #67c23a; font-weight: bold; font-size: 16px">
-                  ¥{{ scope.row.balance.toFixed(2) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="customer_tier" label="客户分类" width="120" align="center">
-              <template #default="scope">
-                <el-tag :type="getTierType(scope.row.customer_tier)">
-                  {{ getTierLabel(scope.row.customer_tier) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="100" align="center">
-              <template #default="scope">
-                <el-tag :type="scope.row.is_active && !scope.row.is_locked ? 'success' : 'info'">
-                  {{ scope.row.is_active && !scope.row.is_locked ? '正常' : '异常' }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -312,6 +264,53 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 运营商余额排行对话框 -->
+    <el-dialog
+      v-model="balanceRankingDialogVisible"
+      title="运营商余额排行"
+      width="900px"
+    >
+      <el-table :data="balanceRanking" stripe v-loading="balanceLoading">
+        <el-table-column label="排名" width="80" align="center">
+          <template #default="scope">
+            <el-tag
+              :type="scope.$index === 0 ? 'danger' : scope.$index === 1 ? 'warning' : scope.$index === 2 ? 'success' : 'info'"
+              effect="dark"
+            >
+              {{ scope.$index + 1 }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="username" label="用户名" width="150" />
+        <el-table-column prop="full_name" label="运营商名称" min-width="200" />
+        <el-table-column prop="balance" label="账户余额" width="150" align="right">
+          <template #default="scope">
+            <span style="color: #67c23a; font-weight: bold; font-size: 16px">
+              ¥{{ scope.row.balance.toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="customer_tier" label="客户分类" width="120" align="center">
+          <template #default="scope">
+            <el-tag :type="getTierType(scope.row.customer_tier)">
+              {{ getTierLabel(scope.row.customer_tier) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_active && !scope.row.is_locked ? 'success' : 'info'">
+              {{ scope.row.is_active && !scope.row.is_locked ? '正常' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="balanceRankingDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="fetchBalanceRanking">刷新</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -347,6 +346,7 @@ const topCustomers = ref<any[]>([])
 // 运营商余额排行
 const balanceRanking = ref<any[]>([])
 const balanceLoading = ref(false)
+const balanceRankingDialogVisible = ref(false)
 
 // 待处理数量
 const pendingRefunds = ref(0)
@@ -421,6 +421,15 @@ const fetchBalanceRanking = async () => {
     ElMessage.error('获取余额排行失败')
   } finally {
     balanceLoading.value = false
+  }
+}
+
+// 打开余额排行对话框
+const showBalanceRankingDialog = async () => {
+  balanceRankingDialogVisible.value = true
+  // 如果还没有数据,或者数据为空,则加载数据
+  if (balanceRanking.value.length === 0) {
+    await fetchBalanceRanking()
   }
 }
 
@@ -540,7 +549,6 @@ const handleRechargeSubmit = async () => {
 onMounted(() => {
   fetchDashboard()
   fetchTopCustomers()
-  fetchBalanceRanking()
   fetchOperators()
 })
 </script>
@@ -554,6 +562,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -580,6 +598,12 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 600;
   color: #303133;
+}
+
+.stat-hint {
+  font-size: 12px;
+  color: #409eff;
+  margin-top: 4px;
 }
 
 .card-header {
