@@ -154,9 +154,9 @@ class FinanceInvoiceService:
         invoice.reviewed_at = datetime.now(timezone.utc)
         invoice.issued_at = datetime.now(timezone.utc)
 
-        # Generate invoice number (format: INV-YYYYMMDD-XXXXX)
+        # Generate invoice number (format: INV_YYYYMMDD_XXXXX)
         now = datetime.now(timezone.utc)
-        invoice_number = f"INV-{now.strftime('%Y%m%d')}-{str(invoice.id)[:5].upper()}"
+        invoice_number = f"INV_{now.strftime('%Y%m%d')}_{str(invoice.id)[:5].upper()}"
         invoice.invoice_number = invoice_number
 
         # Generate PDF URL (placeholder - actual PDF generation would be handled by separate service)

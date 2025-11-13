@@ -774,11 +774,15 @@ async def apply_refund(
         )
 
         # 转换为响应格式
+        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
+        now = datetime.now()
+        refund_id = f"RFD_{now.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
+
         return {
             "success": True,
             "message": "退款申请已提交,待财务审核",
             "data": {
-                "refund_id": f"refund_{refund.id}",
+                "refund_id": refund_id,
                 "requested_amount": str(refund.requested_amount),
                 "status": refund.status,
                 "reason": refund.refund_reason,
@@ -908,8 +912,12 @@ async def get_refunds(
         # 转换为响应格式
         items = []
         for refund in refunds:
+            # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
+            refund_created_time = refund.created_at
+            refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
+
             items.append(RefundItem(
-                refund_id=f"refund_{refund.id}",
+                refund_id=refund_id,
                 requested_amount=str(refund.requested_amount),
                 actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
                 status=refund.status,
