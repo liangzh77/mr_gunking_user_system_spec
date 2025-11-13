@@ -39,7 +39,7 @@
       <el-table :data="refunds" v-loading="loading" stripe>
         <el-table-column label="退款ID" width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.refund_id.replace('RFD_', '') }}
+            {{ row.refund_id }}
           </template>
         </el-table-column>
         <el-table-column prop="operator_name" label="运营商" />
