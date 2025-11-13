@@ -235,10 +235,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
 import { Refresh as RefreshIcon, Right, Money, Plus } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
+
+const route = useRoute()
 
 // 查询表单
 const queryForm = reactive({
@@ -431,6 +434,11 @@ const handleRechargeSubmit = async () => {
 onMounted(() => {
   fetchOperators()
   fetchRecords()
+
+  // 检查URL查询参数，如果有action=recharge则自动打开充值对话框
+  if (route.query.action === 'recharge') {
+    showRechargeDialog.value = true
+  }
 })
 </script>
 

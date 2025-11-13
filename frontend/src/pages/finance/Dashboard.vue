@@ -161,7 +161,7 @@
               <el-icon><Tickets /></el-icon>
               发票审核
             </el-button>
-            <el-button type="warning" @click="$router.push('/finance/recharge-records')">
+            <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>
               手动充值
             </el-button>
