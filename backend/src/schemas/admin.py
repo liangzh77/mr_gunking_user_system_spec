@@ -14,10 +14,23 @@ from .common import TimestampMixin, TokenResponse, UUIDMixin
 class AdminLoginRequest(BaseModel):
     """Admin login request schema."""
 
-    username: str = Field(..., min_length=3, max_length=64, description="Admin username")
-    password: str = Field(..., min_length=6, max_length=128, description="Admin password")
-    captcha_key: str = Field(..., min_length=1, description="Captcha key")
-    captcha_code: str = Field(..., min_length=4, max_length=4, description="Captcha code")
+    username: str = Field(..., min_length=3, max_length=64, description="Admin username", examples=["admin"])
+    password: str = Field(..., min_length=6, max_length=128, description="Admin password", examples=["admin123"])
+    captcha_key: str = Field(..., min_length=1, description="Captcha key", examples=["test-captcha-key"])
+    captcha_code: str = Field(..., min_length=4, max_length=4, description="Captcha code (use 0000 in dev/test)", examples=["0000"])
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "username": "admin",
+                    "password": "admin123",
+                    "captcha_key": "test-captcha-key",
+                    "captcha_code": "0000"
+                }
+            ]
+        }
+    }
 
 
 class AdminLoginResponse(TokenResponse):

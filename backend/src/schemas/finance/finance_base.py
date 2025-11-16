@@ -38,7 +38,7 @@ class FinanceLoginRequest(BaseModel):
         min_length=3,
         max_length=64,
         description="财务人员用户名",
-        examples=["finance_zhang"]
+        examples=["finance1"]
     )
 
     password: str = Field(
@@ -46,30 +46,32 @@ class FinanceLoginRequest(BaseModel):
         min_length=8,
         max_length=32,
         description="密码",
-        examples=["FinancePass123"]
+        examples=["finance123"]
     )
 
     captcha_key: str = Field(
         ...,
         min_length=1,
         description="验证码key",
-        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+        examples=["test-captcha-key"]
     )
 
     captcha_code: str = Field(
         ...,
         min_length=4,
         max_length=4,
-        description="验证码",
-        examples=["AB12"]
+        description="验证码 (开发/测试环境可使用0000)",
+        examples=["0000"]
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "username": "finance_zhang",
-                    "password": "FinancePass123"
+                    "username": "finance1",
+                    "password": "finance123",
+                    "captcha_key": "test-captcha-key",
+                    "captcha_code": "0000"
                 }
             ]
         }
