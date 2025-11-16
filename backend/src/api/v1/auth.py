@@ -43,6 +43,7 @@ from ...schemas.operator import (
     OperatorRegisterRequest,
     OperatorRegisterResponse,
 )
+from ...schemas.finance import FinanceLoginRequest
 from ...services.auth_service import AuthService
 from ...services.billing_service import BillingService
 from ...services.operator import OperatorService
@@ -1204,7 +1205,7 @@ async def logout_operator(
     """
 )
 async def login_finance(
-    request_data: dict = Body(...),
+    login_request: FinanceLoginRequest,
     http_request: Request = None,
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis)
@@ -1214,7 +1215,7 @@ async def login_finance(
     处理财务人员登录请求,验证凭证并返回JWT Token。
 
     Args:
-        request_data: 登录请求数据(包含username, password, captcha_key, captcha_code)
+        login_request: 登录请求数据(包含username, password, captcha_key, captcha_code)
         http_request: FastAPI Request对象(用于获取客户端IP)
         db: 数据库会话
         redis: Redis连接
@@ -1228,11 +1229,8 @@ async def login_finance(
         HTTPException 500: 服务器内部错误
     """
     from ...services.finance_service import FinanceService
-    from ...schemas.finance import FinanceLoginRequest
 
     try:
-        # 解析请求
-        login_request = FinanceLoginRequest(**request_data)
 
         # 验证验证码
         from .common import verify_captcha
