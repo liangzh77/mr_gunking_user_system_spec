@@ -141,6 +141,11 @@
               <span>待审核发票</span>
               <el-badge :value="pendingInvoices" class="badge" />
             </div>
+            <div class="pending-item" @click="$router.push('/finance/bank-transfers')">
+              <el-icon :size="20" color="#67c23a"><Money /></el-icon>
+              <span>待审核转账</span>
+              <el-badge :value="pendingBankTransfers" class="badge" />
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -160,6 +165,10 @@
             <el-button type="success" @click="$router.push('/finance/invoices')">
               <el-icon><Tickets /></el-icon>
               发票审核
+            </el-button>
+            <el-button type="success" @click="$router.push('/finance/bank-transfers')">
+              <el-icon><Money /></el-icon>
+              银行转账审核
             </el-button>
             <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>
@@ -259,6 +268,7 @@ const balanceRankingDialogVisible = ref(false)
 // 待处理数量
 const pendingRefunds = ref(0)
 const pendingInvoices = ref(0)
+const pendingBankTransfers = ref(0)
 
 // 获取仪表盘数据
 const fetchDashboard = async () => {
@@ -334,10 +344,23 @@ const getTierLabel = (tier: string) => {
   }
 }
 
+// 获取待处理银行转账数量
+const fetchPendingBankTransfers = async () => {
+  try {
+    const response = await http.get('/finance/bank-transfers', {
+      params: { status: 'pending', page: 1, page_size: 1 }
+    })
+    pendingBankTransfers.value = response.data.total || 0
+  } catch (error: any) {
+    ElMessage.error('获取待处理银行转账数量失败')
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchDashboard()
   fetchTopCustomers()
+  fetchPendingBankTransfers()
 })
 </script>
 
