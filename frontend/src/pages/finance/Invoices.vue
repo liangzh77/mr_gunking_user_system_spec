@@ -37,31 +37,45 @@
 
       <!-- 发票列表 -->
       <el-table :data="invoices" v-loading="loading" stripe>
-        <el-table-column prop="invoice_id" label="发票ID" width="120" />
-        <el-table-column prop="operator_name" label="运营商" />
-        <el-table-column prop="invoice_type" label="发票类型" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="scope.row.invoice_type === 'vat' ? 'success' : 'info'">
-              {{ scope.row.invoice_type === 'vat' ? '增值税专用' : '普通' }}
-            </el-tag>
+        <el-table-column prop="invoice_number" label="发票号码" width="180">
+          <template #default="{ row }">
+            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="开票金额" align="right">
+        <el-table-column prop="operator_name" label="运营商" width="120" show-overflow-tooltip />
+        <el-table-column prop="amount" label="开票金额" width="110" align="right">
           <template #default="scope">
             ¥{{ scope.row.amount }}
           </template>
         </el-table-column>
-        <el-table-column prop="tax_id" label="税号" width="180" />
+        <el-table-column prop="invoice_title" label="发票抬头" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="tax_id" label="税号" width="180" show-overflow-tooltip />
+        <el-table-column prop="invoice_type" label="发票类型" width="80" align="center">
+          <template #default="scope">
+            <el-tag :type="scope.row.invoice_type === 'vat_special' ? 'success' : 'info'" size="small">
+              {{ scope.row.invoice_type === 'vat_special' ? '专用' : '普通' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="requested_at" label="申请时间" width="160">
           <template #default="{ row }">
             {{ formatDateTime(row.requested_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
+        <el-table-column prop="status" label="状态" width="90" align="center">
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">
+            <el-tag :type="getStatusType(scope.row.status)" size="small">
               {{ getStatusLabel(scope.row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="reject_reason" label="拒绝原因" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.status === 'rejected' && row.reject_reason" class="reject-reason">
+              {{ row.reject_reason }}
+            </span>
+            <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" align="center">
@@ -214,7 +228,7 @@ const rejectForm = reactive({
 const rejectRules: FormRules = {
   reject_reason: [
     { required: true, message: '请输入拒绝原因', trigger: 'blur' },
-    { min: 10, message: '拒绝原因至少10个字符', trigger: 'blur' },
+    { min: 1, message: '拒绝原因至少1个字符', trigger: 'blur' },
   ],
 }
 const rejecting = ref(false)
@@ -250,7 +264,7 @@ const handleApprove = async (invoice: any) => {
       type: 'success',
     })
 
-    await http.post(`/finance/invoices/${invoice.invoice_id}/approve`)
+    await http.post(`/finance/invoices/${invoice.invoice_id}/approve`, {})
     ElMessage.success('发票已批准')
     fetchInvoices()
   } catch (error: any) {
@@ -276,7 +290,7 @@ const confirmReject = async () => {
     rejecting.value = true
 
     await http.post(`/finance/invoices/${currentInvoice.value.invoice_id}/reject`, {
-      reject_reason: rejectForm.reject_reason,
+      reason: rejectForm.reject_reason,
     })
 
     ElMessage.success('已拒绝开票申请')

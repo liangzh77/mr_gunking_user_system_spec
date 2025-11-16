@@ -2,15 +2,9 @@
   <div class="applications-page">
     <!-- 页面标题和操作栏 -->
     <el-card class="header-card">
-      <div class="header-content">
-        <div class="title-section">
-          <el-icon :size="24"><Grid /></el-icon>
-          <h2>已授权应用</h2>
-        </div>
-        <el-button type="primary" @click="handleViewRequests">
-          <el-icon><List /></el-icon>
-          查看申请记录
-        </el-button>
+      <div class="title-section">
+        <el-icon :size="24"><Grid /></el-icon>
+        <h2>已授权应用</h2>
       </div>
     </el-card>
 
@@ -52,45 +46,6 @@
         </el-empty>
       </div>
     </el-card>
-
-    <!-- 申请记录对话框 -->
-    <el-dialog
-      v-model="requestsDialogVisible"
-      title="应用授权申请记录"
-      width="800px"
-      @close="handleRequestsDialogClose"
-    >
-      <el-table
-        v-loading="requestsLoading"
-        :data="requests"
-        stripe
-        max-height="400px"
-      >
-        <el-table-column prop="app_name" label="应用名称" min-width="120" />
-        <el-table-column prop="reason" label="申请理由" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)" size="small">
-              {{ getStatusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="admin_note" label="管理员备注" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="申请时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div v-if="!requestsLoading && requests.length === 0" class="empty-state">
-        <el-empty description="暂无申请记录" />
-      </div>
-
-      <template #footer>
-        <el-button @click="requestsDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -98,36 +53,13 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
-import type { AuthorizedApplication, ApplicationRequest } from '@/types'
+import type { AuthorizedApplication } from '@/types'
 import { formatDateTime } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
 const loading = ref(false)
 const applications = ref<AuthorizedApplication[]>([])
-const requestsDialogVisible = ref(false)
-const requestsLoading = ref(false)
-const requests = ref<ApplicationRequest[]>([])
-
-// 获取状态标签类型
-const getStatusTagType = (status: string) => {
-  const map: Record<string, any> = {
-    pending: 'warning',
-    approved: 'success',
-    rejected: 'danger',
-  }
-  return map[status] || 'info'
-}
-
-// 获取状态标签文本
-const getStatusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    pending: '待审批',
-    approved: '已通过',
-    rejected: '已拒绝',
-  }
-  return map[status] || status
-}
 
 // 加载已授权应用列表
 const loadApplications = async () => {
@@ -140,26 +72,6 @@ const loadApplications = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// 查看申请记录
-const handleViewRequests = async () => {
-  requestsDialogVisible.value = true
-  requestsLoading.value = true
-
-  try {
-    requests.value = await operatorStore.getApplicationRequests()
-  } catch (error) {
-    console.error('Load requests error:', error)
-    ElMessage.error('加载申请记录失败')
-  } finally {
-    requestsLoading.value = false
-  }
-}
-
-// 关闭申请记录对话框
-const handleRequestsDialogClose = () => {
-  requests.value = []
 }
 
 onMounted(() => {
@@ -175,12 +87,6 @@ onMounted(() => {
 
 .header-card {
   margin-bottom: 0;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .title-section {

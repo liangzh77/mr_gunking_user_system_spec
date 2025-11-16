@@ -54,13 +54,16 @@
     <!-- 运营商统计 -->
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="12">
-        <el-card class="stat-card">
+        <el-card class="stat-card clickable-card" @click="showBalanceRankingDialog">
           <div class="stat-icon" style="background-color: #909399">
             <el-icon :size="32"><UserFilled /></el-icon>
           </div>
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
-            <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
+            <div class="stat-value-row">
+              <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
+              <div class="stat-hint">点击查看余额排行</div>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -138,6 +141,11 @@
               <span>待审核发票</span>
               <el-badge :value="pendingInvoices" class="badge" />
             </div>
+            <div class="pending-item" @click="$router.push('/finance/bank-transfers')">
+              <el-icon :size="20" color="#67c23a"><Money /></el-icon>
+              <span>待审核转账</span>
+              <el-badge :value="pendingBankTransfers" class="badge" />
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -158,7 +166,11 @@
               <el-icon><Tickets /></el-icon>
               发票审核
             </el-button>
-            <el-button type="warning" @click="showRechargeDialog = true">
+            <el-button type="success" @click="$router.push('/finance/bank-transfers')">
+              <el-icon><Money /></el-icon>
+              银行转账审核
+            </el-button>
+            <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>
               手动充值
             </el-button>
@@ -171,104 +183,58 @@
       </el-col>
     </el-row>
 
-    <!-- 手动充值对话框 -->
+    <!-- 运营商余额排行对话框 -->
     <el-dialog
-      v-model="showRechargeDialog"
-      title="手动充值"
-      width="500px"
-      :close-on-click-modal="false"
+      v-model="balanceRankingDialogVisible"
+      title="运营商余额排行"
+      width="900px"
     >
-      <el-form
-        ref="rechargeFormRef"
-        :model="rechargeForm"
-        :rules="rechargeRules"
-        label-width="100px"
-      >
-        <el-form-item label="运营商" prop="operator_id">
-          <el-select
-            v-model="rechargeForm.operator_id"
-            placeholder="请选择运营商"
-            filterable
-            clearable
-            style="width: 100%"
-            @change="handleOperatorChange"
-          >
-            <el-option
-              v-for="operator in operators"
-              :key="operator.id"
-              :label="`${operator.username} (${operator.full_name})`"
-              :value="operator.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="当前余额">
-          <el-input
-            v-model="currentOperatorBalance"
-            placeholder="请先选择运营商"
-            readonly
-            style="width: 100%"
-          />
-        </el-form-item>
-
-        <el-form-item label="充值金额" prop="amount">
-          <el-input-number
-            v-model="rechargeForm.amount"
-            :min="0.01"
-            :max="999999.99"
-            :precision="2"
-            :step="100"
-            controls-position="right"
-            placeholder="请输入充值金额"
-            style="width: 100%"
-          />
-          <div class="form-tip">充值金额必须大于0</div>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="description">
-          <el-input
-            v-model="rechargeForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入充值备注（可选）"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item label="付款凭证">
-          <el-upload
-            v-model:file-list="paymentFiles"
-            :limit="1"
-            :on-exceed="handleExceed"
-            :before-upload="beforeUpload"
-            accept=".jpg,.jpeg,.png,.pdf"
-            list-type="picture-card"
-          >
-            <el-icon><Plus /></el-icon>
-            <div class="el-upload__text">上传凭证</div>
-          </el-upload>
-          <div class="form-tip">支持 JPG、PNG、PDF 格式，最大 5MB</div>
-        </el-form-item>
-      </el-form>
-
+      <el-table :data="balanceRanking" stripe v-loading="balanceLoading">
+        <el-table-column label="排名" width="80" align="center">
+          <template #default="scope">
+            <el-tag
+              :type="scope.$index === 0 ? 'danger' : scope.$index === 1 ? 'warning' : scope.$index === 2 ? 'success' : 'info'"
+              effect="dark"
+            >
+              {{ scope.$index + 1 }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="username" label="用户名" width="150" />
+        <el-table-column prop="full_name" label="运营商名称" min-width="200" />
+        <el-table-column prop="balance" label="账户余额" width="150" align="right">
+          <template #default="scope">
+            <span style="color: #67c23a; font-weight: bold; font-size: 16px">
+              ¥{{ scope.row.balance.toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="customer_tier" label="客户分类" width="120" align="center">
+          <template #default="scope">
+            <el-tag :type="getTierType(scope.row.customer_tier)">
+              {{ getTierLabel(scope.row.customer_tier) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_active && !scope.row.is_locked ? 'success' : 'info'">
+              {{ scope.row.is_active && !scope.row.is_locked ? '正常' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
       <template #footer>
-        <el-button @click="showRechargeDialog = false">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="rechargeLoading"
-          @click="handleRechargeSubmit"
-        >
-          确认充值
-        </el-button>
+        <el-button @click="balanceRankingDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="fetchBalanceRanking">刷新</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type UploadFile } from 'element-plus'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
   Money,
   Wallet,
@@ -278,7 +244,6 @@ import {
   Avatar,
   Tickets,
   Document,
-  Plus,
 } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 
@@ -295,35 +260,15 @@ const dashboard = ref({
 // Top客户列表
 const topCustomers = ref<any[]>([])
 
+// 运营商余额排行
+const balanceRanking = ref<any[]>([])
+const balanceLoading = ref(false)
+const balanceRankingDialogVisible = ref(false)
+
 // 待处理数量
 const pendingRefunds = ref(0)
 const pendingInvoices = ref(0)
-
-// 充值相关状态
-const showRechargeDialog = ref(false)
-const rechargeLoading = ref(false)
-const rechargeFormRef = ref<FormInstance>()
-const operators = ref<any[]>([])
-const currentOperatorBalance = ref('')
-const paymentFiles = ref<UploadFile[]>([])
-
-// 充值表单数据
-const rechargeForm = reactive({
-  operator_id: '',
-  amount: 0,
-  description: '',
-})
-
-// 充值表单验证规则
-const rechargeRules = {
-  operator_id: [
-    { required: true, message: '请选择运营商', trigger: 'change' }
-  ],
-  amount: [
-    { required: true, message: '请输入充值金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '充值金额必须大于0', trigger: 'blur' }
-  ]
-}
+const pendingBankTransfers = ref(0)
 
 // 获取仪表盘数据
 const fetchDashboard = async () => {
@@ -347,6 +292,39 @@ const fetchTopCustomers = async () => {
   }
 }
 
+// 获取运营商余额排行
+const fetchBalanceRanking = async () => {
+  balanceLoading.value = true
+  try {
+    const response = await http.get('/finance/operators', {
+      params: {
+        page: 1,
+        page_size: 10,
+        status: 'active',
+        sort_by: 'balance',
+        sort_order: 'desc'
+      }
+    })
+    // 获取运营商列表并按余额降序排序
+    const operators = response.data.items || []
+    balanceRanking.value = operators.sort((a: any, b: any) => b.balance - a.balance)
+  } catch (error: any) {
+    console.error('获取余额排行失败:', error)
+    ElMessage.error('获取余额排行失败')
+  } finally {
+    balanceLoading.value = false
+  }
+}
+
+// 打开余额排行对话框
+const showBalanceRankingDialog = async () => {
+  balanceRankingDialogVisible.value = true
+  // 如果还没有数据,或者数据为空,则加载数据
+  if (balanceRanking.value.length === 0) {
+    await fetchBalanceRanking()
+  }
+}
+
 // 客户分类标签
 const getTierType = (tier: string) => {
   switch (tier) {
@@ -366,104 +344,23 @@ const getTierLabel = (tier: string) => {
   }
 }
 
-// 获取运营商列表
-const fetchOperators = async () => {
+// 获取待处理银行转账数量
+const fetchPendingBankTransfers = async () => {
   try {
-    const response = await http.get('/finance/operators', {
-      params: {
-        page: 1,
-        page_size: 1000,
-        status: 'active'  // 只获取激活状态的运营商
-      }
+    const response = await http.get('/finance/bank-transfers', {
+      params: { status: 'pending', page: 1, page_size: 1 }
     })
-    operators.value = response.data.items || []
+    pendingBankTransfers.value = response.data.total || 0
   } catch (error: any) {
-    console.error('获取运营商列表失败:', error)
-    ElMessage.error('获取运营商列表失败')
+    ElMessage.error('获取待处理银行转账数量失败')
   }
-}
-
-// 运营商选择变化
-const handleOperatorChange = (operatorId: string) => {
-  if (operatorId) {
-    const operator = operators.value.find(op => op.id === operatorId)
-    if (operator) {
-      currentOperatorBalance.value = `¥${operator.balance.toFixed(2)}`
-    }
-  } else {
-    currentOperatorBalance.value = ''
-  }
-}
-
-// 文件上传前检查
-const beforeUpload = (file: File) => {
-  const isLt5M = file.size / 1024 / 1024 < 5
-  if (!isLt5M) {
-    ElMessage.error('文件大小不能超过 5MB!')
-    return false
-  }
-  return true
-}
-
-// 文件超出限制
-const handleExceed = () => {
-  ElMessage.warning('最多只能上传一个文件')
-}
-
-// 提交充值
-const handleRechargeSubmit = async () => {
-  if (!rechargeFormRef.value) return
-
-  await rechargeFormRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    try {
-      rechargeLoading.value = true
-
-      // 构建表单数据
-      const formData = new FormData()
-      formData.append('operator_id', rechargeForm.operator_id)
-      formData.append('amount', rechargeForm.amount.toString())
-      formData.append('description', rechargeForm.description)
-
-      // 添加付款凭证文件
-      if (paymentFiles.value.length > 0 && paymentFiles.value[0].raw) {
-        formData.append('payment_proof', paymentFiles.value[0].raw)
-      }
-
-      // 调用后端API
-      await http.post('/finance/recharge', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-
-      ElMessage.success('充值成功')
-
-      // 重置表单
-      rechargeFormRef.value.resetFields()
-      paymentFiles.value = []
-      currentOperatorBalance.value = ''
-      showRechargeDialog.value = false
-
-      // 刷新数据
-      fetchDashboard()
-      fetchTopCustomers()
-
-    } catch (error: any) {
-      console.error('充值失败:', error)
-      // 错误已在http拦截器中处理
-    } finally {
-      rechargeLoading.value = false
-    }
-  })
 }
 
 // 页面加载时获取数据
 onMounted(() => {
   fetchDashboard()
   fetchTopCustomers()
-  fetchOperators()
+  fetchPendingBankTransfers()
 })
 </script>
 
@@ -476,6 +373,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -498,10 +405,22 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
+.stat-value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .stat-value {
   font-size: 24px;
   font-weight: 600;
   color: #303133;
+}
+
+.stat-hint {
+  font-size: 12px;
+  color: #409eff;
+  white-space: nowrap;
 }
 
 .card-header {
@@ -544,12 +463,5 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  line-height: 1.4;
 }
 </style>

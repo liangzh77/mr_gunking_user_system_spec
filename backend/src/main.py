@@ -11,6 +11,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .core import configure_logging, get_logger, get_settings
@@ -378,6 +379,12 @@ def register_routes(app: FastAPI) -> None:
 
     # Monitoring routes (管理员权限) - 临时禁用
     # app.include_router(monitoring_router, prefix=f"{settings.API_V1_PREFIX}/monitoring", tags=["monitoring"])
+
+    # Static file serving for uploads
+    import os
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    if os.path.exists(uploads_dir):
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 # Create application instance

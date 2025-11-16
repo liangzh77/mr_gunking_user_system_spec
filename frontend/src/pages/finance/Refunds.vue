@@ -37,7 +37,11 @@
 
       <!-- 退款列表 -->
       <el-table :data="refunds" v-loading="loading" stripe>
-        <el-table-column prop="refund_id" label="退款ID" width="120" />
+        <el-table-column label="退款ID" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.refund_id }}
+          </template>
+        </el-table-column>
         <el-table-column prop="operator_name" label="运营商" />
         <el-table-column prop="requested_amount" label="退款金额" align="right">
           <template #default="scope">

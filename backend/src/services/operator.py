@@ -675,12 +675,76 @@ class OperatorService:
 
         return refund
 
+    async def cancel_refund(
+        self,
+        operator_id: UUID,
+        refund_id: UUID
+    ):
+        """取消退款申请
+
+        业务规则:
+        - 只能取消pending状态的退款申请
+        - 只能取消自己的退款申请
+        - 已审核(approved/rejected)的退款申请不能取消
+
+        Args:
+            operator_id: 运营商ID
+            refund_id: 退款记录ID
+
+        Raises:
+            HTTPException 403: 无权取消此退款申请
+            HTTPException 404: 退款申请不存在
+            HTTPException 400: 退款申请已被审核,无法取消
+        """
+        from ..models.refund import RefundRecord
+
+        # 1. 查询退款记录
+        refund_stmt = select(RefundRecord).where(
+            RefundRecord.id == refund_id
+        )
+        refund_result = await self.db.execute(refund_stmt)
+        refund = refund_result.scalar_one_or_none()
+
+        if not refund:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "REFUND_NOT_FOUND",
+                    "message": "退款申请不存在"
+                }
+            )
+
+        # 2. 验证是否属于当前运营商
+        if refund.operator_id != operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "PERMISSION_DENIED",
+                    "message": "无权取消此退款申请"
+                }
+            )
+
+        # 3. 验证状态是否为pending
+        if refund.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_STATUS",
+                    "message": f"退款申请已被审核(状态: {refund.status}),无法取消"
+                }
+            )
+
+        # 4. 删除退款记录
+        await self.db.delete(refund)
+        await self.db.commit()
+
     async def apply_invoice(
         self,
         operator_id: UUID,
         amount: str,
         invoice_title: str,
         tax_id: str,
+        invoice_type: str = "vat_normal",
         email: Optional[str] = None
     ):
         """申请开具发票 (T076)
@@ -751,7 +815,7 @@ class OperatorService:
         # 4. 创建发票申请记录
         invoice = InvoiceRecord(
             operator_id=operator_id,
-            invoice_type="vat_normal",  # 默认普通增值税发票
+            invoice_type=invoice_type,
             invoice_amount=invoice_amount,
             invoice_title=invoice_title,
             tax_id=tax_id.upper(),  # 统一为大写
@@ -827,6 +891,71 @@ class OperatorService:
         invoices = result.scalars().all()
 
         return list(invoices), total
+
+    async def cancel_invoice(
+        self,
+        operator_id: UUID,
+        invoice_id: UUID
+    ) -> None:
+        """取消发票申请
+
+        Args:
+            operator_id: 运营商ID
+            invoice_id: 发票ID
+
+        Raises:
+            HTTPException 404: 运营商或发票不存在
+            HTTPException 400: 发票状态不允许取消
+        """
+        from ..models.invoice import InvoiceRecord
+
+        # 1. 验证运营商存在
+        operator_stmt = select(OperatorAccount).where(
+            OperatorAccount.id == operator_id,
+            OperatorAccount.deleted_at.is_(None)
+        )
+        operator_result = await self.db.execute(operator_stmt)
+        operator = operator_result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "OPERATOR_NOT_FOUND",
+                    "message": "运营商不存在"
+                }
+            )
+
+        # 2. 查找发票记录
+        invoice_stmt = select(InvoiceRecord).where(
+            InvoiceRecord.id == invoice_id,
+            InvoiceRecord.operator_id == operator_id
+        )
+        invoice_result = await self.db.execute(invoice_stmt)
+        invoice = invoice_result.scalar_one_or_none()
+
+        if not invoice:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error_code": "INVOICE_NOT_FOUND",
+                    "message": "发票不存在或无权限访问"
+                }
+            )
+
+        # 3. 检查发票状态是否允许取消
+        if invoice.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVOICE_CANNOT_CANCEL",
+                    "message": f"发票状态为 {invoice.status}，无法取消"
+                }
+            )
+
+        # 4. 删除发票记录
+        await self.db.delete(invoice)
+        await self.db.commit()
 
     async def get_usage_records(
         self,

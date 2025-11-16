@@ -151,7 +151,7 @@ class SMSService:
         self.provider = provider
 
     def generate_code(self, length: int = 6) -> str:
-        """生成随机验证码
+        """生成验证码
 
         Args:
             length: 验证码长度(默认6位)
@@ -159,6 +159,11 @@ class SMSService:
         Returns:
             str: 数字验证码
         """
+        # Mock模式下固定返回 "000000"，方便测试
+        if isinstance(self.provider, MockSMSProvider):
+            return "000000"
+
+        # 真实短信服务生成随机验证码
         return ''.join(random.choices(string.digits, k=length))
 
     async def send_verification_code(self, phone: str, code: Optional[str] = None) -> str:

@@ -152,14 +152,16 @@ async def verify_captcha(
     """
     import os
 
+    # 开发/测试环境：允许跳过验证码或使用绕过码
+    # 生产环境：必须提供有效验证码
+    environment = os.getenv("ENVIRONMENT", "production").lower()
+    if environment in ["development", "testing"]:
+        # 开发/测试环境可以不输入验证码，或使用绕过码 "0000"
+        if not captcha_code or captcha_code == "0000":
+            return True
+
     if not captcha_key or not captcha_code:
         return False
-
-    # 测试环境绕过码: "0000"
-    # 仅在开发和测试环境有效，生产环境不启用
-    environment = os.getenv("ENVIRONMENT", "production").lower()
-    if environment in ["development", "testing"] and captcha_code == "0000":
-        return True
 
     # Get stored captcha from Redis
     stored_captcha = await redis.get(f"captcha:{captcha_key}")

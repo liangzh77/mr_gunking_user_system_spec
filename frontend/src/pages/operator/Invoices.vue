@@ -22,50 +22,68 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="invoice_id" label="发票ID" width="200" show-overflow-tooltip />
-        <el-table-column prop="invoice_type" label="发票类型" width="120">
+        <el-table-column prop="invoice_number" label="发票号码" width="180">
           <template #default="{ row }">
-            <el-tag :type="row.invoice_type === 'vat' ? 'warning' : 'info'" size="small">
-              {{ row.invoice_type === 'vat' ? '增值税' : '普通' }}
-            </el-tag>
+            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="发票金额" width="120">
+        <el-table-column prop="amount" label="开票金额" width="110" align="right">
           <template #default="{ row }">
             <span class="invoice-amount">¥{{ row.amount }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="invoice_title" label="发票抬头" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="tax_number" label="税号" width="180" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="tax_id" label="税号" width="180" show-overflow-tooltip />
+        <el-table-column prop="invoice_type" label="发票类型" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.invoice_type === 'vat_special' ? 'success' : 'info'" size="small">
+              {{ row.invoice_type === 'vat_special' ? '专用' : '普通' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="申请时间" width="160">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)" size="small">
               {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="invoice_number" label="发票号码" width="150" show-overflow-tooltip>
+        <el-table-column prop="reject_reason" label="拒绝原因" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-if="row.status === 'rejected' && row.reject_reason" class="reject-reason">
+              {{ row.reject_reason }}
+            </span>
             <span v-else class="empty-text">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="申请时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button
-              v-if="row.status === 'issued' && row.invoice_url"
-              type="primary"
-              size="small"
-              text
-              @click="downloadInvoice(row)"
-            >
-              下载
-            </el-button>
+            <template v-if="row.status === 'pending'">
+              <el-button
+                type="danger"
+                size="small"
+                text
+                @click="handleCancel(row)"
+              >
+                取消
+              </el-button>
+            </template>
+            <template v-else-if="row.status === 'issued' && row.invoice_url">
+              <el-button
+                type="primary"
+                size="small"
+                text
+                @click="downloadInvoice(row)"
+              >
+                下载
+              </el-button>
+            </template>
             <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
@@ -96,6 +114,8 @@
       v-model="dialogVisible"
       title="申请发票"
       width="600px"
+      :close-on-press-escape="false"
+      :close-on-click-modal="false"
       @close="handleDialogClose"
     >
       <el-form
@@ -118,8 +138,8 @@
 
         <el-form-item label="发票类型" prop="invoice_type">
           <el-radio-group v-model="formData.invoice_type">
-            <el-radio value="regular">普通发票</el-radio>
-            <el-radio value="vat">增值税专用发票</el-radio>
+            <el-radio value="vat_normal">普通发票</el-radio>
+            <el-radio value="vat_special">增值税专用发票</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -132,11 +152,11 @@
           />
         </el-form-item>
 
-        <el-form-item label="税号" prop="tax_number">
+        <el-form-item label="税号" prop="tax_id">
           <el-input
-            v-model="formData.tax_number"
-            placeholder="请输入纳税人识别号"
-            maxlength="50"
+            v-model="formData.tax_id"
+            placeholder="请输入纳税人识别号（15-20位大写字母或数字）"
+            maxlength="20"
             show-word-limit
           />
         </el-form-item>
@@ -154,7 +174,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Invoice } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -169,9 +189,9 @@ const formRef = ref<FormInstance>()
 
 const formData = ref({
   amount: '',
-  invoice_type: 'regular' as 'regular' | 'vat',
   invoice_title: '',
-  tax_number: '',
+  tax_id: '',
+  invoice_type: 'vat_normal',
 })
 
 const pagination = ref({
@@ -197,20 +217,20 @@ const formRules: FormRules = {
       trigger: 'blur',
     },
   ],
-  invoice_type: [
-    { required: true, message: '请选择发票类型', trigger: 'change' },
-  ],
   invoice_title: [
     { required: true, message: '请输入发票抬头', trigger: 'blur' },
     { min: 2, max: 100, message: '发票抬头长度应在 2-100 个字符之间', trigger: 'blur' },
   ],
-  tax_number: [
+  tax_id: [
     { required: true, message: '请输入税号', trigger: 'blur' },
     {
       pattern: /^[A-Z0-9]{15,20}$/,
       message: '税号格式不正确（应为15-20位大写字母或数字）',
       trigger: 'blur',
     },
+  ],
+  invoice_type: [
+    { required: true, message: '请选择发票类型', trigger: 'change' },
   ],
 }
 
@@ -260,9 +280,9 @@ const loadInvoices = async () => {
 const handleCreate = () => {
   formData.value = {
     amount: '',
-    invoice_type: 'regular',
     invoice_title: '',
-    tax_number: '',
+    tax_id: '',
+    invoice_type: 'vat_normal',
   }
   dialogVisible.value = true
 }
@@ -299,6 +319,30 @@ const downloadInvoice = (invoice: Invoice) => {
   // 打开新窗口下载
   window.open(invoice.invoice_url, '_blank')
   ElMessage.success('发票下载中...')
+}
+
+// 取消发票申请
+const handleCancel = async (invoice: Invoice) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要取消这个发票申请吗？取消后将无法恢复。',
+      '取消发票申请',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await operatorStore.cancelInvoice(invoice.invoice_id)
+    ElMessage.success('发票申请已取消')
+    await loadInvoices()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Cancel invoice error:', error)
+      ElMessage.error('取消发票申请失败')
+    }
+  }
 }
 
 // 页大小变化

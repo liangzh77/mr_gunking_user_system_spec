@@ -38,7 +38,7 @@ class FinanceLoginRequest(BaseModel):
         min_length=3,
         max_length=64,
         description="财务人员用户名",
-        examples=["finance_zhang"]
+        examples=["finance1"]
     )
 
     password: str = Field(
@@ -46,30 +46,32 @@ class FinanceLoginRequest(BaseModel):
         min_length=8,
         max_length=32,
         description="密码",
-        examples=["FinancePass123"]
+        examples=["finance123"]
     )
 
     captcha_key: str = Field(
         ...,
         min_length=1,
         description="验证码key",
-        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+        examples=["test-captcha-key"]
     )
 
     captcha_code: str = Field(
         ...,
         min_length=4,
         max_length=4,
-        description="验证码",
-        examples=["AB12"]
+        description="验证码 (开发/测试环境可使用0000)",
+        examples=["0000"]
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "username": "finance_zhang",
-                    "password": "FinancePass123"
+                    "username": "finance1",
+                    "password": "finance123",
+                    "captcha_key": "test-captcha-key",
+                    "captcha_code": "0000"
                 }
             ]
         }
@@ -865,6 +867,12 @@ class InvoiceItemFinance(BaseModel):
         examples=["北京星空娱乐有限公司"]
     )
 
+    invoice_type: Optional[str] = Field(
+        None,
+        description="发票类型: vat_normal/vat_special",
+        examples=["vat_normal"]
+    )
+
     tax_id: str = Field(
         ...,
         description="纳税人识别号",
@@ -881,6 +889,18 @@ class InvoiceItemFinance(BaseModel):
         ...,
         description="审核状态: pending/approved/rejected",
         examples=["pending"]
+    )
+
+    reject_reason: Optional[str] = Field(
+        None,
+        description="拒绝原因（status=rejected时）",
+        examples=[None]
+    )
+
+    invoice_number: Optional[str] = Field(
+        None,
+        description="发票号码（status=approved时）",
+        examples=[None]
     )
 
     pdf_url: Optional[str] = Field(
@@ -901,9 +921,15 @@ class InvoiceItemFinance(BaseModel):
         examples=[None]
     )
 
-    created_at: datetime = Field(
+    requested_at: datetime = Field(
         ...,
         description="申请时间",
+        examples=["2025-01-15T17:00:00.000Z"]
+    )
+
+    created_at: datetime = Field(
+        ...,
+        description="创建时间",
         examples=["2025-01-15T17:00:00.000Z"]
     )
 

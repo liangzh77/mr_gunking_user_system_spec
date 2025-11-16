@@ -20,6 +20,11 @@
    - POST /v1/finance/invoices/{invoice_id}/approve - 批准开票
    - POST /v1/finance/invoices/{invoice_id}/reject - 拒绝开票
 
+4. 银行转账审核 (T189f-T189h):
+   - GET /v1/finance/bank-transfers - 银行转账申请列表
+   - POST /v1/finance/bank-transfers/{transfer_id}/approve - 批准转账
+   - POST /v1/finance/bank-transfers/{transfer_id}/reject - 拒绝转账
+
 认证方式:
 - JWT Token认证 (Authorization: Bearer {token})
 - 用户类型要求: finance
@@ -33,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_finance
 from ...core import BadRequestException, NotFoundException
+# Import all finance schemas from the new finance package
 from ...schemas.finance import (
     AuditLogListResponse,
     CustomerFinanceDetails,
@@ -52,6 +58,13 @@ from ...schemas.finance import (
     ReportGenerateResponse,
     ReportListResponse,
     TopCustomersResponse,
+    BankTransferListResponse,
+    BankTransferListRequest,
+    BankTransferItem,
+    ApproveBankTransferRequest,
+    RejectBankTransferRequest,
+    BankTransferDetailResponse,
+    BankTransferStatus
 )
 from ...services.finance_dashboard_service import FinanceDashboardService
 from ...services.finance_invoice_service import FinanceInvoiceService
@@ -1913,7 +1926,14 @@ async def get_recharge_records(
         items = []
         for record in records:
             # 判断充值方式
-            if record.payment_channel:
+            if record.payment_channel == 'bank_transfer':
+                recharge_method = "银行转账"
+                payment_info = {
+                    "channel": record.payment_channel,
+                    "order_no": record.payment_order_no,
+                    "status": record.payment_status,
+                }
+            elif record.payment_channel:
                 recharge_method = "在线充值"
                 payment_info = {
                     "channel": record.payment_channel,
@@ -1958,3 +1978,11 @@ async def get_recharge_records(
                 "message": f"查询充值记录失败: {str(e)}",
             },
         )
+
+
+# ==================== 银行转账审核 (T189f-T189h) ====================
+
+from .bank_transfers import router as bank_transfers_router
+
+# Include bank transfers router
+router.include_router(bank_transfers_router)

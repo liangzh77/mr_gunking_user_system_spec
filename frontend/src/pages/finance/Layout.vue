@@ -34,6 +34,10 @@
             <el-icon><Tickets /></el-icon>
             <span>发票审核</span>
           </el-menu-item>
+          <el-menu-item index="/finance/bank-transfers">
+            <el-icon><Money /></el-icon>
+            <span>银行转账审核</span>
+          </el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/finance/reports">
@@ -108,6 +112,7 @@ import {
   ArrowDown,
   Lock,
   SwitchButton,
+  Money,
 } from '@element-plus/icons-vue'
 import { useFinanceAuthStore } from '@/stores/financeAuth'
 
@@ -124,6 +129,7 @@ const breadcrumbMap: Record<string, string> = {
   '/finance/recharge-records': '充值记录',
   '/finance/refunds': '退款审核',
   '/finance/invoices': '发票审核',
+  '/finance/bank-transfers': '银行转账审核',
   '/finance/reports': '财务报表',
   '/finance/audit-logs': '审计日志',
 }

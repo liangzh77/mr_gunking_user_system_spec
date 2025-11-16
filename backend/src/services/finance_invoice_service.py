@@ -89,13 +89,17 @@ class FinanceInvoiceService:
                 operator_category=operator.customer_tier if operator else None,
                 amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
+                invoice_type=invoice.invoice_type,
                 tax_id=invoice.tax_id,
                 email=operator.email if operator else None,
                 status=invoice.status,
+                reject_reason=invoice.reject_reason,
+                invoice_number=invoice.invoice_number,
                 pdf_url=invoice.invoice_file_url,
                 reviewed_by=str(invoice.reviewed_by) if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
-                created_at=invoice.requested_at
+                requested_at=invoice.requested_at,
+                created_at=invoice.created_at
             ))
 
         return InvoiceListResponse(
@@ -150,9 +154,9 @@ class FinanceInvoiceService:
         invoice.reviewed_at = datetime.now(timezone.utc)
         invoice.issued_at = datetime.now(timezone.utc)
 
-        # Generate invoice number (format: INV-YYYYMMDD-XXXXX)
+        # Generate invoice number (format: INV_YYYYMMDD_XXXXX)
         now = datetime.now(timezone.utc)
-        invoice_number = f"INV-{now.strftime('%Y%m%d')}-{str(invoice.id)[:5].upper()}"
+        invoice_number = f"INV_{now.strftime('%Y%m%d')}_{str(invoice.id)[:5].upper()}"
         invoice.invoice_number = invoice_number
 
         # Generate PDF URL (placeholder - actual PDF generation would be handled by separate service)

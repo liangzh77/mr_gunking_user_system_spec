@@ -19,15 +19,35 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Rename protocol_scheme to launch_exe_path and increase length."""
-    # Rename column and change type
-    op.alter_column(
-        'applications',
-        'protocol_scheme',
-        new_column_name='launch_exe_path',
-        type_=sa.String(500),
-        comment='启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe'
-    )
+    """Add launch_exe_path column if it doesn't exist."""
+    # Check if column exists and add it if needed
+    from sqlalchemy import inspect
+    from alembic import context
+
+    conn = context.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('applications')]
+
+    # If launch_exe_path already exists, do nothing
+    if 'launch_exe_path' in columns:
+        return
+
+    # If protocol_scheme exists, rename it
+    if 'protocol_scheme' in columns:
+        op.alter_column(
+            'applications',
+            'protocol_scheme',
+            new_column_name='launch_exe_path',
+            type_=sa.String(500),
+            comment='启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe'
+        )
+    else:
+        # Otherwise, add the new column
+        op.add_column(
+            'applications',
+            sa.Column('launch_exe_path', sa.String(500), nullable=True,
+                     comment='启动exe的绝对路径，如 C:\\Program Files\\MRGaming\\HeadsetServer.exe')
+        )
 
 
 def downgrade() -> None:

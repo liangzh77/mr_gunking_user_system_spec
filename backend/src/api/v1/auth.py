@@ -23,7 +23,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import require_operator, require_headset_token
+from ...api.dependencies import require_operator, require_headset_token, require_finance
 from ...core import get_redis
 from ...db.session import get_db
 from ...schemas.auth import (
@@ -43,6 +43,7 @@ from ...schemas.operator import (
     OperatorRegisterRequest,
     OperatorRegisterResponse,
 )
+from ...schemas.finance import FinanceLoginRequest
 from ...services.auth_service import AuthService
 from ...services.billing_service import BillingService
 from ...services.operator import OperatorService
@@ -1204,7 +1205,7 @@ async def logout_operator(
     """
 )
 async def login_finance(
-    request_data: dict = Body(...),
+    login_request: FinanceLoginRequest,
     http_request: Request = None,
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis)
@@ -1214,7 +1215,7 @@ async def login_finance(
     处理财务人员登录请求,验证凭证并返回JWT Token。
 
     Args:
-        request_data: 登录请求数据(包含username, password, captcha_key, captcha_code)
+        login_request: 登录请求数据(包含username, password, captcha_key, captcha_code)
         http_request: FastAPI Request对象(用于获取客户端IP)
         db: 数据库会话
         redis: Redis连接
@@ -1228,11 +1229,8 @@ async def login_finance(
         HTTPException 500: 服务器内部错误
     """
     from ...services.finance_service import FinanceService
-    from ...schemas.finance import FinanceLoginRequest
 
     try:
-        # 解析请求
-        login_request = FinanceLoginRequest(**request_data)
 
         # 验证验证码
         from .common import verify_captcha
@@ -1309,3 +1307,97 @@ async def login_finance(
                 "message": f"登录失败: {error_msg}"
             }
         )
+
+
+@router.post(
+    "/finance/logout",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "未认证或Token无效"
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "服务器内部错误"
+        }
+    },
+    summary="财务人员登出",
+    description="""
+    财务人员退出登录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **实现说明**:
+    本API采用客户端清理Token策略,服务端只验证Token有效性:
+    - 客户端收到200响应后应立即清除本地存储的Token
+    - Token在有效期内仍可使用(无服务端黑名单)
+    - 建议客户端配合实现Token主动清理和过期检查
+
+    **Token黑名单支持**:
+    如需实现服务端Token黑名单(防止登出后Token仍可使用):
+    - 可集成Redis存储已登出的Token
+    - 在JWT中间件添加黑名单检查逻辑
+    - 当前实现为轻量级方案,适用于小规模部署
+
+    **响应数据**:
+    - success: 请求是否成功(true)
+    - message: "已退出登录"
+    """
+)
+async def logout_finance(
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """财务人员登出API (T162续)
+
+    处理财务人员登出请求。
+
+    当前实现策略:
+    - 验证Token有效性(通过require_finance依赖注入)
+    - 返回成功响应
+    - 依赖客户端清理本地Token
+    - 无服务端Token黑名单(简化实现)
+
+    扩展方向:
+    - 如需实现Token黑名单,可在此添加Redis逻辑
+    - 将token["jti"]或完整token加入Redis黑名单
+    - 设置过期时间与Token有效期一致
+
+    Args:
+        token: JWT Token payload (通过require_finance解析)
+        db: 数据库会话
+
+    Returns:
+        dict: {
+            "success": true,
+            "message": "已退出登录"
+        }
+
+    Raises:
+        HTTPException 401: Token无效或已过期
+        HTTPException 500: 服务器内部错误
+    """
+    try:
+        # 可选: 在此处添加Token黑名单逻辑
+        # 例如: await add_token_to_blacklist(token["jti"], expires_in=86400)
+
+        # 返回成功响应
+        return {
+            "success": True,
+            "message": "已退出登录"
+        }
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"登出失败: {str(e)}"
+            }
+        )
+

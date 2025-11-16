@@ -199,6 +199,11 @@ const router = createRouter({
               name: 'FinanceAuditLogs',
               component: () => import('@/pages/finance/AuditLogs.vue'),
             },
+            {
+              path: 'bank-transfers',
+              name: 'FinanceBankTransfers',
+              component: () => import('@/pages/finance/BankTransfers.vue'),
+            },
           ],
         },
       ],

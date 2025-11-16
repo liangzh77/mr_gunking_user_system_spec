@@ -40,37 +40,39 @@ class OperatorLoginRequest(BaseModel):
         ...,
         min_length=1,
         description="用户名",
-        examples=["operator_beijing_01"]
+        examples=["operator1"]
     )
 
     password: str = Field(
         ...,
         min_length=1,
         description="密码",
-        examples=["StrongPass123"]
+        examples=["operator123"]
     )
 
     captcha_key: str = Field(
         ...,
         min_length=1,
         description="验证码key",
-        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+        examples=["test-captcha-key"]
     )
 
     captcha_code: str = Field(
         ...,
         min_length=4,
         max_length=4,
-        description="验证码",
-        examples=["AB12"]
+        description="验证码 (开发/测试环境可使用0000)",
+        examples=["0000"]
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "username": "operator_beijing_01",
-                    "password": "StrongPass123"
+                    "username": "operator1",
+                    "password": "operator123",
+                    "captcha_key": "test-captcha-key",
+                    "captcha_code": "0000"
                 }
             ]
         }

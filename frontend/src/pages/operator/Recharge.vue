@@ -17,7 +17,7 @@
         :model="formData"
         :rules="formRules"
         label-width="100px"
-        style="max-width: 600px"
+        style="max-width: 800px"
       >
         <el-form-item label="充值金额" prop="amount">
           <el-input
@@ -43,31 +43,128 @@
 
         <el-form-item label="支付方式" prop="payment_method">
           <el-radio-group v-model="formData.payment_method">
-            <el-radio value="wechat">
+            <el-radio value="bank_transfer">
               <div class="payment-method">
-                <el-icon :size="20" color="#07C160"><ChatDotRound /></el-icon>
-                <span>微信支付</span>
+                <el-icon :size="20" color="#F56C6C"><Money /></el-icon>
+                <span>银行转账</span>
               </div>
             </el-radio>
-            <el-radio value="alipay">
-              <div class="payment-method">
-                <el-icon :size="20" color="#1677FF"><WalletFilled /></el-icon>
-                <span>支付宝</span>
+            <el-radio value="wechat" disabled>
+              <div class="payment-method disabled">
+                <el-icon :size="20" color="#909399"><ChatDotRound /></el-icon>
+                <span>微信支付(即将上线)</span>
+              </div>
+            </el-radio>
+            <el-radio value="alipay" disabled>
+              <div class="payment-method disabled">
+                <el-icon :size="20" color="#909399"><WalletFilled /></el-icon>
+                <span>支付宝(即将上线)</span>
               </div>
             </el-radio>
           </el-radio-group>
         </el-form-item>
 
+        <!-- 银行转账信息 -->
+        <template v-if="formData.payment_method === 'bank_transfer'">
+          <el-alert
+            title="银行转账充值说明"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 20px"
+          >
+            <template #default>
+              <div class="bank-transfer-notice">
+                <p>1. 请将款项转账至以下公司银行账户</p>
+                <p>2. 转账完成后,上传转账凭证截图</p>
+                <p>3. 提交申请后,财务人员将在1-2个工作日内审核</p>
+                <p>4. 审核通过后,款项将自动充值到您的账户</p>
+              </div>
+            </template>
+          </el-alert>
+
+          <el-card class="bank-info-card" shadow="never">
+            <template #header>
+              <div class="bank-info-header">
+                <el-icon><Wallet /></el-icon>
+                <span>收款账户信息</span>
+              </div>
+            </template>
+            <el-descriptions :column="1" border v-loading="loadingBankInfo">
+              <el-descriptions-item label="户名">
+                {{ bankAccountInfo.account_name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="账号">
+                <div class="account-number">
+                  <span>{{ bankAccountInfo.account_number }}</span>
+                  <el-button
+                    link
+                    type="primary"
+                    @click="copyAccountNumber"
+                    style="margin-left: 10px"
+                  >
+                    <el-icon><DocumentCopy /></el-icon>
+                    复制
+                  </el-button>
+                </div>
+              </el-descriptions-item>
+              <el-descriptions-item label="开户行">
+                {{ bankAccountInfo.bank_name }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+
+          <el-form-item label="转账凭证" prop="voucher_image" style="margin-top: 20px">
+            <el-upload
+              class="voucher-uploader"
+              :auto-upload="false"
+              :on-change="handleVoucherChange"
+              :show-file-list="false"
+              accept="image/jpeg,image/jpg,image/png"
+              :limit="1"
+            >
+              <el-image
+                v-if="voucherImageUrl"
+                :src="voucherImageUrl"
+                fit="contain"
+                style="width: 200px; height: 200px; border: 1px dashed #d9d9d9; border-radius: 6px"
+              >
+                <template #error>
+                  <div class="image-error">
+                    <el-icon><Picture /></el-icon>
+                    <span>加载失败</span>
+                  </div>
+                </template>
+              </el-image>
+              <div v-else class="upload-trigger">
+                <el-icon class="upload-icon"><Plus /></el-icon>
+                <div class="upload-text">点击上传转账凭证</div>
+                <div class="upload-hint">支持 JPG、PNG 格式,不超过 5MB</div>
+              </div>
+            </el-upload>
+          </el-form-item>
+
+          <el-form-item label="备注" prop="remark">
+            <el-input
+              v-model="formData.remark"
+              type="textarea"
+              :rows="3"
+              placeholder="选填,可注明转账时间等信息"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+        </template>
+
         <el-form-item>
           <el-button type="primary" :loading="submitting" @click="handleSubmit">
-            立即充值
+            {{ formData.payment_method === 'bank_transfer' ? '提交申请' : '立即充值' }}
           </el-button>
           <el-button @click="handleCancel">取消</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <!-- 支付信息展示 -->
+    <!-- 支付信息展示 (微信/支付宝) -->
     <el-card v-else class="payment-card" style="margin-top: 20px">
       <div class="payment-container">
         <div class="payment-header">
@@ -127,23 +224,130 @@
 
         <el-alert
           title="提示"
-          description="支付成功后，余额将自动更新。如长时间未到账，请联系客服。"
+          description="支付成功后,余额将自动更新。如长时间未到账,请联系客服。"
           type="info"
           :closable="false"
           style="margin-top: 20px"
         />
       </div>
     </el-card>
+
+    <!-- 银行转账申请列表 -->
+    <el-card class="applications-card" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span>充值申请记录</span>
+          <el-button type="primary" size="small" @click="loadBankTransfers">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+
+      <el-table
+        :data="bankTransfers"
+        v-loading="loadingTransfers"
+        stripe
+        style="width: 100%"
+      >
+        <el-table-column prop="application_id" label="申请ID" width="200" show-overflow-tooltip />
+        <el-table-column prop="amount" label="充值金额" width="120" align="right">
+          <template #default="{ row }">
+            <span class="amount-text">¥{{ row.amount }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="转账凭证" width="100" align="center">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="viewVoucher(row)">
+              查看
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.remark">{{ row.remark }}</span>
+            <span v-else class="empty-text">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ getStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="reject_reason" label="拒绝原因" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.reject_reason" class="reject-reason">{{ row.reject_reason }}</span>
+            <span v-else class="empty-text">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="申请时间" width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'pending'"
+              type="danger"
+              size="small"
+              text
+              @click="cancelTransfer(row)"
+            >
+              取消
+            </el-button>
+            <span v-else class="empty-text">-</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div v-if="!loadingTransfers && bankTransfers.length === 0" class="empty-state">
+        <el-empty description="暂无充值申请记录" />
+      </div>
+
+      <div v-if="transferPagination.total > 0" class="pagination-container">
+        <el-pagination
+          v-model:current-page="transferPagination.page"
+          v-model:page-size="transferPagination.page_size"
+          :total="transferPagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadBankTransfers"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 凭证查看对话框 -->
+    <el-dialog v-model="voucherDialogVisible" title="转账凭证" width="600px">
+      <div class="voucher-view">
+        <el-image
+          :src="currentVoucher"
+          fit="contain"
+          style="width: 100%; max-height: 500px"
+        >
+          <template #error>
+            <div class="image-error">
+              <el-icon :size="60"><Picture /></el-icon>
+              <div>图片加载失败</div>
+            </div>
+          </template>
+        </el-image>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { RechargeResponse } from '@/types'
 import dayjs from 'dayjs'
+import http from '@/utils/http'
 
 const router = useRouter()
 const operatorStore = useOperatorStore()
@@ -151,10 +355,31 @@ const operatorStore = useOperatorStore()
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const paymentInfo = ref<RechargeResponse | null>(null)
+const loadingBankInfo = ref(false)
+const loadingTransfers = ref(false)
+const voucherImageUrl = ref('')
+const voucherFile = ref<File | null>(null)
+const voucherDialogVisible = ref(false)
+const currentVoucher = ref('')
 
 const formData = ref({
   amount: '',
-  payment_method: 'wechat' as 'wechat' | 'alipay',
+  payment_method: 'bank_transfer' as 'wechat' | 'alipay' | 'bank_transfer',
+  voucher_image: '',
+  remark: '',
+})
+
+const bankAccountInfo = ref({
+  account_name: '',
+  account_number: '',
+  bank_name: '',
+})
+
+const bankTransfers = ref<any[]>([])
+const transferPagination = ref({
+  page: 1,
+  page_size: 20,
+  total: 0,
 })
 
 const amountPresets = [100, 200, 500, 1000, 2000, 5000]
@@ -181,10 +406,18 @@ const formRules: FormRules = {
   payment_method: [
     { required: true, message: '请选择支付方式', trigger: 'change' },
   ],
+  voucher_image: [
+    { required: true, message: '请上传转账凭证', trigger: 'change' },
+  ],
 }
 
 const paymentMethodLabel = computed(() => {
-  return formData.value.payment_method === 'wechat' ? '微信支付' : '支付宝'
+  const labels = {
+    wechat: '微信支付',
+    alipay: '支付宝',
+    bank_transfer: '银行转账'
+  }
+  return labels[formData.value.payment_method] || ''
 })
 
 // 格式化日期时间
@@ -197,6 +430,54 @@ const selectPreset = (amount: number) => {
   formData.value.amount = amount.toString()
 }
 
+// 加载银行账户信息
+const loadBankAccountInfo = async () => {
+  loadingBankInfo.value = true
+  try {
+    const response = await http.get('/operators/bank-account')
+    bankAccountInfo.value = response.data
+  } catch (error) {
+    console.error('Load bank account error:', error)
+    ElMessage.error('加载银行账户信息失败')
+  } finally {
+    loadingBankInfo.value = false
+  }
+}
+
+// 复制银行账号
+const copyAccountNumber = async () => {
+  try {
+    await navigator.clipboard.writeText(bankAccountInfo.value.account_number)
+    ElMessage.success('账号已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('复制失败')
+  }
+}
+
+// 处理凭证图片上传
+const handleVoucherChange = (file: UploadFile) => {
+  if (!file.raw) return
+
+  // 验证文件类型
+  const isImage = file.raw.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return
+  }
+
+  // 验证文件大小 (5MB)
+  const isLt5M = file.raw.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过 5MB!')
+    return
+  }
+
+  // 创建预览URL
+  voucherImageUrl.value = URL.createObjectURL(file.raw)
+  voucherFile.value = file.raw
+  formData.value.voucher_image = file.name
+}
+
 // 提交充值请求
 const handleSubmit = async () => {
   if (!formRef.value) return
@@ -207,20 +488,60 @@ const handleSubmit = async () => {
     return
   }
 
-  submitting.value = true
-  try {
-    const response = await operatorStore.recharge({
-      amount: formData.value.amount,
-      payment_method: formData.value.payment_method,
-    })
+  // 银行转账提交
+  if (formData.value.payment_method === 'bank_transfer') {
+    if (!voucherFile.value) {
+      ElMessage.error('请上传转账凭证')
+      return
+    }
 
-    paymentInfo.value = response
-    ElMessage.success('充值订单已创建，请完成支付')
-  } catch (error) {
-    console.error('Recharge error:', error)
-    ElMessage.error('创建充值订单失败')
-  } finally {
-    submitting.value = false
+    submitting.value = true
+    try {
+      // 上传凭证图片
+      const formDataUpload = new FormData()
+      formDataUpload.append('file', voucherFile.value)
+
+      const uploadResponse = await http.post('/operators/upload/bank-transfer-voucher', formDataUpload, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      const voucherUrl = uploadResponse.data.url
+
+      // 提交银行转账申请
+      const response = await http.post('/operators/me/bank-transfers', {
+        amount: formData.value.amount,
+        voucher_image_url: voucherUrl,
+        remark: formData.value.remark || null,
+      })
+
+      ElMessage.success('银行转账充值申请已提交,请等待财务审核')
+      resetForm()
+      await loadBankTransfers()
+    } catch (error: any) {
+      console.error('Submit bank transfer error:', error)
+      ElMessage.error(error.response?.data?.detail?.message || '提交申请失败')
+    } finally {
+      submitting.value = false
+    }
+  } else {
+    // 微信/支付宝支付
+    submitting.value = true
+    try {
+      const response = await operatorStore.recharge({
+        amount: formData.value.amount,
+        payment_method: formData.value.payment_method,
+      })
+
+      paymentInfo.value = response
+      ElMessage.success('充值订单已创建,请完成支付')
+    } catch (error) {
+      console.error('Recharge error:', error)
+      ElMessage.error('创建充值订单失败')
+    } finally {
+      submitting.value = false
+    }
   }
 }
 
@@ -243,7 +564,7 @@ const checkPaymentStatus = async () => {
     ElMessage.success('余额已更新')
     router.push('/operator/dashboard')
   } catch (error) {
-    ElMessage.warning('支付可能尚未完成，请稍后再试')
+    ElMessage.warning('支付可能尚未完成,请稍后再试')
   }
 }
 
@@ -252,10 +573,98 @@ const resetForm = () => {
   paymentInfo.value = null
   formData.value = {
     amount: '',
-    payment_method: 'wechat',
+    payment_method: 'bank_transfer',
+    voucher_image: '',
+    remark: '',
   }
+  voucherImageUrl.value = ''
+  voucherFile.value = null
   formRef.value?.resetFields()
 }
+
+// 加载银行转账申请列表
+const loadBankTransfers = async () => {
+  loadingTransfers.value = true
+  try {
+    const response = await http.get('/operators/me/bank-transfers', {
+      params: {
+        page: transferPagination.value.page,
+        page_size: transferPagination.value.page_size,
+      }
+    })
+    bankTransfers.value = response.data.items
+    transferPagination.value.total = response.data.total
+  } catch (error) {
+    console.error('Load bank transfers error:', error)
+    ElMessage.error('加载申请列表失败')
+  } finally {
+    loadingTransfers.value = false
+  }
+}
+
+// 查看凭证
+const viewVoucher = (row: any) => {
+  // 确保URL是绝对路径，如果是相对路径则添加根路径
+  const url = row.voucher_image_url
+  currentVoucher.value = url.startsWith('http') || url.startsWith('/') ? url : `/${url}`
+  voucherDialogVisible.value = true
+}
+
+// 取消申请
+const cancelTransfer = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要取消这个充值申请吗?充值金额: ¥${row.amount}`,
+      '取消申请',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 使用id字段(UUID)进行删除
+    await http.delete(`/operators/me/bank-transfers/${row.id}`)
+    ElMessage.success('申请已取消')
+    await loadBankTransfers()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Cancel transfer error:', error)
+      ElMessage.error('取消申请失败')
+    }
+  }
+}
+
+// 页大小变化
+const handlePageSizeChange = () => {
+  transferPagination.value.page = 1
+  loadBankTransfers()
+}
+
+// 获取状态类型
+const getStatusType = (status: string) => {
+  const types: Record<string, any> = {
+    pending: 'warning',
+    approved: 'success',
+    rejected: 'danger',
+  }
+  return types[status] || 'info'
+}
+
+// 获取状态标签
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    pending: '待审核',
+    approved: '已通过',
+    rejected: '已拒绝',
+  }
+  return labels[status] || status
+}
+
+onMounted(() => {
+  loadBankAccountInfo()
+  loadBankTransfers()
+})
 </script>
 
 <style scoped>
@@ -315,6 +724,81 @@ const resetForm = () => {
   gap: 8px;
 }
 
+.payment-method.disabled {
+  opacity: 0.5;
+}
+
+.bank-transfer-notice p {
+  margin: 5px 0;
+  line-height: 1.6;
+}
+
+.bank-info-card {
+  margin-top: 15px;
+  background-color: #f5f7fa;
+}
+
+.bank-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.account-number {
+  display: flex;
+  align-items: center;
+}
+
+.voucher-uploader {
+  width: 100%;
+}
+
+.upload-trigger {
+  width: 200px;
+  height: 200px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upload-trigger:hover {
+  border-color: #409EFF;
+}
+
+.upload-icon {
+  font-size: 40px;
+  color: #8c939d;
+  margin-bottom: 10px;
+}
+
+.upload-text {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 5px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #909399;
+}
+
+.image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #909399;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+
 .payment-container {
   max-width: 600px;
   margin: 0 auto;
@@ -370,5 +854,41 @@ const resetForm = () => {
   justify-content: center;
   gap: 15px;
   margin-top: 30px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.amount-text {
+  color: #67C23A;
+  font-weight: 600;
+}
+
+.empty-text {
+  color: #909399;
+}
+
+.reject-reason {
+  color: #F56C6C;
+}
+
+.empty-state {
+  padding: 40px 0;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.voucher-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
 }
 </style>

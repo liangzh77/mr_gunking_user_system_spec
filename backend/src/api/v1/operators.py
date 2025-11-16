@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,7 +47,15 @@ from ...schemas.operator import (
     UsageListResponse,
 )
 from ...schemas.payment import RechargeRequest, RechargeResponse
+from ...schemas.bank_transfer import (
+    BankTransferCreate,
+    BankTransferResponse,
+    BankTransferListResponse,
+    BankAccountInfo
+)
 from ...services.operator import OperatorService
+from ...services.bank_transfer_service import BankTransferService
+from ...core.config import settings
 
 router = APIRouter(prefix="/operators", tags=["运营商"])
 
@@ -774,11 +782,15 @@ async def apply_refund(
         )
 
         # 转换为响应格式
+        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
+        now = datetime.now()
+        refund_id = f"RFD_{now.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
+
         return {
             "success": True,
             "message": "退款申请已提交,待财务审核",
             "data": {
-                "refund_id": f"refund_{refund.id}",
+                "refund_id": refund_id,
                 "requested_amount": str(refund.requested_amount),
                 "status": refund.status,
                 "reason": refund.refund_reason,
@@ -908,8 +920,12 @@ async def get_refunds(
         # 转换为响应格式
         items = []
         for refund in refunds:
+            # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
+            refund_created_time = refund.created_at
+            refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
+
             items.append(RefundItem(
-                refund_id=f"refund_{refund.id}",
+                refund_id=refund_id,
                 requested_amount=str(refund.requested_amount),
                 actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
                 status=refund.status,
@@ -939,6 +955,378 @@ async def get_refunds(
                 "message": f"查询退款记录失败: {str(e)}"
             }
         )
+
+
+@router.delete(
+    "/me/refunds/{refund_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "description": "退款申请已被审核，无法取消"
+        },
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户或无权取消此退款申请)"
+        },
+        404: {
+            "description": "退款申请不存在"
+        }
+    },
+    summary="取消退款申请",
+    description="""
+    取消pending状态的退款申请。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **业务规则**:
+    - 只能取消自己的退款申请
+    - 只能取消pending状态的退款申请
+    - 已审核(approved/rejected)的退款申请不能取消
+
+    **注意事项**:
+    - 成功取消后返回204 No Content
+    - 取消操作会直接删除退款记录
+    """
+)
+async def cancel_refund(
+    refund_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> Response:
+    """取消退款申请API
+
+    Args:
+        refund_id: 退款ID (格式: refund_{uuid})
+        token: JWT Token payload (包含sub=operator_id, user_type=operator)
+        db: 数据库会话
+
+    Returns:
+        Response: 204 No Content
+
+    Raises:
+        HTTPException 400: 退款申请已被审核，无法取消
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 退款申请不存在
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析refund_id (格式: refund_{uuid})
+    if not refund_id.startswith("refund_"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_REFUND_ID",
+                "message": f"无效的退款ID格式: {refund_id}"
+            }
+        )
+
+    try:
+        refund_uuid = UUID(refund_id.replace("refund_", ""))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_REFUND_ID",
+                "message": f"无效的退款ID格式: {refund_id}"
+            }
+        )
+
+    # 调用服务层取消退款
+    try:
+        await operator_service.cancel_refund(
+            operator_id=operator_id,
+            refund_id=refund_uuid
+        )
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except HTTPException:
+        # 重新抛出服务层异常(如403, 404, 400)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"取消退款申请失败: {str(e)}"
+            }
+        )
+
+
+# ========== 银行转账充值申请接口 ==========
+
+@router.get(
+    "/bank-account",
+    response_model=BankAccountInfo,
+    status_code=status.HTTP_200_OK,
+    summary="获取公司银行账户信息",
+    description="获取用于转账充值的公司银行账户信息"
+)
+async def get_bank_account_info() -> BankAccountInfo:
+    """获取银行账户信息API
+
+    Returns:
+        BankAccountInfo: 公司银行账户信息
+    """
+    return BankAccountInfo(
+        account_name=settings.COMPANY_BANK_ACCOUNT_NAME,
+        account_number=settings.COMPANY_BANK_ACCOUNT_NUMBER,
+        bank_name=settings.COMPANY_BANK_NAME
+    )
+
+
+@router.post(
+    "/me/bank-transfers",
+    response_model=BankTransferResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="提交银行转账充值申请",
+    description="运营商提交银行转账充值申请,上传转账凭证"
+)
+async def create_bank_transfer(
+    request: BankTransferCreate,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> BankTransferResponse:
+    """创建银行转账充值申请API
+
+    Args:
+        request: 申请数据(金额、凭证图片URL、备注)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        BankTransferResponse: 创建的申请详情
+    """
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "INVALID_TOKEN", "message": "Token中缺少用户ID"}
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_OPERATOR_ID", "message": f"无效的运营商ID格式: {operator_id_str}"}
+        )
+
+    # 调用服务层创建申请
+    transfer_service = BankTransferService(db)
+    try:
+        return await transfer_service.create_application(operator_id, request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "INTERNAL_ERROR", "message": f"创建申请失败: {str(e)}"}
+        )
+
+
+@router.get(
+    "/me/bank-transfers",
+    response_model=BankTransferListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="查询银行转账充值申请列表",
+    description="查询当前运营商的银行转账充值申请列表"
+)
+async def get_bank_transfers(
+    status: Optional[str] = Query(None, description="申请状态筛选: pending/approved/rejected/all"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> BankTransferListResponse:
+    """查询银行转账充值申请列表API
+
+    Args:
+        status: 状态筛选
+        page: 页码
+        page_size: 每页条数
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        BankTransferListResponse: 申请列表
+    """
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "INVALID_TOKEN", "message": "Token中缺少用户ID"}
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_OPERATOR_ID", "message": f"无效的运营商ID格式: {operator_id_str}"}
+        )
+
+    # 调用服务层查询列表
+    transfer_service = BankTransferService(db)
+    try:
+        return await transfer_service.get_applications(operator_id, status, page, page_size)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "INTERNAL_ERROR", "message": f"查询申请列表失败: {str(e)}"}
+        )
+
+
+@router.delete(
+    "/me/bank-transfers/{application_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="取消银行转账充值申请",
+    description="取消待审核的银行转账充值申请"
+)
+async def cancel_bank_transfer(
+    application_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+) -> Response:
+    """取消银行转账充值申请API
+
+    Args:
+        application_id: 申请ID (UUID)
+        token: JWT Token payload
+        db: 数据库会话
+
+    Returns:
+        Response: 204 No Content
+    """
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "INVALID_TOKEN", "message": "Token中缺少用户ID"}
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_OPERATOR_ID", "message": f"无效的运营商ID格式: {operator_id_str}"}
+        )
+
+    # 解析application_id
+    try:
+        app_uuid = UUID(application_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_APPLICATION_ID", "message": f"无效的申请ID格式: {application_id}"}
+        )
+
+    # 调用服务层取消申请
+    transfer_service = BankTransferService(db)
+    try:
+        await transfer_service.cancel_application(operator_id, app_uuid)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "INTERNAL_ERROR", "message": f"取消申请失败: {str(e)}"}
+        )
+
+
+@router.post(
+    "/upload/bank-transfer-voucher",
+    status_code=status.HTTP_200_OK,
+    summary="上传银行转账凭证图片",
+    description="上传转账凭证图片,返回访问URL"
+)
+async def upload_bank_transfer_voucher(
+    file: UploadFile = File(...),
+    token: dict = Depends(require_operator)
+) -> dict:
+    """上传银行转账凭证图片API
+
+    Args:
+        file: 上传的图片文件
+        token: JWT Token payload
+
+    Returns:
+        dict: {"url": "uploads/bank_transfer_vouchers/20251113_143000_uuid.jpg"}
+    """
+    import os
+    import aiofiles
+    from uuid import uuid4
+
+    # 验证文件类型
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_FILE_TYPE", "message": "只支持图片文件"}
+        )
+
+    # 验证文件大小 (5MB)
+    content = await file.read()
+    file_size_mb = len(content) / (1024 * 1024)
+    if file_size_mb > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "FILE_TOO_LARGE", "message": f"文件大小超过限制(5MB),当前大小: {file_size_mb:.2f}MB"}
+        )
+
+    # 创建上传目录
+    upload_dir = "uploads/bank_transfer_vouchers"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # 生成文件名
+    file_extension = file.filename.split('.')[-1] if file.filename and '.' in file.filename else 'jpg'
+    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}.{file_extension}"
+    file_path = os.path.join(upload_dir, filename)
+
+    # 异步写入文件
+    try:
+        async with aiofiles.open(file_path, "wb") as f:
+            await f.write(content)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "FILE_WRITE_ERROR", "message": f"文件写入失败: {str(e)}"}
+        )
+
+    # 返回文件URL (绝对路径,避免前端路径解析问题)
+    return {"url": "/" + file_path.replace("\\", "/")}
 
 
 # ========== 发票管理接口 (T076-T077) ==========
@@ -1057,6 +1445,7 @@ async def apply_invoice(
             amount=request.amount,
             invoice_title=request.invoice_title,
             tax_id=request.tax_id,
+            invoice_type=request.invoice_type,
             email=request.email
         )
 
@@ -1066,12 +1455,12 @@ async def apply_invoice(
             "message": "发票申请已提交，等待财务审核",
             "data": InvoiceResponse(
                 invoice_id=f"inv_{invoice.id}",
-                amount=str(invoice.amount),
+                amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
                 tax_id=invoice.tax_id,
-                email=invoice.email,
+                email=getattr(invoice, 'email', None),
                 status=invoice.status,
-                pdf_url=invoice.pdf_url,
+                pdf_url=getattr(invoice, 'invoice_file_url', None),
                 reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
                 created_at=invoice.created_at
@@ -1088,6 +1477,129 @@ async def apply_invoice(
             detail={
                 "error_code": "INTERNAL_ERROR",
                 "message": f"申请发票失败: {str(e)}"
+            }
+        )
+
+
+@router.delete(
+    "/me/invoices/{invoice_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {
+            "description": "未认证或Token无效/过期"
+        },
+        403: {
+            "description": "权限不足(非运营商用户)"
+        },
+        404: {
+            "description": "发票不存在"
+        },
+        400: {
+            "description": "无法取消(发票已审核或状态不允许)"
+        }
+    },
+    summary="取消发票申请",
+    description="""
+    取消当前登录运营商的待审核发票申请。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: operator
+
+    **路径参数**:
+    - invoice_id: 发票ID(格式: inv_{uuid})
+
+    **业务规则**:
+    - 只能取消状态为 pending(待审核) 的发票
+    - 已审核(approved/rejected)或已开具(issued)的发票无法取消
+    - 只能取消自己的发票申请
+
+    **响应**:
+    - 成功: HTTP 204 No Content (无响应体)
+    - 失败: 返回错误信息
+    """
+)
+async def cancel_invoice(
+    invoice_id: str,
+    token: dict = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+):
+    """取消发票申请API
+
+    Args:
+        invoice_id: 发票ID (格式: inv_{uuid})
+        token: JWT Token payload
+        db: 数据库会话
+
+    Raises:
+        HTTPException 401: 未认证或Token无效
+        HTTPException 403: 权限不足
+        HTTPException 404: 发票不存在
+        HTTPException 400: 无法取消(状态不允许)
+    """
+    operator_service = OperatorService(db)
+
+    # 从token中提取operator_id
+    operator_id_str = token.get("sub")
+    if not operator_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_TOKEN",
+                "message": "Token中缺少用户ID"
+            }
+        )
+
+    try:
+        operator_id = UUID(operator_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_OPERATOR_ID",
+                "message": f"无效的运营商ID格式: {operator_id_str}"
+            }
+        )
+
+    # 解析invoice_id (移除 "inv_" 前缀)
+    if not invoice_id.startswith("inv_"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_INVOICE_ID",
+                "message": f"无效的发票ID格式: {invoice_id}"
+            }
+        )
+
+    try:
+        invoice_uuid = UUID(invoice_id[4:])  # 移除 "inv_" 前缀
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_INVOICE_ID",
+                "message": f"无效的发票ID格式: {invoice_id}"
+            }
+        )
+
+    # 调用服务层取消发票
+    try:
+        await operator_service.cancel_invoice(
+            operator_id=operator_id,
+            invoice_id=invoice_uuid
+        )
+        return None  # HTTP 204 No Content
+
+    except HTTPException:
+        # 重新抛出服务层异常(如404, 400)
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error_code": "INTERNAL_ERROR",
+                "message": f"取消发票申请失败: {str(e)}"
             }
         )
 
@@ -1208,12 +1720,15 @@ async def get_invoices(
         for invoice in invoices:
             items.append(InvoiceResponse(
                 invoice_id=f"inv_{invoice.id}",
-                amount=str(invoice.amount),
+                amount=str(invoice.invoice_amount),
                 invoice_title=invoice.invoice_title,
+                invoice_type=invoice.invoice_type,
                 tax_id=invoice.tax_id,
-                email=invoice.email,
+                email=getattr(invoice, 'email', None),
                 status=invoice.status,
-                pdf_url=invoice.pdf_url,
+                reject_reason=invoice.reject_reason,
+                invoice_number=invoice.invoice_number,
+                pdf_url=getattr(invoice, 'invoice_file_url', None),
                 reviewed_by=f"fin_{invoice.reviewed_by}" if invoice.reviewed_by else None,
                 reviewed_at=invoice.reviewed_at,
                 created_at=invoice.created_at

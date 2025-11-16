@@ -411,6 +411,24 @@
 - [X] T188 [P] [US6] 实现查询审计日志API in backend/src/api/v1/finance/audit-logs.py::get_audit_logs (GET /v1/finance/audit-logs)
 - [X] T189 [US6] 注册财务路由 in backend/src/main.py
 
+### 银行转账审核功能 (扩展User Story 6)
+
+- [ ] T189a [P] [US6] 契约测试：银行转账审核列表接口 in backend/tests/contract/test_finance_bank_transfers.py (GET /v1/finance/bank-transfers，验证分页、筛选、状态查询)
+- [ ] T189b [P] [US6] 契约测试：批准银行转账接口 in backend/tests/contract/test_finance_approve_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/approve)
+- [ ] T189c [P] [US6] 契约测试：拒绝银行转账接口 in backend/tests/contract/test_finance_reject_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/reject)
+- [ ] T189d [P] [US6] 集成测试：银行转账审核流程 in backend/tests/integration/test_finance_bank_transfer_review.py (查看列表→查看凭证→批准/拒绝→余额更新)
+
+### Pydantic Schemas (可并行)
+
+- [X] T189e [P] [US6] 创建银行转账审核Schema in backend/src/schemas/finance/bank_transfer.py (BankTransferListResponse, BankTransferItem, ApproveRejectRequest)
+
+### API接口 (可并行)
+
+- [X] T189f [P] [US6] 实现银行转账审核列表API in backend/src/api/v1/finance/bank_transfers.py::get_bank_transfers (GET /v1/finance/bank-transfers)
+- [X] T189g [P] [US6] 实现批准银行转账API in backend/src/api/v1/finance/bank_transfers.py::approve_bank_transfer (POST /v1/finance/bank-transfers/{transfer_id}/approve)
+- [X] T189h [P] [US6] 实现拒绝银行转账API in backend/src/api/v1/finance/bank_transfers.py::reject_bank_transfer (POST /v1/finance/bank-transfers/{transfer_id}/reject)
+- [ ] T189i [US6] 注册银行转账审核路由 in backend/src/main.py
+
 ### 后台任务 (定时报表生成)
 
 - [X] T189a [US6] 实现定时财务报表生成任务 in backend/src/tasks/scheduled_reports.py (使用APScheduler，每日凌晨1点生成日报、每周一凌晨生成周报、每月1日凌晨生成月报，报表包含收入统计/大客户数据/使用统计三部分，自动保存到文件系统backend/reports/并记录数据库finance_reports表)
@@ -565,6 +583,9 @@
 - [X] T257 [P] 实现发票审核页 in frontend/src/pages/finance/Invoices.vue
 - [X] T258 [P] 实现财务报表页 in frontend/src/pages/finance/Reports.vue (生成和导出)
 - [X] T259 [P] 实现审计日志页 in frontend/src/pages/finance/AuditLogs.vue
+- [ ] T259a [P] 实现银行转账审核页 in frontend/src/pages/finance/BankTransfers.vue (列表、查看凭证、批准/拒绝)
+- [ ] T259b [P] 更新财务Layout菜单，添加银行转账审核菜单项 in frontend/src/pages/finance/Layout.vue
+- [ ] T259c [P] 更新财务Dashboard，添加银行转账待处理统计 in frontend/src/pages/finance/Dashboard.vue
 
 **Checkpoint**: 前端三端功能完整
 

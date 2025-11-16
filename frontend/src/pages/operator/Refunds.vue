@@ -22,7 +22,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="refund_id" label="退款ID" width="200" show-overflow-tooltip />
+        <el-table-column label="退款ID" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.refund_id }}
+          </template>
+        </el-table-column>
         <el-table-column prop="requested_amount" label="退款金额" width="120">
           <template #default="{ row }">
             <span class="refund-amount">¥{{ row.requested_amount }}</span>
@@ -50,6 +54,20 @@
         <el-table-column prop="updated_at" label="更新时间" width="180">
           <template #default="{ row }">
             {{ formatDateTime(row.updated_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'pending'"
+              type="danger"
+              size="small"
+              text
+              @click="handleCancel(row)"
+            >
+              取消
+            </el-button>
+            <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -136,7 +154,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -290,6 +308,30 @@ const handlePageSizeChange = () => {
 // 对话框关闭时重置表单
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+}
+
+// 取消退款申请
+const handleCancel = async (refund: Refund) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要取消这个退款申请吗？退款金额: ¥${refund.requested_amount}`,
+      '取消退款申请',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await operatorStore.cancelRefund(refund.refund_id)
+    ElMessage.success('退款申请已取消')
+    await loadRefunds()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Cancel refund error:', error)
+      ElMessage.error('取消退款申请失败')
+    }
+  }
 }
 
 onMounted(() => {
