@@ -232,6 +232,13 @@ class OperatorAccount(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个运营商有多条银行转账充值申请
+    bank_transfer_applications: Mapped[list["BankTransferApplication"]] = relationship(
+        "BankTransferApplication",
+        back_populates="operator",
+        lazy="selectin"
+    )
+
     # 1:N - 一个运营商有多条消息通知
     messages: Mapped[list["OperatorMessage"]] = relationship(
         "OperatorMessage",

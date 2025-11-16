@@ -13,6 +13,7 @@ User Story 1 - 游戏授权与实时计费:
 User Story 2 - 运营商账户与财务管理:
 - RefundRecord: 退款申请记录
 - InvoiceRecord: 发票申请记录
+- BankTransferApplication: 银行转账充值申请记录
 
 User Story 3 - 运营点与应用授权管理:
 - ApplicationRequest: 应用授权申请记录
@@ -25,6 +26,7 @@ from .admin import AdminAccount
 from .app_request import ApplicationRequest
 from .application import Application
 from .authorization import OperatorAppAuthorization
+from .bank_transfer import BankTransferApplication
 from .finance import FinanceAccount
 from .game_session import GameSession
 from .headset_device import HeadsetDevice
@@ -47,6 +49,7 @@ __all__ = [
     "OperatorAppAuthorization",
     "RefundRecord",
     "InvoiceRecord",
+    "BankTransferApplication",
     "ApplicationRequest",
     "FinanceAccount",
     "OperatorMessage",

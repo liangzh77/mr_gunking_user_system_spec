@@ -170,6 +170,20 @@ class Settings(BaseSettings):
         description="Payment callback timeout in minutes",
     )
 
+    # ========== Bank Account Configuration ==========
+    COMPANY_BANK_ACCOUNT_NAME: str = Field(
+        default="北京触角科技有限公司",
+        description="Company bank account name for bank transfer recharge"
+    )
+    COMPANY_BANK_ACCOUNT_NUMBER: str = Field(
+        default="0106014170032120",
+        description="Company bank account number"
+    )
+    COMPANY_BANK_NAME: str = Field(
+        default="民生银行北京工体北路支行",
+        description="Company bank name and branch"
+    )
+
     @field_validator("CORS_ORIGINS")
     @classmethod
     def parse_cors_origins(cls, v: str) -> list[str]:

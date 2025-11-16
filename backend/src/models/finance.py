@@ -90,6 +90,14 @@ class FinanceAccount(Base):
         lazy="select"
     )
 
+    # 一个财务人员审核多个银行转账申请
+    reviewed_bank_transfers = relationship(
+        "BankTransferApplication",
+        foreign_keys="[BankTransferApplication.reviewed_by]",
+        back_populates="reviewer",
+        lazy="select"
+    )
+
     # 一个财务人员产生多条操作记录
     operation_logs = relationship(
         "FinanceOperationLog",
