@@ -91,7 +91,18 @@
             </template>
             <el-descriptions :column="1" border v-loading="loadingBankInfo">
               <el-descriptions-item label="户名">
-                {{ bankAccountInfo.account_name }}
+                <div class="account-number">
+                  <span>{{ bankAccountInfo.account_name }}</span>
+                  <el-button
+                    link
+                    type="primary"
+                    @click="copyAccountName"
+                    style="margin-left: 10px"
+                  >
+                    <el-icon><DocumentCopy /></el-icon>
+                    复制
+                  </el-button>
+                </div>
               </el-descriptions-item>
               <el-descriptions-item label="账号">
                 <div class="account-number">
@@ -108,7 +119,18 @@
                 </div>
               </el-descriptions-item>
               <el-descriptions-item label="开户行">
-                {{ bankAccountInfo.bank_name }}
+                <div class="account-number">
+                  <span>{{ bankAccountInfo.bank_name }}</span>
+                  <el-button
+                    link
+                    type="primary"
+                    @click="copyBankName"
+                    style="margin-left: 10px"
+                  >
+                    <el-icon><DocumentCopy /></el-icon>
+                    复制
+                  </el-button>
+                </div>
               </el-descriptions-item>
             </el-descriptions>
           </el-card>
@@ -449,6 +471,26 @@ const copyAccountNumber = async () => {
   try {
     await navigator.clipboard.writeText(bankAccountInfo.value.account_number)
     ElMessage.success('账号已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('复制失败')
+  }
+}
+
+// 复制户名
+const copyAccountName = async () => {
+  try {
+    await navigator.clipboard.writeText(bankAccountInfo.value.account_name)
+    ElMessage.success('户名已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('复制失败')
+  }
+}
+
+// 复制开户行
+const copyBankName = async () => {
+  try {
+    await navigator.clipboard.writeText(bankAccountInfo.value.bank_name)
+    ElMessage.success('开户行已复制到剪贴板')
   } catch (error) {
     ElMessage.error('复制失败')
   }

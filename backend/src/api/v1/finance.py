@@ -1831,6 +1831,7 @@ async def get_recharge_records(
     operator_id: Optional[str] = Query(None, description="运营商ID筛选（格式: op_xxx或uuid）"),
     start_date: Optional[str] = Query(None, description="开始日期（格式: YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="结束日期（格式: YYYY-MM-DD）"),
+    recharge_method: Optional[str] = Query(None, description="充值方式筛选(manual/online/bank_transfer)"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -1896,6 +1897,21 @@ async def get_recharge_records(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"error_code": "INVALID_DATE", "message": "结束日期格式错误，应为YYYY-MM-DD"}
                 )
+
+        # 按充值方式筛选
+        if recharge_method:
+            if recharge_method == "manual":
+                # 手动充值: payment_channel为空
+                filters.append(TransactionRecord.payment_channel.is_(None))
+            elif recharge_method == "online":
+                # 在线充值: payment_channel不为空且不是bank_transfer
+                filters.append(and_(
+                    TransactionRecord.payment_channel.isnot(None),
+                    TransactionRecord.payment_channel != 'bank_transfer'
+                ))
+            elif recharge_method == "bank_transfer":
+                # 银行转账
+                filters.append(TransactionRecord.payment_channel == 'bank_transfer')
 
         # 应用筛选条件
         if filters:

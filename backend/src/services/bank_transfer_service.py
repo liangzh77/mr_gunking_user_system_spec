@@ -172,10 +172,14 @@ class BankTransferService:
                 updated_at=app.updated_at
             ))
 
+        # Calculate total pages
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+
         return BankTransferListResponse(
             page=page,
             page_size=page_size,
             total=total,
+            total_pages=total_pages,
             items=items
         )
 
