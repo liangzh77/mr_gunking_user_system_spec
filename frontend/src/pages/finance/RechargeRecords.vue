@@ -43,6 +43,19 @@
           />
         </el-form-item>
 
+        <el-form-item label="充值方式">
+          <el-select
+            v-model="queryForm.recharge_method"
+            placeholder="全部方式"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="手动充值" value="manual" />
+            <el-option label="在线充值" value="online" />
+            <el-option label="银行转账" value="bank_transfer" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" @click="handleQuery">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -248,6 +261,7 @@ const route = useRoute()
 const queryForm = reactive({
   operator_id: '',
   date_range: [] as string[],
+  recharge_method: '', // 充值方式: manual(手动), online(在线), bank_transfer(银行转账)
 })
 
 // 分页信息
@@ -282,6 +296,10 @@ const fetchRecords = async () => {
     if (queryForm.date_range && queryForm.date_range.length === 2) {
       params.start_date = queryForm.date_range[0]
       params.end_date = queryForm.date_range[1]
+    }
+
+    if (queryForm.recharge_method) {
+      params.recharge_method = queryForm.recharge_method
     }
 
     const response = await http.get('/finance/recharge-records', { params })
@@ -321,6 +339,7 @@ const handleQuery = () => {
 const handleReset = () => {
   queryForm.operator_id = ''
   queryForm.date_range = []
+  queryForm.recharge_method = ''
   pagination.page = 1
   fetchRecords()
 }
