@@ -211,13 +211,13 @@ echo "export REDIS_PASSWORD=你的REDIS_PASSWORD" >> ~/.bashrc
 
 ```bash
 # 拉取并构建镜像（首次部署需要几分钟）
-docker-compose -f docker-compose.yml build
+docker-compose build
 
 # 启动所有服务
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 查看服务状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 ```
 
 预期输出：所有服务状态应该是 `Up` 或 `Up (healthy)`
@@ -261,7 +261,7 @@ curl -X POST http://localhost:8000/api/v1/auth/admins/login \
 sudo crontab -e
 
 # 添加以下行（每天凌晨2点检查证书更新）
-0 2 * * * /usr/bin/certbot renew --quiet && cd ~/mr_game_ops && docker-compose -f docker-compose.yml restart nginx
+0 2 * * * /usr/bin/certbot renew --quiet && cd ~/mr_game_ops && docker-compose restart nginx
 ```
 
 ### ✅ 部署完成！
@@ -459,7 +459,7 @@ curl -X POST http://localhost:8000/api/v1/auth/admins/login \
 ### 查看日志
 ```bash
 # 方案A
-docker-compose -f docker-compose.yml logs -f backend
+docker-compose logs -f backend
 
 # 方案B
 docker-compose -f docker-compose.simple-prod.yml logs -f backend
@@ -468,7 +468,7 @@ docker-compose -f docker-compose.simple-prod.yml logs -f backend
 ### 重启服务
 ```bash
 # 方案A
-docker-compose -f docker-compose.yml restart backend
+docker-compose restart backend
 
 # 方案B
 docker-compose -f docker-compose.simple-prod.yml restart backend
@@ -477,7 +477,7 @@ docker-compose -f docker-compose.simple-prod.yml restart backend
 ### 停止所有服务
 ```bash
 # 方案A
-docker-compose -f docker-compose.yml down
+docker-compose down
 
 # 方案B
 docker-compose -f docker-compose.simple-prod.yml down
@@ -505,7 +505,7 @@ docker stats
 
 ```bash
 # 检查日志
-docker-compose -f docker-compose.yml logs backend
+docker-compose logs backend
 
 # 常见原因：
 # - 环境变量未设置（POSTGRES_PASSWORD, REDIS_PASSWORD）
@@ -517,7 +517,7 @@ docker-compose -f docker-compose.yml logs backend
 
 ```bash
 # 检查Nginx状态
-docker-compose -f docker-compose.yml logs nginx
+docker-compose logs nginx
 
 # 检查防火墙
 sudo ufw status

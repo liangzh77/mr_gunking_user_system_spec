@@ -343,7 +343,7 @@ def main():
         print("     export REDIS_PASSWORD=<strong_password>")
         print("  2. 修改 backend/.env.production 中的所有密钥")
         print("  3. 配置SSL证书到 nginx/ssl/ 目录")
-        print("  4. 启动服务: docker-compose -f docker-compose.yml up -d")
+        print("  4. 启动服务: docker-compose up -d")
 
     print("\n提示:")
     print("  - 完整部署文档: docs/DEPLOYMENT.md")

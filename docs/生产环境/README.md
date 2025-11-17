@@ -202,10 +202,10 @@ operator3,Pass123!,运营商三,op3@example.com,13800000003,1500
 **解决方法：**
 ```bash
 # 检查容器状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 如果未运行，启动服务
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 ```
 
 ### 问题2：脚本报错"权限不足"
@@ -235,13 +235,13 @@ bash manage_accounts.sh
 **解决方法：**
 ```bash
 # 检查数据库容器状态
-docker-compose -f docker-compose.yml ps postgres
+docker-compose ps postgres
 
 # 查看数据库日志
-docker-compose -f docker-compose.yml logs postgres
+docker-compose logs postgres
 
 # 重启数据库（谨慎操作）
-docker-compose -f docker-compose.yml restart postgres
+docker-compose restart postgres
 ```
 
 ## 📚 相关文档

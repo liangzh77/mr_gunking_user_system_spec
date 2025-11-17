@@ -421,7 +421,7 @@ cd "$APP_DIR"
 
 # 停止旧容器
 print_info "停止旧容器..."
-docker compose -f docker-compose.yml down -v 2>/dev/null || true
+docker compose down -v 2>/dev/null || true
 print_success "旧容器已停止"
 
 echo ""
@@ -433,7 +433,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  构建Backend..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if ! docker compose -f docker-compose.yml build backend; then
+if ! docker compose build backend; then
     echo ""
     print_error "Backend构建失败"
     echo ""
@@ -453,7 +453,7 @@ echo ""
 print_info "启动所有服务..."
 echo ""
 
-if ! docker compose -f docker-compose.yml up -d; then
+if ! docker compose up -d; then
     error_exit "服务启动失败"
 fi
 
@@ -481,7 +481,7 @@ echo "║                    容器运行状态                                 
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 
-docker compose -f docker-compose.yml ps
+docker compose ps
 
 # 健康检查
 echo ""
@@ -569,7 +569,7 @@ echo ""
 echo "🔧 常用管理命令"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  查看服务状态:"
-echo "    cd $APP_DIR && docker compose -f docker-compose.yml ps"
+echo "    cd $APP_DIR && docker compose ps"
 echo ""
 echo "  查看所有日志:"
 echo "    docker compose -f $APP_DIR/docker-compose.yml logs -f"

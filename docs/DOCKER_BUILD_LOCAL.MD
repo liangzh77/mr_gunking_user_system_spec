@@ -3,7 +3,7 @@
 ### 步骤1：本地构建并打标签
 ```bash
 # 在本地使用生产环境配置构建
-docker-compose -f docker-compose.yml --env-file .env.production build frontend backend
+docker-compose build frontend backend
 
 # 给镜像打标签（准备推送到Docker Hub或阿里云容器镜像服务）
 docker tag mr_gunking_user_system_spec-backend:latest your-registry/mr-backend:v2.0
@@ -38,7 +38,7 @@ docker-compose up -d
 ### 步骤1：本地构建
 ```bash
 # 在本地使用生产环境配置构建
-docker-compose -f docker-compose.yml --env-file .env.production build frontend backend
+docker-compose build frontend backend
 ```
 
 ### 步骤2：导出镜像为tar文件
@@ -72,7 +72,7 @@ rm /tmp/backend-v2.0.tar /tmp/frontend-v2.0.tar
 # 重启服务
 cd /opt/mr_gunking_user_system_spec
 docker-compose down
-docker-compose -f docker-compose.yml --env-file .env.production up -d
+docker-compose up -d
 ```
 
 ---
@@ -90,7 +90,7 @@ docker-compose -f docker-compose.yml --env-file .env.production up -d
 cd C:\liangz77\python_projects\github_projects\mr_gunking_user_system_spec
 
 # 1. 使用生产环境配置构建
-docker-compose -f docker-compose.yml --env-file .env.production build frontend backend
+docker-compose build frontend backend
 
 # 2. 导出镜像
 docker save mr_gunking_user_system_spec-backend:latest -o backend-v2.0.tar
@@ -110,7 +110,7 @@ docker load -i /tmp/frontend-v2.0.tar
 
 # 5. 重启服务
 docker-compose down
-docker-compose -f docker-compose.yml --env-file .env.production up -ds
+docker-compose up -ds
 
 # 6. 执行数据库迁移
 docker-compose exec backend alembic upgrade head

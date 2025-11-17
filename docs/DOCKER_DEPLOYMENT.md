@@ -9,10 +9,10 @@
   docker-compose down
 
   # 3. 重新构建backend和frontend镜像（--no-cache确保使用最新代码）
-  docker-compose -f docker-compose.yml --env-file .env.production build backend frontend
+  docker-compose build backend frontend
 
   # 4. 启动所有服务
-  docker-compose -f docker-compose.yml --env-file .env.production up -d
+  docker-compose up -d
 
   # 5. 执行数据库迁移
   docker-compose exec backend alembic upgrade head
@@ -25,7 +25,7 @@
 
 
   # 重启backend
-  docker-compose -f docker-compose.yml --env-file .env.production up -d --force-recreate backend
+  docker-compose up -d --force-recreate backend
 
   # 查看backend启动日志
   docker logs mr_game_ops_backend --tail 50

@@ -226,10 +226,10 @@ $env:POSTGRES_PASSWORD="你的数据库密码"
 $env:REDIS_PASSWORD="你的Redis密码"
 
 # 启动服务
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 查看状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 ```
 
 ### 步骤11：初始化数据库
@@ -325,13 +325,13 @@ ports:
 
 ```powershell
 # 查看所有服务日志
-docker-compose -f docker-compose.yml logs -f
+docker-compose logs -f
 
 # 查看特定服务
-docker-compose -f docker-compose.yml logs -f backend
+docker-compose logs -f backend
 
 # 导出日志
-docker-compose -f docker-compose.yml logs > logs.txt
+docker-compose logs > logs.txt
 ```
 
 ### 数据库备份
@@ -387,16 +387,16 @@ Set-NetAdapterAdvancedProperty -Name "Ethernet" -DisplayName "Jumbo Packet" -Dis
 
 ```powershell
 # 启动服务
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 停止服务
-docker-compose -f docker-compose.yml down
+docker-compose down
 
 # 重启服务
-docker-compose -f docker-compose.yml restart
+docker-compose restart
 
 # 查看状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 查看资源使用
 docker stats
@@ -405,12 +405,12 @@ docker stats
 docker exec -it mr_game_ops_backend_prod bash
 
 # 查看日志
-docker-compose -f docker-compose.yml logs -f backend
+docker-compose logs -f backend
 
 # 更新部署
 git pull
-docker-compose -f docker-compose.yml build
-docker-compose -f docker-compose.yml up -d
+docker-compose build
+docker-compose up -d
 docker exec mr_game_ops_backend_prod alembic upgrade head
 ```
 
@@ -432,7 +432,7 @@ docker exec mr_game_ops_db_prod pg_dump -U mr_admin mr_game_ops > database_expor
 ```bash
 # 在Linux服务器上
 # 按照 docs/DEPLOYMENT.md 部署
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 恢复数据
 cat database_export.sql | docker exec -i mr_game_ops_db_prod psql -U mr_admin mr_game_ops

@@ -28,7 +28,7 @@ DB_CONTAINER="mr_game_ops_db"
 check_container() {
     if ! docker ps | grep -q "$BACKEND_CONTAINER"; then
         echo -e "${RED}错误: 后端容器未运行${NC}"
-        echo "请先启动服务: docker-compose -f docker-compose.yml up -d"
+        echo "请先启动服务: docker-compose up -d"
         exit 1
     fi
 }

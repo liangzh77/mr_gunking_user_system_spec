@@ -249,14 +249,14 @@ source .env.prod
 set +a
 
 # 停止可能存在的旧容器
-docker compose -f docker-compose.yml down -v > /dev/null 2>&1 || true
+docker compose down -v > /dev/null 2>&1 || true
 
 # 构建并启动容器
 print_step "构建Docker镜像（请稍候）..."
-docker compose -f docker-compose.yml build --no-cache
+docker compose build --no-cache
 
 print_step "启动所有服务..."
-docker compose -f docker-compose.yml up -d
+docker compose up -d
 
 # 等待容器启动
 print_step "等待服务启动（60秒）..."
@@ -271,7 +271,7 @@ print_step "【步骤9/10】验证部署..."
 
 echo ""
 echo "容器状态:"
-docker compose -f docker-compose.yml ps
+docker compose ps
 
 echo ""
 echo "正在检查各服务健康状态..."
@@ -362,10 +362,10 @@ echo "  Prometheus:    http://$SERVER_IP:9090"
 echo ""
 echo "🔧 常用管理命令:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  查看服务状态:  cd /opt/mr-game-ops && docker compose -f docker-compose.yml ps"
-echo "  查看日志:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml logs -f"
-echo "  重启服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml restart"
-echo "  停止服务:      cd /opt/mr-game-ops && docker compose -f docker-compose.yml down"
+echo "  查看服务状态:  cd /opt/mr-game-ops && docker compose ps"
+echo "  查看日志:      cd /opt/mr-game-ops && docker compose logs -f"
+echo "  重启服务:      cd /opt/mr-game-ops && docker compose restart"
+echo "  停止服务:      cd /opt/mr-game-ops && docker compose down"
 echo "  手动备份:      /opt/mr-game-ops/scripts/backup.sh"
 echo ""
 echo "⚠️  下一步操作:"

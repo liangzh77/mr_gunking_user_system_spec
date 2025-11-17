@@ -63,7 +63,7 @@ export POSTGRES_PASSWORD=YOUR_DB_PASSWORD
 export REDIS_PASSWORD=YOUR_REDIS_PASSWORD
 
 # 启动
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 初始化数据库
 docker exec -it mr_game_ops_backend_prod alembic upgrade head
@@ -74,7 +74,7 @@ docker exec -it mr_game_ops_backend_prod python init_data.py
 
 ```bash
 # 检查服务
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 测试健康检查
 curl http://localhost:8000/health
@@ -125,10 +125,10 @@ curl https://yourdomain.com
 
 ```bash
 # 查看日志
-docker-compose -f docker-compose.yml logs -f backend
+docker-compose logs -f backend
 
 # 重启服务
-docker-compose -f docker-compose.yml restart backend
+docker-compose restart backend
 
 # 查看资源使用
 docker stats
@@ -157,8 +157,8 @@ docker exec mr_game_ops_db_prod psql -U mr_admin -d mr_game_ops -c "SELECT count
 git pull origin production
 
 # 重新构建并更新
-docker-compose -f docker-compose.yml build
-docker-compose -f docker-compose.yml up -d
+docker-compose build
+docker-compose up -d
 
 # 运行迁移
 docker exec -it mr_game_ops_backend_prod alembic upgrade head
@@ -172,7 +172,7 @@ docker exec -it mr_game_ops_backend_prod alembic upgrade head
 
 ```bash
 # 检查服务状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 查看资源使用
 docker stats
@@ -180,7 +180,7 @@ free -h
 df -h
 
 # 重启服务
-docker-compose -f docker-compose.yml restart
+docker-compose restart
 ```
 
 ### 数据库性能问题

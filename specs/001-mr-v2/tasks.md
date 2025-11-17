@@ -413,10 +413,10 @@
 
 ### 银行转账审核功能 (扩展User Story 6)
 
-- [ ] T189a [P] [US6] 契约测试：银行转账审核列表接口 in backend/tests/contract/test_finance_bank_transfers.py (GET /v1/finance/bank-transfers，验证分页、筛选、状态查询)
-- [ ] T189b [P] [US6] 契约测试：批准银行转账接口 in backend/tests/contract/test_finance_approve_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/approve)
-- [ ] T189c [P] [US6] 契约测试：拒绝银行转账接口 in backend/tests/contract/test_finance_reject_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/reject)
-- [ ] T189d [P] [US6] 集成测试：银行转账审核流程 in backend/tests/integration/test_finance_bank_transfer_review.py (查看列表→查看凭证→批准/拒绝→余额更新)
+- [X] T189a [P] [US6] 契约测试：银行转账审核列表接口 in backend/tests/contract/test_finance_bank_transfers.py (GET /v1/finance/bank-transfers，验证分页、筛选、状态查询)
+- [X] T189b [P] [US6] 契约测试：批准银行转账接口 in backend/tests/contract/test_finance_approve_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/approve)
+- [X] T189c [P] [US6] 契约测试：拒绝银行转账接口 in backend/tests/contract/test_finance_reject_bank_transfer.py (POST /v1/finance/bank-transfers/{transfer_id}/reject)
+- [X] T189d [P] [US6] 集成测试：银行转账审核流程 in backend/tests/integration/test_finance_bank_transfer_review.py (查看列表→查看凭证→批准/拒绝→余额更新)
 
 ### Pydantic Schemas (可并行)
 
@@ -427,7 +427,7 @@
 - [X] T189f [P] [US6] 实现银行转账审核列表API in backend/src/api/v1/finance/bank_transfers.py::get_bank_transfers (GET /v1/finance/bank-transfers)
 - [X] T189g [P] [US6] 实现批准银行转账API in backend/src/api/v1/finance/bank_transfers.py::approve_bank_transfer (POST /v1/finance/bank-transfers/{transfer_id}/approve)
 - [X] T189h [P] [US6] 实现拒绝银行转账API in backend/src/api/v1/finance/bank_transfers.py::reject_bank_transfer (POST /v1/finance/bank-transfers/{transfer_id}/reject)
-- [ ] T189i [US6] 注册银行转账审核路由 in backend/src/main.py
+- [X] T189i [US6] 注册银行转账审核路由 in backend/src/main.py
 
 ### 后台任务 (定时报表生成)
 
@@ -583,9 +583,9 @@
 - [X] T257 [P] 实现发票审核页 in frontend/src/pages/finance/Invoices.vue
 - [X] T258 [P] 实现财务报表页 in frontend/src/pages/finance/Reports.vue (生成和导出)
 - [X] T259 [P] 实现审计日志页 in frontend/src/pages/finance/AuditLogs.vue
-- [ ] T259a [P] 实现银行转账审核页 in frontend/src/pages/finance/BankTransfers.vue (列表、查看凭证、批准/拒绝)
-- [ ] T259b [P] 更新财务Layout菜单，添加银行转账审核菜单项 in frontend/src/pages/finance/Layout.vue
-- [ ] T259c [P] 更新财务Dashboard，添加银行转账待处理统计 in frontend/src/pages/finance/Dashboard.vue
+- [X] T259a [P] 实现银行转账审核页 in frontend/src/pages/finance/BankTransfers.vue (列表、查看凭证、批准/拒绝)
+- [X] T259b [P] 更新财务Layout菜单，添加银行转账审核菜单项 in frontend/src/pages/finance/Layout.vue
+- [X] T259c [P] 更新财务Dashboard，添加银行转账待处理统计 in frontend/src/pages/finance/Dashboard.vue
 
 **Checkpoint**: 前端三端功能完整
 
@@ -871,7 +871,7 @@ Task: "创建交易记录Schema in backend/src/schemas/transaction.py"
 - [X] T323 测试运营商详情 (点击运营商, 查看详细信息和运营点列表) ✅
 - [X] T324 测试应用管理 (访问 /admin/applications, 创建应用, 设置价格和玩家范围) ✅
 - [X] T325 测试应用更新 (编辑应用信息, 调整价格, 修改玩家数限制) ✅
-- [X] T326 测试授权申请审批 (访问 /admin/app-requests, 审批通过/拒绝) ✅
+- c T326 测试授权申请审批 (访问 /admin/app-requests, 审批通过/拒绝) ✅
 - [ ] T327 ⚠️ 测试授权管理 (为运营商授权应用, 撤销授权)
 - [X] T328 测试交易监控 (访问 /admin/transactions, 查看全局交易记录) ✅
 
