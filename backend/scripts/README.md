@@ -160,7 +160,7 @@ finance001      张财务          finance         zhang@example.com         激
 **原因**：数据库凭据不正确或数据库未启动
 
 **解决**：
-1. 检查数据库容器状态：`docker compose -f docker-compose.yml ps`
+1. 检查数据库容器状态：`docker compose ps`
 2. 检查数据库密码是否正确
 
 ### 问题：用户已存在

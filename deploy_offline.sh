@@ -117,9 +117,9 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[4/6] 检查并停止旧服务...${NC}"
 
-if docker-compose -f docker-compose.yml ps -q 2>/dev/null | grep -q .; then
+if docker-compose ps -q 2>/dev/null | grep -q .; then
     echo "发现运行中的服务,正在停止..."
-    docker-compose -f docker-compose.yml down
+    docker-compose down
     echo -e "${GREEN}✓ 旧服务已停止${NC}"
 else
     echo "没有运行中的服务"
@@ -139,7 +139,7 @@ export VERSION="1.0.0"
 
 # 构建后端
 echo -e "${BLUE}构建后端服务...${NC}"
-if docker-compose -f docker-compose.yml build --no-cache backend; then
+if docker-compose build --no-cache backend; then
     echo -e "${GREEN}✓ 后端构建成功${NC}"
 else
     echo -e "${RED}✗ 后端构建失败${NC}"
@@ -150,7 +150,7 @@ echo ""
 
 # 构建前端
 echo -e "${BLUE}构建前端服务...${NC}"
-if docker-compose -f docker-compose.yml build --no-cache frontend; then
+if docker-compose build --no-cache frontend; then
     echo -e "${GREEN}✓ 前端构建成功${NC}"
 else
     echo -e "${RED}✗ 前端构建失败${NC}"
@@ -164,11 +164,11 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[6/6] 启动服务...${NC}"
 
-if docker-compose -f docker-compose.yml up -d; then
+if docker-compose up -d; then
     echo -e "${GREEN}✓ 服务启动成功${NC}"
 else
     echo -e "${RED}✗ 服务启动失败${NC}"
-    echo "查看日志: docker-compose -f docker-compose.yml logs"
+    echo "查看日志: docker-compose logs"
     exit 1
 fi
 echo ""
@@ -195,7 +195,7 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 
 # 显示服务状态
 echo -e "${YELLOW}服务状态:${NC}"
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 echo ""
 
 # 显示访问信息
@@ -229,22 +229,22 @@ echo -e "  常用管理命令"
 echo -e "==========================================${NC}"
 echo ""
 echo "查看所有日志:"
-echo "  docker-compose -f docker-compose.yml logs -f"
+echo "  docker-compose logs -f"
 echo ""
 echo "查看后端日志:"
-echo "  docker-compose -f docker-compose.yml logs -f backend"
+echo "  docker-compose logs -f backend"
 echo ""
 echo "查看前端日志:"
-echo "  docker-compose -f docker-compose.yml logs -f frontend"
+echo "  docker-compose logs -f frontend"
 echo ""
 echo "重启服务:"
-echo "  docker-compose -f docker-compose.yml restart"
+echo "  docker-compose restart"
 echo ""
 echo "停止服务:"
-echo "  docker-compose -f docker-compose.yml down"
+echo "  docker-compose down"
 echo ""
 echo "查看容器状态:"
-echo "  docker-compose -f docker-compose.yml ps"
+echo "  docker-compose ps"
 echo ""
 
 # 保存部署信息
@@ -265,13 +265,13 @@ cat > "$DEPLOY_INFO" << INFO_EOF
   API文档:  http://$SERVER_IP:8000/docs
 
 服务列表:
-$(docker-compose -f docker-compose.yml ps)
+$(docker-compose ps)
 
 管理命令:
-  查看日志: docker-compose -f docker-compose.yml logs -f
-  重启服务: docker-compose -f docker-compose.yml restart
-  停止服务: docker-compose -f docker-compose.yml down
-  服务状态: docker-compose -f docker-compose.yml ps
+  查看日志: docker-compose logs -f
+  重启服务: docker-compose restart
+  停止服务: docker-compose down
+  服务状态: docker-compose ps
 
 配置文件:
   环境配置: .env.production

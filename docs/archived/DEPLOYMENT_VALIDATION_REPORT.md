@@ -363,11 +363,11 @@ python scripts/validate_docker_deployment.py prod
 
 # Docker配置检查
 docker-compose config
-docker-compose -f docker-compose.yml config
+docker-compose config
 
 # 语法检查
-docker-compose -f docker-compose.yml config > /dev/null
-docker-compose -f docker-compose.yml config > /dev/null
+docker-compose config > /dev/null
+docker-compose config > /dev/null
 ```
 
 ### B. 常用部署命令
@@ -381,9 +381,9 @@ docker-compose down
 # 生产环境
 export POSTGRES_PASSWORD=<password>
 export REDIS_PASSWORD=<password>
-docker-compose -f docker-compose.yml up -d
-docker-compose -f docker-compose.yml ps
-docker-compose -f docker-compose.yml logs -f
+docker-compose up -d
+docker-compose ps
+docker-compose logs -f
 ```
 
 ### C. 问题排查

@@ -274,7 +274,7 @@ cp backend/.env.example backend/.env.prod
 # 设置生产配置：强密码、关闭调试模式等
 
 # 3. 使用生产配置启动
-docker-compose -f docker-compose.yml up -d
+docker-compose up -d
 
 # 4. 配置 Nginx 反向代理 (可选)
 # 添加 HTTPS、域名绑定等

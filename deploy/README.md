@@ -144,23 +144,23 @@ GRAFANA_PASSWORD=your_grafana_password_here
 cd /opt/mr-game-ops
 
 # 查看服务状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 查看服务日志
-docker-compose -f docker-compose.yml logs -f
+docker-compose logs -f
 
 # 重启所有服务
-docker-compose -f docker-compose.yml restart
+docker-compose restart
 
 # 重启特定服务
-docker-compose -f docker-compose.yml restart backend
+docker-compose restart backend
 
 # 停止所有服务
-docker-compose -f docker-compose.yml down
+docker-compose down
 
 # 更新服务
-docker-compose -f docker-compose.yml pull
-docker-compose -f docker-compose.yml up -d --force-recreate
+docker-compose pull
+docker-compose up -d --force-recreate
 ```
 
 ### 数据库管理
@@ -187,7 +187,7 @@ tail -f /opt/mr-game-logs/nginx/access.log
 tail -f /opt/mr-game-logs/nginx/error.log
 
 # 查看Docker日志
-docker-compose -f docker-compose.yml logs backend
+docker-compose logs backend
 ```
 
 ## 📊 监控面板
@@ -243,10 +243,10 @@ ufw enable
 
 ```bash
 # 检查服务状态
-docker-compose -f docker-compose.yml ps
+docker-compose ps
 
 # 查看错误日志
-docker-compose -f docker-compose.yml logs
+docker-compose logs
 
 # 检查资源使用
 docker stats

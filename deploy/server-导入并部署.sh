@@ -259,12 +259,12 @@ cd /opt/mr-game-ops
 
 # 清理旧容器
 echo "  清理旧容器..."
-docker compose -f docker-compose.yml down -v 2>/dev/null || true
+docker compose down -v 2>/dev/null || true
 
 # 构建应用
 echo "  构建后端应用（需要5-10分钟）..."
 echo "  正在安装Python依赖包..."
-docker compose -f docker-compose.yml build backend
+docker compose build backend
 
 if [ $? -ne 0 ]; then
     print_error "后端构建失败"
@@ -283,7 +283,7 @@ print_success "应用构建完成"
 # 启动服务
 echo ""
 echo "  启动所有服务..."
-docker compose -f docker-compose.yml up -d
+docker compose up -d
 
 print_success "服务启动命令已执行"
 
@@ -306,7 +306,7 @@ echo "╔═══════════════════════�
 echo "║                    容器运行状态                                     ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
-docker compose -f docker-compose.yml ps
+docker compose ps
 
 # 健康检查
 echo ""

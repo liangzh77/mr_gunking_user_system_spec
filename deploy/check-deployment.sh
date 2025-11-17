@@ -266,7 +266,7 @@ fi
 
 echo "📝 完整日志命令:"
 echo "  cd /opt/mr-game-ops"
-echo "  docker compose -f docker-compose.yml logs -f [服务名]"
+echo "  docker compose logs -f [服务名]"
 echo ""
 echo "可用服务名: postgres, redis, backend, frontend, nginx, prometheus, grafana"
 echo ""
