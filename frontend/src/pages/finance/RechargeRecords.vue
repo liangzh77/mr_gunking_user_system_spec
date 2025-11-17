@@ -206,6 +206,7 @@
         <el-form-item label="付款凭证">
           <el-upload
             v-model:file-list="paymentFiles"
+            :auto-upload="false"
             :limit="1"
             :on-exceed="handleExceed"
             :before-upload="beforeUpload"
