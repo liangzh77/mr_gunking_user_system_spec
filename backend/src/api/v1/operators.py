@@ -1162,7 +1162,7 @@ async def create_bank_transfer(
     description="查询当前运营商的银行转账充值申请列表"
 )
 async def get_bank_transfers(
-    status: Optional[str] = Query(None, description="申请状态筛选: pending/approved/rejected/all"),
+    status_filter: Optional[str] = Query(None, alias="status", description="申请状态筛选: pending/approved/rejected/all"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_operator),
@@ -1171,7 +1171,7 @@ async def get_bank_transfers(
     """查询银行转账充值申请列表API
 
     Args:
-        status: 状态筛选
+        status_filter: 状态筛选
         page: 页码
         page_size: 每页条数
         token: JWT Token payload
@@ -1199,7 +1199,7 @@ async def get_bank_transfers(
     # 调用服务层查询列表
     transfer_service = BankTransferService(db)
     try:
-        return await transfer_service.get_applications(operator_id, status, page, page_size)
+        return await transfer_service.get_applications(operator_id, status_filter, page, page_size)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
