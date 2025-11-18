@@ -58,18 +58,41 @@ def upgrade() -> None:
 
     if problematic_count and problematic_count > 0:
         print(f"⚠ Warning: Found {problematic_count} refund records that don't match new constraint")
-        print("These records will be listed for manual review...")
+        print("Attempting to fix these records...")
 
-        # 显示问题记录
+        # 显示并修复问题记录
         result = connection.execute(sa.text("""
             SELECT id, amount, balance_before, balance_after, description
             FROM transaction_records
             WHERE transaction_type = 'refund'
             AND (balance_after != balance_before - amount OR amount <= 0)
-            LIMIT 5
         """))
+
+        fixed_count = 0
         for row in result:
-            print(f"  ID: {row[0]}, amount: {row[1]}, before: {row[2]}, after: {row[3]}")
+            record_id = row[0]
+            amount = row[1]
+            balance_before = row[2]
+            balance_after = row[3]
+            expected_balance = balance_before - amount
+
+            print(f"  Fixing ID: {record_id}")
+            print(f"    Current: amount={amount}, before={balance_before}, after={balance_after}")
+            print(f"    Expected after={expected_balance}")
+
+            # 修复 balance_after
+            connection.execute(sa.text("""
+                UPDATE transaction_records
+                SET balance_after = :expected_balance
+                WHERE id = :record_id
+            """), {"expected_balance": expected_balance, "record_id": record_id})
+
+            fixed_count += 1
+
+        print(f"✓ Fixed {fixed_count} refund records")
+
+        # 提交修复
+        connection.commit()
 
     # 添加新的约束 (退款amount必须是正数, balance_after = balance_before - amount)
     print("Adding new balance calculation constraint...")
