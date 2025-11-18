@@ -2652,10 +2652,10 @@ async def get_transactions(
     """
 )
 async def deduct_balance(
+    request: Request,
     operator_id: str = Form(..., description="运营商ID"),
     amount: float = Form(..., description="扣费金额"),
     description: str = Form(..., description="扣费原因"),
-    request: Request,
     token: dict = Depends(require_finance),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
