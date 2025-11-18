@@ -2661,7 +2661,7 @@ async def deduct_balance(
     """财务扣费API"""
     from decimal import Decimal
     from sqlalchemy import select
-    from ...models import Operator, TransactionRecord, FinanceOperationLog
+    from ...models import OperatorAccount, TransactionRecord, FinanceOperationLog
 
     try:
         # 验证金额
@@ -2692,7 +2692,7 @@ async def deduct_balance(
             )
 
         # 查询运营商
-        stmt = select(Operator).where(Operator.id == operator_uuid)
+        stmt = select(OperatorAccount).where(OperatorAccount.id == operator_uuid)
         result = await db.execute(stmt)
         operator = result.scalar_one_or_none()
 
