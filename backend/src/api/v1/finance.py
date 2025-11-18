@@ -2655,6 +2655,7 @@ async def deduct_balance(
     operator_id: str = Form(..., description="运营商ID"),
     amount: float = Form(..., description="扣费金额"),
     description: str = Form(..., description="扣费原因"),
+    request: Request,
     token: dict = Depends(require_finance),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -2732,6 +2733,9 @@ async def deduct_balance(
         db.add(transaction)
 
         # 记录财务操作日志
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "")
+
         operation_log = FinanceOperationLog(
             finance_account_id=UUID(token["sub"]),
             operation_type="deduct",
@@ -2743,6 +2747,8 @@ async def deduct_balance(
                 "balance_before": str(balance_before),
                 "balance_after": str(balance_after),
             },
+            ip_address=client_ip,
+            user_agent=user_agent,
         )
         db.add(operation_log)
 
