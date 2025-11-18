@@ -43,7 +43,7 @@
       </el-form>
 
       <!-- 审计日志表格 -->
-      <el-table :data="logs" v-loading="loading" border stripe>
+      <el-table v-copyable :data="logs" v-loading="loading" border stripe>
         <el-table-column prop="log_id" label="日志ID" width="180" />
         <el-table-column prop="operator_name" label="操作人" width="120" />
         <el-table-column prop="operation_type" label="操作类型" width="100">

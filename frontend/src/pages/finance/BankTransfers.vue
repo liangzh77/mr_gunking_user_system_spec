@@ -47,7 +47,7 @@
       </div>
 
       <!-- 银行转账申请列表 -->
-      <el-table :data="transfers" v-loading="loading" stripe>
+      <el-table v-copyable :data="transfers" v-loading="loading" stripe>
         <el-table-column label="申请ID" width="200" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.application_id }}
@@ -141,7 +141,8 @@
         <el-image
           :src="currentVoucher"
           fit="contain"
-          style="width: 100%; max-height: 500px"
+          style="width: 100%"
+          :preview-src-list="[currentVoucher]"
         >
           <template #error>
             <div class="image-error">
@@ -317,7 +318,8 @@ const confirmReview = async () => {
       reviewing.value = true
     }
 
-    const url = `/finance/bank-transfers/${currentTransfer.value.application_id}/${reviewAction.value}`
+    // 使用原始 ID (UUID) 调用 API，而不是格式化的 application_id
+    const url = `/finance/bank-transfers/${currentTransfer.value.id}/${reviewAction.value}`
     const payload = reviewAction.value === 'approve'
       ? {}
       : { reject_reason: reviewForm.reject_reason }
@@ -424,7 +426,11 @@ onMounted(() => {
 }
 
 .voucher-view {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .image-error {

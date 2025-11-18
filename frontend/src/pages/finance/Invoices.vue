@@ -36,7 +36,7 @@
       </div>
 
       <!-- 发票列表 -->
-      <el-table :data="invoices" v-loading="loading" stripe>
+      <el-table v-copyable :data="invoices" v-loading="loading" stripe>
         <el-table-column prop="invoice_number" label="发票号码" width="180">
           <template #default="{ row }">
             <span v-if="row.invoice_number">{{ row.invoice_number }}</span>

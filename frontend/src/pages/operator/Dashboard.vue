@@ -10,7 +10,9 @@
               <span>账户余额</span>
             </div>
           </template>
-          <div class="stat-value">¥{{ balance }}</div>
+          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${balance}`)">
+            ¥{{ balance }}
+          </div>
           <div class="stat-footer">
             <el-button type="primary" size="small" @click="goToRecharge">立即充值</el-button>
           </div>
@@ -26,7 +28,9 @@
               <span>累计消费</span>
             </div>
           </template>
-          <div class="stat-value">¥{{ totalSpent }}</div>
+          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${totalSpent}`)">
+            ¥{{ totalSpent }}
+          </div>
           <div class="stat-footer">
             <span class="stat-label">客户等级:</span>
             <el-tag :type="tierTagType" size="small">{{ tierLabel }}</el-tag>
@@ -43,7 +47,9 @@
               <span>运营点数量</span>
             </div>
           </template>
-          <div class="stat-value">{{ sitesCount }}</div>
+          <div class="stat-value copyable-stat" @click="handleCopyValue(sitesCount)">
+            {{ sitesCount }}
+          </div>
           <div class="stat-footer">
             <el-button type="primary" size="small" plain @click="goToSites">查看详情</el-button>
           </div>
@@ -66,6 +72,7 @@
       <el-table
         v-loading="loading"
         :data="recentTransactions"
+        v-copyable
         stripe
         style="width: 100%"
       >
@@ -143,6 +150,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
 import { formatDateTime } from '@/utils/format'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -214,6 +222,21 @@ const getAmountDisplay = (type: string, amount: string) => {
   const absAmount = Math.abs(numAmount).toFixed(2)
   const prefix = numAmount >= 0 ? '+' : '-'
   return `${prefix}¥${absAmount}`
+}
+
+// 复制值到剪贴板
+const handleCopyValue = async (value: string | number) => {
+  const text = String(value)
+  const success = await copyToClipboard(text)
+  if (success) {
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
+  } else {
+    ElMessage.error('复制失败')
+  }
 }
 
 // 页面跳转
@@ -345,5 +368,15 @@ onMounted(() => {
 .quick-action span {
   font-size: 14px;
   color: #606266;
+}
+
+.copyable-stat {
+  cursor: copy;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.copyable-stat:hover {
+  background-color: rgba(64, 158, 255, 0.1);
 }
 </style>

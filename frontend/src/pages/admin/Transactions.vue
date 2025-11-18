@@ -71,21 +71,22 @@
     <!-- 数据表格 -->
     <el-card style="margin-top: 20px">
       <el-table
+        v-copyable
         :data="tableData"
         v-loading="loading"
         border
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="id" label="交易ID" width="100" />
+        <el-table-column prop="id" label="交易ID" width="220" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="运营商" width="150" />
         <el-table-column prop="transaction_type" label="交易类型" width="120">
           <template #default="{ row }">
             <el-tag
-              :type="getTransactionTypeTag(row.transaction_type)"
+              :type="getTransactionTypeTag(row)"
               size="small"
             >
-              {{ getTransactionTypeText(row.transaction_type) }}
+              {{ getTransactionTypeText(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -250,18 +251,41 @@ const handleCurrentChange = (page: number) => {
 }
 
 // 工具函数
-const getTransactionTypeTag = (type: string) => {
+const getTransactionTypeTag = (row: any) => {
+  const type = row.transaction_type
+
+  // 如果是充值类型，根据payment_method或description区分
+  if (type === 'recharge') {
+    // 检查description中是否包含"财务"或"银行"
+    if (row.description && row.description.includes('银行转账')) {
+      return 'primary'  // 蓝色
+    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
+      return 'success'  // 绿色
+    }
+    return 'success'  // 默认绿色
+  }
+
   const typeMap: Record<string, string> = {
-    recharge: 'success',
     consumption: 'danger',
     refund: 'warning',
   }
   return typeMap[type] || 'info'
 }
 
-const getTransactionTypeText = (type: string) => {
+const getTransactionTypeText = (row: any) => {
+  const type = row.transaction_type
+
+  // 如果是充值类型，根据description区分
+  if (type === 'recharge') {
+    if (row.description && row.description.includes('银行转账')) {
+      return '银行充值'
+    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
+      return '财务充值'
+    }
+    return '充值'
+  }
+
   const typeMap: Record<string, string> = {
-    recharge: '充值',
     consumption: '消费',
     refund: '退款',
   }

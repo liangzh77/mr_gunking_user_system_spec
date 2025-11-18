@@ -11,24 +11,34 @@
             </span>
           </template>
 
-          <el-descriptions :column="1" border>
+          <el-descriptions :column="1" border class="copyable-descriptions">
             <el-descriptions-item label="用户名">
-              {{ authStore.profile?.username }}
+              <span class="copyable-value" @click="handleCopyValue(authStore.profile?.username || '')">
+                {{ authStore.profile?.username }}
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="邮箱">
-              {{ authStore.profile?.email }}
+              <span class="copyable-value" @click="handleCopyValue(authStore.profile?.email || '')">
+                {{ authStore.profile?.email }}
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="手机号">
-              {{ authStore.profile?.phone }}
+              <span class="copyable-value" @click="handleCopyValue(authStore.profile?.phone || '')">
+                {{ authStore.profile?.phone }}
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="公司名称">
-              {{ authStore.profile?.name || '未填写' }}
+              <span class="copyable-value" @click="handleCopyValue(authStore.profile?.name || '未填写')">
+                {{ authStore.profile?.name || '未填写' }}
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="客户等级">
               <el-tag :type="tierTagType" size="small">{{ tierLabel }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="注册时间">
-              {{ formatDateTime(authStore.profile?.created_at || '') }}
+              <span class="copyable-value" @click="handleCopyValue(formatDateTime(authStore.profile?.created_at || ''))">
+                {{ formatDateTime(authStore.profile?.created_at || '') }}
+              </span>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -48,12 +58,16 @@
             </span>
           </template>
 
-          <el-descriptions :column="1" border>
+          <el-descriptions :column="1" border class="copyable-descriptions">
             <el-descriptions-item label="当前余额">
-              <span class="amount-value">¥{{ authStore.profile?.balance }}</span>
+              <span class="amount-value copyable-value" @click="handleCopyValue(`¥${authStore.profile?.balance}`)">
+                ¥{{ authStore.profile?.balance }}
+              </span>
             </el-descriptions-item>
             <el-descriptions-item label="累计消费">
-              <span class="amount-value">¥{{ authStore.profile?.total_spent }}</span>
+              <span class="amount-value copyable-value" @click="handleCopyValue(`¥${authStore.profile?.total_spent}`)">
+                ¥{{ authStore.profile?.total_spent }}
+              </span>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -97,6 +111,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const authStore = useAuthStore()
 
@@ -185,6 +200,20 @@ const handleUpdate = async () => {
   })
 }
 
+// 复制值到剪贴板
+const handleCopyValue = async (value: string) => {
+  const success = await copyToClipboard(value)
+  if (success) {
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
+  } else {
+    ElMessage.error('复制失败')
+  }
+}
+
 </script>
 
 <style scoped>
@@ -205,5 +234,16 @@ const handleUpdate = async () => {
   font-size: 18px;
   font-weight: 600;
   color: #409EFF;
+}
+
+.copyable-value {
+  cursor: copy;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: background-color 0.2s;
+}
+
+.copyable-value:hover {
+  background-color: #e6f7ff;
 }
 </style>

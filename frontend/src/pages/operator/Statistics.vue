@@ -40,6 +40,7 @@
           <el-table
             v-loading="siteLoading"
             :data="siteStatistics"
+            v-copyable
             stripe
             style="width: 100%"
             :default-sort="{ prop: 'total_cost', order: 'descending' }"
@@ -63,6 +64,7 @@
           <el-table
             v-loading="appLoading"
             :data="appStatistics"
+            v-copyable
             stripe
             style="width: 100%"
             :default-sort="{ prop: 'total_cost', order: 'descending' }"
@@ -92,12 +94,16 @@
           </div>
 
           <div v-loading="trendLoading" class="trend-summary">
-            <el-descriptions :column="2" border>
+            <el-descriptions :column="2" border class="copyable-descriptions">
               <el-descriptions-item label="总玩家数">
-                {{ trendSummary.total_players }}
+                <span class="copyable-value" @click="handleCopyValue(trendSummary.total_players)">
+                  {{ trendSummary.total_players }}
+                </span>
               </el-descriptions-item>
               <el-descriptions-item label="总费用">
-                <span class="total-cost">¥{{ trendSummary.total_cost }}</span>
+                <span class="copyable-value total-cost" @click="handleCopyValue(`¥${trendSummary.total_cost}`)">
+                  ¥{{ trendSummary.total_cost }}
+                </span>
               </el-descriptions-item>
             </el-descriptions>
           </div>
@@ -105,6 +111,7 @@
           <el-table
             v-loading="trendLoading"
             :data="trendData"
+            v-copyable
             stripe
             style="width: 100%; margin-top: 20px"
           >
@@ -135,6 +142,7 @@
           <el-table
             v-loading="distributionLoading"
             :data="distributionData"
+            v-copyable
             stripe
             style="width: 100%; margin-top: 20px"
             :default-sort="{ prop: 'session_count', order: 'descending' }"
@@ -172,6 +180,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { SiteStatistics, ApplicationStatistics, ChartDataPoint, PlayerDistributionItem } from '@/types'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const operatorStore = useOperatorStore()
 
@@ -318,6 +327,21 @@ const handleDateChange = () => {
   }
 }
 
+// 复制值到剪贴板
+const handleCopyValue = async (value: string | number) => {
+  const text = String(value)
+  const success = await copyToClipboard(text)
+  if (success) {
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
+  } else {
+    ElMessage.error('复制失败')
+  }
+}
+
 // 导出报表
 const handleExport = async () => {
   exporting.value = true
@@ -415,5 +439,16 @@ onMounted(() => {
 
 .distribution-summary {
   margin-bottom: 20px;
+}
+
+.copyable-value {
+  cursor: copy;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: background-color 0.2s;
+}
+
+.copyable-value:hover {
+  background-color: #e6f7ff;
 }
 </style>

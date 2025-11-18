@@ -180,6 +180,11 @@ const router = createRouter({
               component: () => import('@/pages/finance/RechargeRecords.vue'),
             },
             {
+              path: 'transactions',
+              name: 'FinanceTransactions',
+              component: () => import('@/pages/finance/Transactions.vue'),
+            },
+            {
               path: 'refunds',
               name: 'FinanceRefunds',
               component: () => import('@/pages/finance/Refunds.vue'),

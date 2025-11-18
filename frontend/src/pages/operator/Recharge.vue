@@ -136,19 +136,25 @@
           </el-card>
 
           <el-form-item label="转账凭证" prop="voucher_image" style="margin-top: 20px">
+            <!-- 隐藏的上传组件 -->
             <el-upload
-              class="voucher-uploader"
+              ref="voucherUploadRef"
+              class="voucher-uploader-hidden"
               :auto-upload="false"
               :on-change="handleVoucherChange"
               :show-file-list="false"
               accept="image/jpeg,image/jpg,image/png"
               :limit="1"
+              v-show="false"
             >
+            </el-upload>
+
+            <!-- 自定义上传区域 -->
+            <div v-if="voucherImageUrl" class="voucher-preview" @click="handleReuploadVoucher">
               <el-image
-                v-if="voucherImageUrl"
                 :src="voucherImageUrl"
                 fit="contain"
-                style="width: 200px; height: 200px; border: 1px dashed #d9d9d9; border-radius: 6px"
+                style="width: 200px; height: 200px; border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer"
               >
                 <template #error>
                   <div class="image-error">
@@ -157,12 +163,12 @@
                   </div>
                 </template>
               </el-image>
-              <div v-else class="upload-trigger">
-                <el-icon class="upload-icon"><Plus /></el-icon>
-                <div class="upload-text">点击上传转账凭证</div>
-                <div class="upload-hint">支持 JPG、PNG 格式,不超过 5MB</div>
-              </div>
-            </el-upload>
+            </div>
+            <div v-else class="upload-trigger" @click="triggerUpload">
+              <el-icon class="upload-icon"><Plus /></el-icon>
+              <div class="upload-text">点击上传转账凭证</div>
+              <div class="upload-hint">支持 JPG、PNG 格式,不超过 5MB</div>
+            </div>
           </el-form-item>
 
           <el-form-item label="备注" prop="remark">
@@ -269,6 +275,7 @@
       <el-table
         :data="bankTransfers"
         v-loading="loadingTransfers"
+        v-copyable
         stripe
         style="width: 100%"
       >
@@ -348,7 +355,8 @@
         <el-image
           :src="currentVoucher"
           fit="contain"
-          style="width: 100%; max-height: 500px"
+          style="width: 100%"
+          :preview-src-list="[currentVoucher]"
         >
           <template #error>
             <div class="image-error">
@@ -375,6 +383,7 @@ const router = useRouter()
 const operatorStore = useOperatorStore()
 
 const formRef = ref<FormInstance>()
+const voucherUploadRef = ref()
 const submitting = ref(false)
 const paymentInfo = ref<RechargeResponse | null>(null)
 const loadingBankInfo = ref(false)
@@ -496,6 +505,14 @@ const copyBankName = async () => {
   }
 }
 
+// 触发文件选择
+const triggerUpload = () => {
+  const uploadElement = voucherUploadRef.value?.$el.querySelector('input[type="file"]')
+  if (uploadElement) {
+    uploadElement.click()
+  }
+}
+
 // 处理凭证图片上传
 const handleVoucherChange = (file: UploadFile) => {
   if (!file.raw) return
@@ -514,10 +531,26 @@ const handleVoucherChange = (file: UploadFile) => {
     return
   }
 
+  // 释放旧的 ObjectURL 以避免内存泄漏
+  if (voucherImageUrl.value) {
+    URL.revokeObjectURL(voucherImageUrl.value)
+  }
+
   // 创建预览URL
   voucherImageUrl.value = URL.createObjectURL(file.raw)
   voucherFile.value = file.raw
   formData.value.voucher_image = file.name
+}
+
+// 重新上传凭证
+const handleReuploadVoucher = () => {
+  // 清除 el-upload 组件的内部状态，允许重新选择相同文件
+  if (voucherUploadRef.value) {
+    voucherUploadRef.value.clearFiles()
+  }
+
+  // 触发文件选择
+  triggerUpload()
 }
 
 // 提交充值请求
@@ -619,8 +652,20 @@ const resetForm = () => {
     voucher_image: '',
     remark: '',
   }
+
+  // 释放 ObjectURL 以避免内存泄漏
+  if (voucherImageUrl.value) {
+    URL.revokeObjectURL(voucherImageUrl.value)
+  }
+
   voucherImageUrl.value = ''
   voucherFile.value = null
+
+  // 清除 el-upload 组件的内部状态
+  if (voucherUploadRef.value) {
+    voucherUploadRef.value.clearFiles()
+  }
+
   formRef.value?.resetFields()
 }
 
@@ -792,8 +837,14 @@ onMounted(() => {
   align-items: center;
 }
 
-.voucher-uploader {
-  width: 100%;
+.voucher-uploader-hidden {
+  display: none;
+}
+
+.voucher-preview {
+  width: 200px;
+  height: 200px;
+  cursor: pointer;
 }
 
 .upload-trigger {
@@ -930,7 +981,8 @@ onMounted(() => {
 .voucher-view {
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: 300px;
+  align-items: flex-start;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 </style>

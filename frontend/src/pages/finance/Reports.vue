@@ -129,8 +129,8 @@
             </div>
           </template>
 
-          <el-table :data="reports" v-loading="loading" stripe>
-            <el-table-column prop="report_id" label="报表ID" width="120" />
+          <el-table v-copyable :data="reports" v-loading="loading" stripe>
+            <el-table-column prop="report_id" label="报表ID" width="180" />
             <el-table-column prop="report_type" label="报表类型" width="100" align="center">
               <template #default="scope">
                 <el-tag :type="getReportTypeColor(scope.row.report_type)">
@@ -138,30 +138,41 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="period" label="报表周期" />
-            <el-table-column prop="total_recharge" label="总充值" align="right">
+            <el-table-column label="报表周期" width="200">
+              <template #default="scope">
+                {{ scope.row.start_date }} 至 {{ scope.row.end_date }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="total_recharge" label="总充值" width="120" align="right">
               <template #default="scope">
                 ¥{{ scope.row.total_recharge }}
               </template>
             </el-table-column>
-            <el-table-column prop="total_consumption" label="总消费" align="right">
+            <el-table-column prop="total_consumption" label="总消费" width="120" align="right">
               <template #default="scope">
                 ¥{{ scope.row.total_consumption }}
               </template>
             </el-table-column>
-            <el-table-column prop="total_refund" label="总退款" align="right">
+            <el-table-column prop="total_refund" label="总退款" width="120" align="right">
               <template #default="scope">
                 ¥{{ scope.row.total_refund }}
               </template>
             </el-table-column>
-            <el-table-column prop="net_income" label="净收入" align="right">
+            <el-table-column prop="net_income" label="净收入" width="120" align="right">
               <template #default="scope">
                 ¥{{ scope.row.net_income }}
               </template>
             </el-table-column>
-            <el-table-column prop="generated_at" label="生成时间" width="160">
+            <el-table-column prop="status" label="状态" width="100" align="center">
+              <template #default="scope">
+                <el-tag :type="scope.row.status === 'completed' ? 'success' : scope.row.status === 'failed' ? 'danger' : 'warning'">
+                  {{ scope.row.status === 'completed' ? '已完成' : scope.row.status === 'failed' ? '失败' : '生成中' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="生成时间" width="160">
               <template #default="{ row }">
-                {{ formatDateTime(row.generated_at) }}
+                {{ formatDateTime(row.created_at) }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="120" align="center">
@@ -197,6 +208,7 @@
 </template>
 
 <script setup lang="ts">
+// Updated: 2025-11-18 - Fixed report table columns display - Force refresh v2
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentAdd, Calendar, Refresh, Download } from '@element-plus/icons-vue'
@@ -304,6 +316,11 @@ const fetchReports = async () => {
     const response = await http.get('/finance/reports', {
       params: queryParams,
     })
+    console.log('API Response:', response.data)
+    if (response.data.items && response.data.items.length > 0) {
+      console.log('First report:', response.data.items[0])
+      console.log('First report created_at:', response.data.items[0].created_at)
+    }
     reports.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error: any) {
@@ -320,11 +337,26 @@ const downloadReport = async (report: any) => {
       responseType: 'blob',
     })
 
+    // 从响应头中提取文件名，如果没有则使用report的format字段
+    let filename = `财务报表_${report.report_id}`
+    const contentDisposition = response.headers['content-disposition']
+    if (contentDisposition) {
+      // 尝试从 Content-Disposition 头中解析文件名
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/)
+      if (filenameMatch) {
+        filename = decodeURIComponent(filenameMatch[1])
+      }
+    } else {
+      // 备用方案：使用report.format字段
+      const ext = report.format || 'pdf'
+      filename = `${filename}.${ext}`
+    }
+
     // 创建下载链接
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `财务报表_${report.report_id}.${report.export_format}`)
+    link.setAttribute('download', filename)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

@@ -43,6 +43,7 @@
 
       <!-- 消息列表 -->
       <el-table
+        v-copyable
         v-loading="loading"
         :data="messages"
         stripe

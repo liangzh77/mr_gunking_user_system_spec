@@ -629,8 +629,12 @@ async def get_transactions(
         # 转换为响应格式
         items = []
         for trans in transactions:
+            # Generate human-readable transaction ID (format: TXN_YYYYMMDD_XXXXX)
+            trans_created_time = trans.created_at
+            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(trans.id)[:5].upper()}"
+
             items.append(TransactionItem(
-                transaction_id=f"txn_{trans.id}",
+                transaction_id=transaction_id,
                 transaction_type=trans.transaction_type,
                 amount=str(trans.amount),
                 balance_before=str(trans.balance_before),
@@ -1885,9 +1889,13 @@ async def get_usage_records(
         # 转换为响应格式
         items = []
         for usage in usage_records:
+            # Generate human-readable session ID (format: SES_YYYYMMDD_XXXXX)
+            session_created_time = usage.created_at
+            formatted_session_id = f"SES_{session_created_time.strftime('%Y%m%d')}_{str(usage.id)[:5].upper()}"
+
             items.append(UsageItem(
                 usage_id=f"usage_{usage.id}",
-                session_id=usage.session_id,
+                session_id=formatted_session_id,
                 site_id=f"site_{usage.site_id}",
                 site_name=usage.site.name,
                 app_id=f"app_{usage.application_id}",
@@ -2021,9 +2029,13 @@ async def get_usage_record(
             ))
 
         # 转换为响应格式
+        # Generate human-readable session ID (format: SES_YYYYMMDD_XXXXX)
+        session_created_time = usage_record.created_at
+        formatted_session_id = f"SES_{session_created_time.strftime('%Y%m%d')}_{str(usage_record.id)[:5].upper()}"
+
         usage_detail = UsageDetail(
             usage_id=f"usage_{usage_record.id}",
-            session_id=usage_record.session_id,
+            session_id=formatted_session_id,
             site_id=f"site_{usage_record.site_id}",
             site_name=usage_record.site.name,
             app_id=f"app_{usage_record.application_id}",

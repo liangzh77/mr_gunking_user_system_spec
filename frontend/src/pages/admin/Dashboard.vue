@@ -8,7 +8,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
-            <div class="stat-value">{{ stats.operatorsCount }}</div>
+            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(stats.operatorsCount)">{{ stats.operatorsCount }}</div>
           </div>
         </el-card>
       </el-col>
@@ -20,7 +20,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">应用总数</div>
-            <div class="stat-value">{{ stats.applicationsCount }}</div>
+            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(stats.applicationsCount)">{{ stats.applicationsCount }}</div>
           </div>
         </el-card>
       </el-col>
@@ -32,7 +32,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日交易</div>
-            <div class="stat-value">{{ stats.todayTransactions }}</div>
+            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(stats.todayTransactions)">{{ stats.todayTransactions }}</div>
           </div>
         </el-card>
       </el-col>
@@ -44,7 +44,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日消费</div>
-            <div class="stat-value">¥{{ stats.todayConsumption }}</div>
+            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(`¥${stats.todayConsumption}`)">¥{{ stats.todayConsumption }}</div>
           </div>
         </el-card>
       </el-col>
@@ -88,16 +88,24 @@
           <div class="system-info">
             <el-descriptions :column="1" border>
               <el-descriptions-item label="当前管理员">
-                {{ adminAuthStore.profile?.full_name || '未知' }}
+                <span class="copyable-value" @click="handleCopyValue(adminAuthStore.profile?.full_name || '未知')">
+                  {{ adminAuthStore.profile?.full_name || '未知' }}
+                </span>
               </el-descriptions-item>
               <el-descriptions-item label="角色">
-                {{ roleLabel }}
+                <span class="copyable-value" @click="handleCopyValue(roleLabel)">
+                  {{ roleLabel }}
+                </span>
               </el-descriptions-item>
               <el-descriptions-item label="用户名">
-                {{ adminAuthStore.profile?.username || '未知' }}
+                <span class="copyable-value" @click="handleCopyValue(adminAuthStore.profile?.username || '未知')">
+                  {{ adminAuthStore.profile?.username || '未知' }}
+                </span>
               </el-descriptions-item>
               <el-descriptions-item label="系统版本">
-                v0.1.0
+                <span class="copyable-value" @click="handleCopyValue('v0.1.0')">
+                  v0.1.0
+                </span>
               </el-descriptions-item>
             </el-descriptions>
           </div>
@@ -146,6 +154,7 @@ import { computed, reactive, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAdminStore } from '@/stores/admin'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const adminAuthStore = useAdminAuthStore()
 const adminStore = useAdminStore()
@@ -212,6 +221,19 @@ const roleLabel = computed(() => {
       return '未知'
   }
 })
+
+// 复制值
+const handleCopyValue = async (value: any) => {
+  const text = String(value)
+  const success = await copyToClipboard(text)
+  if (success) {
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -305,5 +327,26 @@ const roleLabel = computed(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.copyable-stat {
+  cursor: copy;
+  transition: background-color 0.2s;
+}
+
+.copyable-stat:hover {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.copyable-value {
+  cursor: copy;
+  transition: background-color 0.2s;
+  padding: 2px 4px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.copyable-value:hover {
+  background-color: rgba(64, 158, 255, 0.1);
 }
 </style>

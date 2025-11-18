@@ -36,7 +36,7 @@
       </div>
 
       <!-- 退款列表 -->
-      <el-table :data="refunds" v-loading="loading" stripe>
+      <el-table v-copyable :data="refunds" v-loading="loading" stripe>
         <el-table-column label="退款ID" width="200" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.refund_id }}
@@ -185,7 +185,7 @@ const handleApprove = async (refund: any) => {
       type: 'success',
     })
 
-    await http.post(`/finance/refunds/${refund.refund_id}/approve`, {})
+    await http.post(`/finance/refunds/${refund.id}/approve`, {})
     ElMessage.success('退款已批准')
     fetchRefunds()
   } catch (error: any) {
@@ -210,7 +210,7 @@ const confirmReject = async () => {
     await rejectFormRef.value.validate()
     rejecting.value = true
 
-    await http.post(`/finance/refunds/${currentRefund.value.refund_id}/reject`, {
+    await http.post(`/finance/refunds/${currentRefund.value.id}/reject`, {
       reason: rejectForm.reason,
     })
 

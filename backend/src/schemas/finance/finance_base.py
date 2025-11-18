@@ -532,10 +532,16 @@ class RefundItemFinance(BaseModel):
 
     契约定义: finance.yaml RefundRequestFinance schema
     """
+    id: str = Field(
+        ...,
+        description="退款UUID（用于API调用）",
+        examples=["550e8400-e29b-41d4-a716-446655440000"]
+    )
+
     refund_id: str = Field(
         ...,
-        description="退款ID",
-        examples=["refund_20250115_001"]
+        description="退款ID（人类可读格式，用于显示）",
+        examples=["RFD_20251118_FC11C"]
     )
 
     operator_id: str = Field(
@@ -1211,6 +1217,30 @@ class FinanceReportItem(BaseModel):
         None,
         description="错误信息（status=failed时）",
         examples=[None]
+    )
+
+    total_recharge: Decimal = Field(
+        default=Decimal("0"),
+        description="总充值金额",
+        examples=[Decimal("15000.00")]
+    )
+
+    total_consumption: Decimal = Field(
+        default=Decimal("0"),
+        description="总消费金额",
+        examples=[Decimal("12000.50")]
+    )
+
+    total_refund: Decimal = Field(
+        default=Decimal("0"),
+        description="总退款金额",
+        examples=[Decimal("500.00")]
+    )
+
+    net_income: Decimal = Field(
+        default=Decimal("0"),
+        description="净收入（充值-退款）",
+        examples=[Decimal("14500.00")]
     )
 
     created_by: str = Field(
