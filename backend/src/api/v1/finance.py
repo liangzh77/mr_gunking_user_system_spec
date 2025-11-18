@@ -2733,7 +2733,7 @@ async def deduct_balance(
 
         # 记录财务操作日志
         operation_log = FinanceOperationLog(
-            finance_user_id=UUID(token["sub"]),
+            finance_account_id=UUID(token["sub"]),
             operation_type="deduct",
             target_operator_id=operator_uuid,
             amount=deduct_amount,
