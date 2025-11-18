@@ -90,9 +90,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="金额" width="120" align="right">
+        <el-table-column prop="amount" label="交易金额" width="120" align="right">
           <template #default="{ row }">
-            {{ formatAmount(row.amount) }}
+            <span :class="getAmountClass(row.transaction_type)">
+              {{ formatAmount(row.amount) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="余额" width="120" align="right">
@@ -297,6 +299,15 @@ const formatAmount = (amount: string) => {
   return `¥${num.toFixed(2)}`
 }
 
+// 获取金额CSS类
+const getAmountClass = (type: string) => {
+  // 充值-绿色，消费-红色，退款-橙色
+  if (type === 'recharge') return 'amount-recharge'
+  if (type === 'consumption') return 'amount-consumption'
+  if (type === 'refund') return 'amount-refund'
+  return ''
+}
+
 // 生命周期
 onMounted(() => {
   fetchOperators()
@@ -336,5 +347,20 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+.amount-recharge {
+  color: #67C23A;
+  font-weight: 600;
+}
+
+.amount-consumption {
+  color: #F56C6C;
+  font-weight: 600;
+}
+
+.amount-refund {
+  color: #E6A23C;
+  font-weight: 600;
 }
 </style>
