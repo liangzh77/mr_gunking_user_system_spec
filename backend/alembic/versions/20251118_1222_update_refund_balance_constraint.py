@@ -31,22 +31,57 @@ def upgrade() -> None:
     else:
         print("Constraint 'chk_balance_calc' not found, skipping drop")
 
-    # Update existing negative refund amounts to positive
-    op.execute("""
-        UPDATE transaction_records
-        SET amount = ABS(amount)
-        WHERE transaction_type = 'refund' AND amount < 0
-    """)
+    # 先检查并修复不符合约束的数据
+    print("Checking refund transaction data...")
 
-    # Add the new constraint that supports positive refund amounts
+    # 检查当前退款记录的amount值分布
+    result = op.execute("""
+        SELECT
+            COUNT(*) as total_refunds,
+            COUNT(*) FILTER (WHERE amount > 0) as positive_amounts,
+            COUNT(*) FILTER (WHERE amount < 0) as negative_amounts,
+            COUNT(*) FILTER (WHERE amount = 0) as zero_amounts
+        FROM transaction_records
+        WHERE transaction_type = 'refund'
+    """)
+    stats = result.fetchone()
+    print(f"Refund statistics: total={stats[0]}, positive={stats[1]}, negative={stats[2]}, zero={stats[3]}")
+
+    # 修复负数的退款金额
+    if stats[2] > 0:
+        print(f"Converting {stats[2]} negative refund amounts to positive...")
+        op.execute("""
+            UPDATE transaction_records
+            SET amount = ABS(amount)
+            WHERE transaction_type = 'refund' AND amount < 0
+        """)
+        print("✓ Fixed negative refund amounts")
+
+    # 检查balance计算是否正确
+    result = op.execute("""
+        SELECT COUNT(*) as count
+        FROM transaction_records
+        WHERE transaction_type = 'refund'
+        AND balance_after != balance_before - ABS(amount)
+    """)
+    problematic_count = result.fetchone()[0]
+
+    if problematic_count > 0:
+        print(f"⚠ Warning: Found {problematic_count} refund records with incorrect balance")
+        # 暂时不自动修复,先添加约束让其失败,这样可以人工检查
+        # 可以通过查看错误信息来确定是否需要修复
+
+    # 添加新的约束 (退款amount必须是正数, balance_after = balance_before - amount)
+    print("Adding new balance calculation constraint...")
     op.create_check_constraint(
         'chk_balance_calc',
         'transaction_records',
         """
         (transaction_type != 'refund' AND balance_after = balance_before + amount) OR
-        (transaction_type = 'refund' AND balance_after = balance_before - amount)
+        (transaction_type = 'refund' AND balance_after = balance_before - amount AND amount > 0)
         """
     )
+    print("✓ Successfully added new constraint")
 
 
 def downgrade() -> None:
