@@ -9,7 +9,9 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日充值</div>
-            <div class="stat-value">¥{{ dashboard.today_recharge || '0.00' }}</div>
+            <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_recharge || '0.00'}`)">
+              ¥{{ dashboard.today_recharge || '0.00' }}
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -21,7 +23,9 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日消费</div>
-            <div class="stat-value">¥{{ dashboard.today_consumption || '0.00' }}</div>
+            <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_consumption || '0.00'}`)">
+              ¥{{ dashboard.today_consumption || '0.00' }}
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -33,7 +37,9 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日退款</div>
-            <div class="stat-value">¥{{ dashboard.today_refund || '0.00' }}</div>
+            <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_refund || '0.00'}`)">
+              ¥{{ dashboard.today_refund || '0.00' }}
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -45,7 +51,9 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日净收入</div>
-            <div class="stat-value">¥{{ dashboard.today_net_income || '0.00' }}</div>
+            <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_net_income || '0.00'}`)">
+              ¥{{ dashboard.today_net_income || '0.00' }}
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -61,7 +69,9 @@
           <div class="stat-content">
             <div class="stat-label">运营商总数</div>
             <div class="stat-value-row">
-              <div class="stat-value">{{ dashboard.total_operators || 0 }}</div>
+              <div class="stat-value copyable-stat" @click.stop="handleCopyValue(dashboard.total_operators || 0)">
+                {{ dashboard.total_operators || 0 }}
+              </div>
               <div class="stat-hint">点击查看余额排行</div>
             </div>
           </div>
@@ -75,7 +85,9 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日活跃运营商</div>
-            <div class="stat-value">{{ dashboard.active_operators_today || 0 }}</div>
+            <div class="stat-value copyable-stat" @click="handleCopyValue(dashboard.active_operators_today || 0)">
+              {{ dashboard.active_operators_today || 0 }}
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -91,7 +103,7 @@
               <el-button type="primary" size="small" @click="fetchTopCustomers">刷新</el-button>
             </div>
           </template>
-          <el-table :data="topCustomers" stripe>
+          <el-table :data="topCustomers" v-copyable stripe>
             <el-table-column prop="rank" label="排名" width="80" align="center" />
             <el-table-column prop="operator_name" label="运营商名称" />
             <el-table-column prop="total_consumption" label="累计消费" align="right">
@@ -189,7 +201,7 @@
       title="运营商余额排行"
       width="900px"
     >
-      <el-table :data="balanceRanking" stripe v-loading="balanceLoading">
+      <el-table :data="balanceRanking" v-copyable stripe v-loading="balanceLoading">
         <el-table-column label="排名" width="80" align="center">
           <template #default="scope">
             <el-tag
@@ -246,6 +258,7 @@ import {
   Document,
 } from '@element-plus/icons-vue'
 import http from '@/utils/http'
+import { copyToClipboard } from '@/utils/clipboard'
 
 // 仪表盘数据
 const dashboard = ref({
@@ -322,6 +335,21 @@ const showBalanceRankingDialog = async () => {
   // 如果还没有数据,或者数据为空,则加载数据
   if (balanceRanking.value.length === 0) {
     await fetchBalanceRanking()
+  }
+}
+
+// 复制值到剪贴板
+const handleCopyValue = async (value: string | number) => {
+  const text = String(value)
+  const success = await copyToClipboard(text)
+  if (success) {
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
+  } else {
+    ElMessage.error('复制失败')
   }
 }
 
@@ -463,5 +491,16 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.copyable-stat {
+  cursor: copy;
+  border-radius: 4px;
+  padding: 4px 8px;
+  transition: all 0.2s;
+}
+
+.copyable-stat:hover {
+  background-color: rgba(64, 158, 255, 0.1);
 }
 </style>

@@ -93,6 +93,7 @@ class FinanceRefundService:
             refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
 
             items.append(RefundItemFinance(
+                id=str(refund.id),
                 refund_id=refund_id,
                 operator_id=str(refund.operator_id),
                 operator_name=operator.full_name if operator else "Unknown",
@@ -248,11 +249,12 @@ class FinanceRefundService:
         balance_after = operator.balance
 
         # Create transaction record
-        # Note: amount should be negative for refund (balance decreases, money withdrawn)
+        # For refund transactions, amount is stored as positive value
+        # Constraint: balance_after = balance_before - amount (for refunds)
         transaction = TransactionRecord(
             operator_id=refund.operator_id,
             transaction_type="refund",
-            amount=-actual_refund_amount,  # Negative because balance decreases (money withdrawn)
+            amount=actual_refund_amount,  # Positive value for refund amount
             balance_before=balance_before,
             balance_after=balance_after,
             description=f"退款审核通过: {note}" if note else "退款审核通过",

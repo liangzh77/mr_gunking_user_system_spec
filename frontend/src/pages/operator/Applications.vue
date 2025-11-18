@@ -11,6 +11,7 @@
     <!-- 应用列表 -->
     <el-card class="list-card" style="margin-top: 20px">
       <el-table
+        v-copyable
         v-loading="loading"
         :data="applications"
         stripe

@@ -1088,8 +1088,12 @@ async def get_transactions(
     # Convert to response format
     items = []
     for row in rows:
+        # Generate human-readable transaction ID (format: TXN_YYYYMMDD_XXXXX)
+        trans_created_time = row.created_at
+        transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(row.id)[:5].upper()}"
+
         items.append({
-            "id": str(row.id),
+            "id": transaction_id,
             "operator_id": str(row.operator_id),
             "operator_name": row.operator_name,
             "transaction_type": row.transaction_type,

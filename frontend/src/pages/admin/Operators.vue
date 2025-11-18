@@ -41,6 +41,7 @@
 
       <!-- 运营商列表 -->
       <el-table
+        v-copyable
         v-loading="loading"
         :data="operators"
         stripe

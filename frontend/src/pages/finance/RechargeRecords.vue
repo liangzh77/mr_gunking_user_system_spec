@@ -1,117 +1,110 @@
 <template>
   <div class="recharge-records-page">
-    <!-- 页面标题和操作 -->
     <el-card>
       <template #header>
         <div class="card-header">
           <span>充值记录</span>
           <div class="header-actions">
-            <el-button type="warning" :icon="Money" @click="showRechargeDialog = true">手动充值</el-button>
-            <el-button type="primary" :icon="RefreshIcon" @click="fetchRecords">刷新</el-button>
+            <el-button type="success" size="small" @click="showRechargeDialog = true">
+              <el-icon><Money /></el-icon>
+              财务充值
+            </el-button>
+            <el-button type="danger" size="small" @click="showDeductDialog = true">
+              <el-icon><Remove /></el-icon>
+              财务扣费
+            </el-button>
+            <el-button type="primary" size="small" @click="fetchRecords">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
           </div>
         </div>
       </template>
 
       <!-- 筛选条件 -->
-      <el-form :model="queryForm" :inline="true" class="filter-form">
-        <el-form-item label="运营商">
-          <el-select
-            v-model="queryForm.operator_id"
-            placeholder="全部运营商"
-            clearable
-            filterable
-            style="width: 200px"
-          >
-            <el-option
-              v-for="op in operators"
-              :key="op.id"
-              :label="`${op.full_name} (${op.username})`"
-              :value="op.id"
-            />
-          </el-select>
-        </el-form-item>
+      <div class="filter-container">
+        <el-select
+          v-model="queryForm.recharge_method"
+          placeholder="充值方式"
+          clearable
+          @change="handleQuery"
+          style="width: 150px"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="财务充值" value="manual" />
+          <el-option label="在线充值" value="online" />
+          <el-option label="银行转账" value="bank_transfer" />
+        </el-select>
 
-        <el-form-item label="充值时间">
-          <el-date-picker
-            v-model="queryForm.date_range"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            style="width: 240px"
-            value-format="YYYY-MM-DD"
+        <el-select
+          v-model="queryForm.operator_id"
+          placeholder="全部运营商"
+          clearable
+          filterable
+          style="width: 200px"
+        >
+          <el-option
+            v-for="op in operators"
+            :key="op.id"
+            :label="`${op.full_name} (${op.username})`"
+            :value="op.id"
           />
-        </el-form-item>
+        </el-select>
 
-        <el-form-item label="充值方式">
-          <el-select
-            v-model="queryForm.recharge_method"
-            placeholder="全部方式"
-            clearable
-            style="width: 150px"
-          >
-            <el-option label="手动充值" value="manual" />
-            <el-option label="在线充值" value="online" />
-            <el-option label="银行转账" value="bank_transfer" />
-          </el-select>
-        </el-form-item>
+        <el-date-picker
+          v-model="queryForm.date_range"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          style="width: 240px"
+          value-format="YYYY-MM-DD"
+        />
 
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
+        <el-button type="primary" @click="handleQuery">查询</el-button>
+      </div>
 
       <!-- 充值记录表格 -->
-      <el-table :data="records" v-loading="loading" border stripe>
-        <el-table-column prop="transaction_id" label="交易ID" width="300" show-overflow-tooltip />
-        <el-table-column prop="operator_name" label="运营商" width="180">
-          <template #default="{ row }">
-            <div>{{ row.operator_name }}</div>
-            <div style="color: #909399; font-size: 12px">{{ row.operator_username }}</div>
-          </template>
-        </el-table-column>
+      <el-table v-copyable :data="records" v-loading="loading" stripe>
+        <el-table-column prop="transaction_id" label="交易ID" width="220" show-overflow-tooltip />
+        <el-table-column prop="operator_name" label="运营商" width="150" show-overflow-tooltip />
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
             <span style="color: #67c23a; font-weight: bold">+¥{{ row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="余额变动" width="200" align="right">
+        <el-table-column prop="balance_after" label="余额" width="120" align="right">
           <template #default="{ row }">
-            <div style="font-size: 12px">
-              <span>¥{{ row.balance_before }}</span>
-              <el-icon style="margin: 0 4px"><Right /></el-icon>
-              <span style="color: #67c23a; font-weight: bold">¥{{ row.balance_after }}</span>
-            </div>
+            ¥{{ row.balance_after }}
           </template>
         </el-table-column>
-        <el-table-column prop="recharge_method" label="充值方式" width="120">
+        <el-table-column prop="recharge_method" label="充值方式" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.recharge_method === '手动充值' ? 'warning' : 'success'">
+            <el-tag :type="row.recharge_method === '财务充值' ? 'warning' : 'success'" size="small">
               {{ row.recharge_method }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="description" label="备注" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="充值时间" width="180">
+        <el-table-column prop="created_at" label="充值时间" width="160">
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="100" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleViewDetail(row)">详情</el-button>
+            <el-button type="info" size="small" @click="handleViewDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <!-- 分页 -->
-      <div class="pagination-container">
+      <div class="pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.page_size"
           :total="pagination.total"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="fetchRecords"
           @current-change="fetchRecords"
@@ -120,41 +113,36 @@
     </el-card>
 
     <!-- 充值详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="充值记录详情" width="600px">
-      <el-descriptions :column="1" border v-if="currentRecord">
+    <el-dialog v-model="detailDialogVisible" title="充值记录详情" width="700px">
+      <el-descriptions :column="2" border v-if="currentRecord">
         <el-descriptions-item label="交易ID">{{ currentRecord.transaction_id }}</el-descriptions-item>
-        <el-descriptions-item label="运营商">
-          {{ currentRecord.operator_name }} ({{ currentRecord.operator_username }})
-        </el-descriptions-item>
-        <el-descriptions-item label="充值金额">
-          <span style="color: #67c23a; font-weight: bold; font-size: 18px">¥{{ currentRecord.amount }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="充值前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
-        <el-descriptions-item label="充值后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
+        <el-descriptions-item label="运营商">{{ currentRecord.operator_name }}</el-descriptions-item>
         <el-descriptions-item label="充值方式">
-          <el-tag :type="currentRecord.recharge_method === '手动充值' ? 'warning' : 'success'">
+          <el-tag :type="currentRecord.recharge_method === '财务充值' ? 'warning' : 'success'" size="small">
             {{ currentRecord.recharge_method }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="支付信息" v-if="currentRecord.payment_info">
+        <el-descriptions-item label="充值金额">
+          <span style="color: #67c23a; font-weight: bold">¥{{ currentRecord.amount }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="充值前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
+        <el-descriptions-item label="充值后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
+        <el-descriptions-item label="充值时间" :span="2">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
+        <el-descriptions-item label="备注" :span="2">{{ currentRecord.description || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="支付信息" :span="2" v-if="currentRecord.payment_info">
           <div>
             <div>支付渠道: {{ currentRecord.payment_info.channel === 'wechat' ? '微信支付' : '支付宝' }}</div>
             <div>订单号: {{ currentRecord.payment_info.order_no }}</div>
             <div>状态: {{ currentRecord.payment_info.status }}</div>
           </div>
         </el-descriptions-item>
-        <el-descriptions-item label="备注">{{ currentRecord.description || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="充值时间">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
       </el-descriptions>
-      <template #footer>
-        <el-button @click="detailDialogVisible = false">关闭</el-button>
-      </template>
     </el-dialog>
 
-    <!-- 手动充值对话框 -->
+    <!-- 财务充值对话框 -->
     <el-dialog
       v-model="showRechargeDialog"
-      title="手动充值"
+      title="财务充值"
       width="500px"
       :close-on-click-modal="false"
     >
@@ -244,6 +232,84 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 财务扣费对话框 -->
+    <el-dialog
+      v-model="showDeductDialog"
+      title="财务扣费"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="deductFormRef"
+        :model="deductForm"
+        :rules="deductRules"
+        label-width="100px"
+      >
+        <el-form-item label="运营商" prop="operator_id">
+          <el-select
+            v-model="deductForm.operator_id"
+            placeholder="请选择运营商"
+            filterable
+            clearable
+            style="width: 100%"
+            @change="handleDeductOperatorChange"
+          >
+            <el-option
+              v-for="operator in operators"
+              :key="operator.id"
+              :label="`${operator.username} (${operator.full_name})`"
+              :value="operator.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="当前余额">
+          <el-input
+            v-model="deductOperatorBalance"
+            placeholder="请先选择运营商"
+            readonly
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="扣费金额" prop="amount">
+          <el-input-number
+            v-model="deductForm.amount"
+            :min="0.01"
+            :max="999999.99"
+            :precision="2"
+            :step="100"
+            controls-position="right"
+            placeholder="请输入扣费金额"
+            style="width: 100%"
+          />
+          <div class="form-tip">扣费金额必须大于0且不能超过运营商当前余额</div>
+        </el-form-item>
+
+        <el-form-item label="扣费原因" prop="description">
+          <el-input
+            v-model="deductForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入扣费原因（必填）"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="showDeductDialog = false">取消</el-button>
+        <el-button
+          type="danger"
+          :loading="deductLoading"
+          @click="handleDeductSubmit"
+        >
+          确认扣费
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -251,7 +317,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
-import { Refresh as RefreshIcon, Right, Money, Plus } from '@element-plus/icons-vue'
+import { Refresh as RefreshIcon, Right, Money, Plus, Remove } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
@@ -375,6 +441,34 @@ const rechargeRules = {
   ]
 }
 
+// 财务扣费相关状态
+const showDeductDialog = ref(false)
+const deductLoading = ref(false)
+const deductFormRef = ref<FormInstance>()
+const deductOperatorBalance = ref('')
+
+// 扣费表单数据
+const deductForm = reactive({
+  operator_id: '',
+  amount: 0,
+  description: '',
+})
+
+// 扣费表单验证规则
+const deductRules = {
+  operator_id: [
+    { required: true, message: '请选择运营商', trigger: 'change' }
+  ],
+  amount: [
+    { required: true, message: '请输入扣费金额', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '扣费金额必须大于0', trigger: 'blur' }
+  ],
+  description: [
+    { required: true, message: '请输入扣费原因', trigger: 'blur' },
+    { min: 1, message: '扣费原因至少1个字符', trigger: 'blur' }
+  ]
+}
+
 // 运营商选择变化
 const handleOperatorChange = (operatorId: string) => {
   if (operatorId) {
@@ -450,6 +544,64 @@ const handleRechargeSubmit = async () => {
   })
 }
 
+// 扣费运营商选择变化
+const handleDeductOperatorChange = (operatorId: string) => {
+  if (operatorId) {
+    const operator = operators.value.find(op => op.id === operatorId)
+    if (operator) {
+      deductOperatorBalance.value = `¥${operator.balance.toFixed(2)}`
+      // 设置最大扣费金额为当前余额
+      if (deductFormRef.value) {
+        deductRules.amount.push({
+          type: 'number',
+          max: operator.balance,
+          message: `扣费金额不能超过当前余额¥${operator.balance.toFixed(2)}`,
+          trigger: 'blur'
+        })
+      }
+    }
+  } else {
+    deductOperatorBalance.value = ''
+  }
+}
+
+// 提交扣费
+const handleDeductSubmit = async () => {
+  if (!deductFormRef.value) return
+
+  await deductFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      deductLoading.value = true
+
+      // 调用后端API
+      await http.post('/finance/deduct', {
+        operator_id: deductForm.operator_id,
+        amount: deductForm.amount,
+        description: deductForm.description
+      })
+
+      ElMessage.success('扣费成功')
+
+      // 重置表单
+      deductFormRef.value.resetFields()
+      deductOperatorBalance.value = ''
+      showDeductDialog.value = false
+
+      // 刷新充值记录列表和运营商列表
+      fetchRecords()
+      fetchOperators()
+
+    } catch (error: any) {
+      console.error('扣费失败:', error)
+      // 错误已在http拦截器中处理
+    } finally {
+      deductLoading.value = false
+    }
+  })
+}
+
 // 页面加载
 onMounted(() => {
   fetchOperators()
@@ -464,7 +616,7 @@ onMounted(() => {
 
 <style scoped>
 .recharge-records-page {
-  padding: 20px;
+  width: 100%;
 }
 
 .card-header {
@@ -478,12 +630,14 @@ onMounted(() => {
   gap: 12px;
 }
 
-.filter-form {
-  margin-bottom: 16px;
+.filter-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.pagination-container {
-  margin-top: 16px;
+.pagination {
+  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }
@@ -493,13 +647,5 @@ onMounted(() => {
   color: #909399;
   margin-top: 4px;
   line-height: 1.4;
-}
-
-pre {
-  background-color: #f5f7fa;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  overflow-x: auto;
 }
 </style>

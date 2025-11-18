@@ -29,6 +29,7 @@
 
       <!-- 申请列表 -->
       <el-table
+        v-copyable
         v-loading="loading"
         :data="requests"
         stripe

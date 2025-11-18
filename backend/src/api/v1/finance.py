@@ -1263,17 +1263,56 @@ async def generate_report(
         HTTPException 403: 权限不足
         HTTPException 500: 服务器内部错误
     """
-    try:
-        # TODO: Implement actual report generation logic
-        # For now, return a placeholder response
-        import uuid
-        from datetime import datetime
+    # 从token中提取finance_id
+    finance_id_str = token.get("sub")
+    if not finance_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "INVALID_TOKEN", "message": "Token中缺少财务ID"},
+        )
 
-        report_id = f"rpt_{datetime.now().strftime('%Y%m%d')}_{uuid.uuid4().hex[:6]}"
+    try:
+        finance_id = UUID(finance_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_FINANCE_ID",
+                "message": f"无效的财务ID格式: {finance_id_str}",
+            },
+        )
+
+    try:
+        from datetime import datetime
+        from ...services.finance_report_service import FinanceReportService
+
+        # 将date转换为datetime（如果需要）
+        if isinstance(request.start_date, str):
+            start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+        else:
+            start_date = datetime.combine(request.start_date, datetime.min.time())
+
+        if isinstance(request.end_date, str):
+            end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.combine(request.end_date, datetime.min.time())
+
+        # 设置结束日期为当天的23:59:59
+        end_date = end_date.replace(hour=23, minute=59, second=59)
+
+        # 生成报表
+        report_service = FinanceReportService(db)
+        report = await report_service.generate_report(
+            finance_id=finance_id,
+            report_type=request.report_type,
+            start_date=start_date,
+            end_date=end_date,
+            export_format=request.format,
+        )
 
         return ReportGenerateResponse(
-            report_id=report_id,
-            status="completed",  # Immediately mark as completed for now
+            report_id=report.report_id,
+            status=report.status,
             estimated_time=0,
         )
 
@@ -1281,6 +1320,12 @@ async def generate_report(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "INVALID_REQUEST", "message": str(e)},
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_DATE_FORMAT", "message": f"日期格式错误: {str(e)}"},
         )
 
     except Exception as e:
@@ -1347,13 +1392,41 @@ async def get_reports(
         HTTPException 500: 服务器内部错误
     """
     try:
-        # TODO: Implement actual report list query
-        # For now, return empty list
+        from ...services.finance_report_service import FinanceReportService
+        from ...schemas.finance import FinanceReportItem
+
+        report_service = FinanceReportService(db)
+        reports, total = await report_service.get_reports_list(page=page, page_size=page_size)
+
+        # 构建响应数据
+        items = []
+        for report in reports:
+            # Debug: print created_at value
+            print(f"DEBUG: report_id={report.report_id}, created_at={report.created_at}, type={type(report.created_at)}")
+
+            items.append(FinanceReportItem(
+                report_id=report.report_id,
+                report_type=report.report_type,
+                start_date=report.start_date.date() if hasattr(report.start_date, 'date') else report.start_date,
+                end_date=report.end_date.date() if hasattr(report.end_date, 'date') else report.end_date,
+                format=report.export_format,
+                status=report.status,
+                file_size=report.file_size,
+                download_url=f"/finance/reports/{report.report_id}/export" if report.status == "completed" else None,
+                error_message=report.error_message,
+                total_recharge=report.total_recharge,
+                total_consumption=report.total_consumption,
+                total_refund=report.total_refund,
+                net_income=report.net_income,
+                created_by=str(report.generated_by) if report.generated_by else "system",
+                created_at=report.created_at,
+            ))
+
         return ReportListResponse(
             page=page,
             page_size=page_size,
-            total=0,
-            items=[],
+            total=total,
+            items=items,
         )
 
     except Exception as e:
@@ -1406,7 +1479,7 @@ async def export_report(
         db: 数据库会话
 
     Returns:
-        FileResponse: 报表文件
+        StreamingResponse: 报表文件流
 
     Raises:
         HTTPException 401: 未认证
@@ -1415,9 +1488,56 @@ async def export_report(
         HTTPException 500: 服务器内部错误
     """
     try:
-        # TODO: Implement actual report export logic
-        # For now, return 404
-        raise NotFoundException(f"报表 {report_id} 不存在或尚未生成")
+        from ...services.finance_report_service import FinanceReportService
+        from fastapi.responses import StreamingResponse
+        import io
+        import json
+
+        report_service = FinanceReportService(db)
+        report = await report_service.get_report_by_id(report_id)
+
+        # 检查报表状态
+        if report.status != "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "REPORT_NOT_READY", "message": f"报表尚未生成完成，当前状态: {report.status}"},
+            )
+
+        # 根据导出格式生成文件
+        if report.export_format == "csv":
+            # 生成CSV文件
+            csv_data = _generate_csv_report(report)
+            output = io.BytesIO(csv_data.encode('utf-8-sig'))  # 使用UTF-8 BOM避免Excel乱码
+            media_type = "text/csv"
+            filename = f"财务报表_{report.report_id}.csv"
+
+        elif report.export_format == "excel":
+            # 生成Excel文件
+            excel_data = await _generate_excel_report(report)
+            output = io.BytesIO(excel_data)
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"财务报表_{report.report_id}.xlsx"
+
+        else:  # pdf
+            # 生成PDF文件
+            pdf_data = await _generate_pdf_report(report)
+            output = io.BytesIO(pdf_data)
+            media_type = "application/pdf"
+            filename = f"财务报表_{report.report_id}.pdf"
+
+        output.seek(0)
+
+        # URL encode the filename for proper handling of Chinese characters
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
+
+        return StreamingResponse(
+            output,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
 
     except NotFoundException as e:
         raise HTTPException(
@@ -1433,6 +1553,368 @@ async def export_report(
                 "message": f"导出报表失败: {str(e)}",
             },
         )
+
+
+def _generate_csv_report(report) -> str:
+    """生成CSV格式报表"""
+    import csv
+    from io import StringIO
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # 写入标题
+    writer.writerow(['财务报表'])
+    writer.writerow(['报表编号', report.report_id])
+    writer.writerow(['报表类型', report.report_type])
+    writer.writerow(['报表周期', report.period])
+    writer.writerow([])
+
+    # 写入汇总数据
+    writer.writerow(['汇总数据'])
+    writer.writerow(['指标', '金额'])
+    writer.writerow(['总充值', f'{report.total_recharge:.2f}'])
+    writer.writerow(['总消费', f'{report.total_consumption:.2f}'])
+    writer.writerow(['总退款', f'{report.total_refund:.2f}'])
+    writer.writerow(['净收入', f'{report.net_income:.2f}'])
+    writer.writerow([])
+
+    # 写入每日数据
+    if report.daily_breakdown:
+        writer.writerow(['每日明细'])
+        writer.writerow(['日期', '充值', '消费', '退款', '净收入'])
+        for day in report.daily_breakdown:
+            writer.writerow([
+                day['date'],
+                day['recharge'],
+                day['consumption'],
+                day['refund'],
+                day['net_income']
+            ])
+        writer.writerow([])
+
+    # 写入Top客户
+    if report.top_customers:
+        writer.writerow(['Top消费客户'])
+        writer.writerow(['排名', '运营商', '消费金额', '交易笔数'])
+        for customer in report.top_customers:
+            writer.writerow([
+                customer['rank'],
+                customer['operator_name'],
+                customer['total_consumption'],
+                customer['transaction_count']
+            ])
+
+    return output.getvalue()
+
+
+async def _generate_excel_report(report) -> bytes:
+    """生成Excel格式报表"""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill
+        from io import BytesIO
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "财务报表"
+
+        # 标题样式
+        title_font = Font(size=14, bold=True)
+        header_font = Font(size=12, bold=True)
+        header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+
+        # 写入标题
+        ws['A1'] = '财务报表'
+        ws['A1'].font = title_font
+        ws.merge_cells('A1:D1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+
+        row = 3
+        ws[f'A{row}'] = '报表编号:'
+        ws[f'B{row}'] = report.report_id
+        row += 1
+        ws[f'A{row}'] = '报表类型:'
+        ws[f'B{row}'] = report.report_type
+        row += 1
+        ws[f'A{row}'] = '报表周期:'
+        ws[f'B{row}'] = report.period
+        row += 2
+
+        # 汇总数据
+        ws[f'A{row}'] = '汇总数据'
+        ws[f'A{row}'].font = header_font
+        row += 1
+
+        ws[f'A{row}'] = '指标'
+        ws[f'B{row}'] = '金额'
+        ws[f'A{row}'].fill = header_fill
+        ws[f'B{row}'].fill = header_fill
+        row += 1
+
+        ws[f'A{row}'] = '总充值'
+        ws[f'B{row}'] = float(report.total_recharge)
+        row += 1
+        ws[f'A{row}'] = '总消费'
+        ws[f'B{row}'] = float(report.total_consumption)
+        row += 1
+        ws[f'A{row}'] = '总退款'
+        ws[f'B{row}'] = float(report.total_refund)
+        row += 1
+        ws[f'A{row}'] = '净收入'
+        ws[f'B{row}'] = float(report.net_income)
+        row += 2
+
+        # 每日明细
+        if report.daily_breakdown:
+            ws[f'A{row}'] = '每日明细'
+            ws[f'A{row}'].font = header_font
+            row += 1
+
+            headers = ['日期', '充值', '消费', '退款', '净收入']
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.fill = header_fill
+            row += 1
+
+            for day in report.daily_breakdown:
+                ws.cell(row=row, column=1, value=day['date'])
+                ws.cell(row=row, column=2, value=float(day['recharge']))
+                ws.cell(row=row, column=3, value=float(day['consumption']))
+                ws.cell(row=row, column=4, value=float(day['refund']))
+                ws.cell(row=row, column=5, value=float(day['net_income']))
+                row += 1
+            row += 1
+
+        # Top客户
+        if report.top_customers:
+            ws[f'A{row}'] = 'Top消费客户'
+            ws[f'A{row}'].font = header_font
+            row += 1
+
+            headers = ['排名', '运营商', '消费金额', '交易笔数']
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.fill = header_fill
+            row += 1
+
+            for customer in report.top_customers:
+                ws.cell(row=row, column=1, value=customer['rank'])
+                ws.cell(row=row, column=2, value=customer['operator_name'])
+                ws.cell(row=row, column=3, value=float(customer['total_consumption']))
+                ws.cell(row=row, column=4, value=customer['transaction_count'])
+                row += 1
+
+        # 调整列宽
+        ws.column_dimensions['A'].width = 20
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 15
+
+        # 保存到BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output.read()
+
+    except ImportError:
+        # 如果没有安装openpyxl，返回简单的CSV格式
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail={"error_code": "EXCEL_NOT_SUPPORTED", "message": "Excel导出功能需要安装openpyxl库"},
+        )
+
+
+async def _generate_pdf_report(report) -> bytes:
+    """生成PDF格式报表"""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    import json
+
+    # 注册中文字体
+    try:
+        # 尝试多个常见的中文字体路径
+        font_paths = [
+            '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        ]
+
+        font_registered = False
+        for font_path in font_paths:
+            try:
+                import os
+                if os.path.exists(font_path):
+                    pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
+                    font_name = 'ChineseFont'
+                    font_registered = True
+                    break
+            except:
+                continue
+
+        if not font_registered:
+            # 使用reportlab的内置中文字体支持 (STSong-Light)
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+            font_name = 'STSong-Light'
+    except Exception as e:
+        # 最后的备用方案：使用Helvetica（不支持中文，但至少不会崩溃）
+        print(f"Warning: Could not register Chinese font: {e}")
+        font_name = 'Helvetica'
+
+    output = BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+
+    # 准备内容
+    story = []
+    styles = getSampleStyleSheet()
+
+    # 自定义样式
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontName=font_name,
+        fontSize=18,
+        alignment=TA_CENTER,
+        spaceAfter=20
+    )
+
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontName=font_name,
+        fontSize=14,
+        spaceAfter=10
+    )
+
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontName=font_name,
+        fontSize=10,
+        alignment=TA_LEFT
+    )
+
+    # 标题
+    story.append(Paragraph('财务报表', title_style))
+    story.append(Spacer(1, 0.5*cm))
+
+    # 基本信息
+    basic_data = [
+        ['报表编号', report.report_id],
+        ['报表类型', {'daily': '日报', 'weekly': '周报', 'monthly': '月报', 'custom': '自定义'}.get(report.report_type, report.report_type)],
+        ['报表周期', f"{report.start_date.strftime('%Y-%m-%d')} 至 {report.end_date.strftime('%Y-%m-%d')}"],
+        ['生成时间', report.generated_at.strftime('%Y-%m-%d %H:%M:%S') if report.generated_at else ''],
+    ]
+
+    basic_table = Table(basic_data, colWidths=[4*cm, 12*cm])
+    basic_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), font_name),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(basic_table)
+    story.append(Spacer(1, 0.8*cm))
+
+    # 汇总数据
+    story.append(Paragraph('汇总数据', heading_style))
+    summary_data = [
+        ['指标', '金额'],
+        ['总充值', f'¥{float(report.total_recharge):,.2f}'],
+        ['总消费', f'¥{float(report.total_consumption):,.2f}'],
+        ['总退款', f'¥{float(report.total_refund):,.2f}'],
+        ['净收入', f'¥{float(report.net_income):,.2f}'],
+    ]
+
+    summary_table = Table(summary_data, colWidths=[8*cm, 8*cm])
+    summary_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), font_name),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.8*cm))
+
+    # 每日明细
+    if report.daily_breakdown:
+        story.append(Paragraph('每日明细', heading_style))
+        daily_data = [['日期', '充值', '消费', '退款', '净收入']]
+
+        breakdown = json.loads(report.daily_breakdown) if isinstance(report.daily_breakdown, str) else report.daily_breakdown
+        for day in breakdown[:10]:  # 最多显示10天
+            daily_data.append([
+                day.get('date', ''),
+                f"¥{float(day.get('recharge', 0)):,.2f}",
+                f"¥{float(day.get('consumption', 0)):,.2f}",
+                f"¥{float(day.get('refund', 0)):,.2f}",
+                f"¥{float(day.get('net_income', 0)):,.2f}",
+            ])
+
+        daily_table = Table(daily_data, colWidths=[3.2*cm, 3.2*cm, 3.2*cm, 3.2*cm, 3.2*cm])
+        daily_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(daily_table)
+        story.append(Spacer(1, 0.8*cm))
+
+    # Top消费客户
+    if report.top_customers:
+        story.append(Paragraph('Top消费客户', heading_style))
+        top_data = [['排名', '运营商名称', '消费金额']]
+
+        customers = json.loads(report.top_customers) if isinstance(report.top_customers, str) else report.top_customers
+        for idx, customer in enumerate(customers[:10], 1):  # 最多显示10个
+            top_data.append([
+                str(idx),
+                customer.get('name', ''),
+                f"¥{float(customer.get('consumption', 0)):,.2f}",
+            ])
+
+        top_table = Table(top_data, colWidths=[2*cm, 8*cm, 6*cm])
+        top_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(top_table)
+
+    # 生成PDF
+    doc.build(story)
+    output.seek(0)
+    return output.read()
 
 
 # ==================== 运营商列表 ====================
@@ -1957,12 +2439,16 @@ async def get_recharge_records(
                     "status": record.payment_status,
                 }
             else:
-                recharge_method = "手动充值"
+                recharge_method = "财务充值"
                 payment_info = None
 
+            # Generate human-readable transaction ID (format: TXN_YYYYMMDD_XXXXX)
+            trans_created_time = record.created_at
+            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(record.id)[:5].upper()}"
+
             items.append({
-                "id": f"txn_{record.id}",
-                "transaction_id": str(record.id),
+                "id": transaction_id,
+                "transaction_id": transaction_id,
                 "operator_id": f"op_{record.operator_id}",
                 "operator_username": record.operator.username,
                 "operator_name": record.operator.full_name,
@@ -1993,6 +2479,289 @@ async def get_recharge_records(
                 "error_code": "INTERNAL_ERROR",
                 "message": f"查询充值记录失败: {str(e)}",
             },
+        )
+
+
+# ==================== 交易记录 ====================
+
+@router.get(
+    "/transactions",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+    },
+    summary="获取交易记录列表",
+    description="""
+    获取所有运营商的交易记录。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **支持筛选**:
+    - operator_id: 运营商ID
+    - transaction_type: 交易类型(recharge/consumption/refund)
+    - start_time/end_time: 时间范围
+    """
+)
+async def get_transactions(
+    operator_id: Optional[str] = Query(None, description="运营商ID筛选"),
+    transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """获取交易记录列表"""
+    from datetime import datetime
+    from sqlalchemy import select, and_, or_, func
+    from ...models import TransactionRecord, OperatorAccount
+
+    try:
+        # 构建查询条件
+        filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund'])]
+
+        # 按运营商筛选
+        if operator_id:
+            # 处理op_前缀或UUID格式
+            if operator_id.startswith("op_"):
+                operator_uuid = operator_id[3:]
+            else:
+                operator_uuid = operator_id
+
+            try:
+                operator_uuid = UUID(operator_uuid)
+                filters.append(TransactionRecord.operator_id == operator_uuid)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_OPERATOR_ID", "message": "运营商ID格式错误"}
+                )
+
+        # 按交易类型筛选
+        if transaction_type:
+            if transaction_type not in ['recharge', 'consumption', 'refund']:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_TRANSACTION_TYPE", "message": "交易类型无效"}
+                )
+            filters.append(TransactionRecord.transaction_type == transaction_type)
+
+        # 按时间范围筛选
+        if start_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                filters.append(TransactionRecord.created_at >= start_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_START_TIME", "message": "开始时间格式错误"}
+                )
+
+        if end_time:
+            try:
+                end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                filters.append(TransactionRecord.created_at <= end_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error_code": "INVALID_END_TIME", "message": "结束时间格式错误"}
+                )
+
+        # 查询总数
+        count_stmt = select(func.count()).select_from(TransactionRecord).where(and_(*filters))
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar()
+
+        # 查询分页数据
+        stmt = (
+            select(TransactionRecord, OperatorAccount)
+            .join(OperatorAccount, TransactionRecord.operator_id == OperatorAccount.id)
+            .where(and_(*filters))
+            .order_by(TransactionRecord.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        result = await db.execute(stmt)
+        records = result.all()
+
+        # 构建返回数据
+        items = []
+        for record, operator in records:
+            # Generate human-readable transaction ID
+            trans_created_time = record.created_at
+            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(record.id)[:5].upper()}"
+
+            items.append({
+                "transaction_id": transaction_id,
+                "operator_id": f"op_{record.operator_id}",
+                "operator_name": operator.full_name,
+                "transaction_type": record.transaction_type,
+                "amount": f"{record.amount:.2f}",
+                "balance_before": f"{record.balance_before:.2f}",
+                "balance_after": f"{record.balance_after:.2f}",
+                "description": record.description or "",
+                "created_at": record.created_at.isoformat(),
+            })
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "INTERNAL_ERROR", "message": f"查询交易记录失败: {str(e)}"}
+        )
+
+
+# ==================== 财务扣费 ====================
+
+@router.post(
+    "/deduct",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"description": "请求参数错误"},
+        401: {"description": "未认证或Token无效/过期"},
+        403: {"description": "权限不足(非财务人员)"},
+        404: {"description": "运营商不存在"},
+    },
+    summary="财务扣费",
+    description="""
+    财务人员为运营商扣费（用于纠正充值错误等情况）。
+
+    **认证要求**:
+    - Authorization: Bearer {JWT_TOKEN}
+    - 用户类型: finance
+
+    **请求参数**:
+    - operator_id: 运营商ID
+    - amount: 扣费金额（必须大于0且不超过运营商余额）
+    - description: 扣费原因（必填）
+    """
+)
+async def deduct_balance(
+    operator_id: str = Form(..., description="运营商ID"),
+    amount: float = Form(..., description="扣费金额"),
+    description: str = Form(..., description="扣费原因"),
+    token: dict = Depends(require_finance),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """财务扣费API"""
+    from decimal import Decimal
+    from sqlalchemy import select
+    from ...models import Operator, TransactionRecord, FinanceOperationLog
+
+    try:
+        # 验证金额
+        if amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "INVALID_AMOUNT", "message": "扣费金额必须大于0"}
+            )
+
+        if not description or len(description.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "INVALID_DESCRIPTION", "message": "扣费原因不能为空"}
+            )
+
+        # 处理运营商ID
+        if operator_id.startswith("op_"):
+            operator_uuid = operator_id[3:]
+        else:
+            operator_uuid = operator_id
+
+        try:
+            operator_uuid = UUID(operator_uuid)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error_code": "INVALID_OPERATOR_ID", "message": "运营商ID格式错误"}
+            )
+
+        # 查询运营商
+        stmt = select(Operator).where(Operator.id == operator_uuid)
+        result = await db.execute(stmt)
+        operator = result.scalar_one_or_none()
+
+        if not operator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error_code": "OPERATOR_NOT_FOUND", "message": "运营商不存在"}
+            )
+
+        # 检查余额是否足够
+        deduct_amount = Decimal(str(amount))
+        if operator.balance < deduct_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INSUFFICIENT_BALANCE",
+                    "message": f"余额不足，当前余额: ¥{operator.balance:.2f}"
+                }
+            )
+
+        # 记录扣费前后余额
+        balance_before = operator.balance
+        balance_after = balance_before - deduct_amount
+
+        # 更新运营商余额
+        operator.balance = balance_after
+
+        # 创建交易记录（扣费作为负数充值记录）
+        transaction = TransactionRecord(
+            operator_id=operator_uuid,
+            transaction_type="refund",  # 使用refund类型表示扣费
+            amount=-deduct_amount,  # 负数表示扣费
+            balance_before=balance_before,
+            balance_after=balance_after,
+            description=f"财务扣费: {description}",
+        )
+        db.add(transaction)
+
+        # 记录财务操作日志
+        operation_log = FinanceOperationLog(
+            finance_user_id=UUID(token["user_id"]),
+            operation_type="deduct",
+            target_operator_id=operator_uuid,
+            amount=deduct_amount,
+            description=description,
+        )
+        db.add(operation_log)
+
+        await db.commit()
+        await db.refresh(transaction)
+
+        return {
+            "transaction_id": f"TXN_{transaction.created_at.strftime('%Y%m%d')}_{str(transaction.id)[:5].upper()}",
+            "operator_id": f"op_{operator_uuid}",
+            "operator_name": operator.full_name,
+            "amount": f"{deduct_amount:.2f}",
+            "balance_before": f"{balance_before:.2f}",
+            "balance_after": f"{balance_after:.2f}",
+            "description": f"财务扣费: {description}",
+            "created_at": transaction.created_at.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "INTERNAL_ERROR", "message": f"扣费失败: {str(e)}"}
         )
 
 

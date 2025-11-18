@@ -314,8 +314,13 @@ class BankTransferService:
             operator_username = row.username
             operator_full_name = row.full_name
 
+            # Generate human-readable application ID (format: BTR_YYYYMMDD_XXXXX)
+            app_created_time = application.created_at
+            application_id = f"BTR_{app_created_time.strftime('%Y%m%d')}_{str(application.id)[:5].upper()}"
+
             items.append(BankTransferItem(
-                application_id=str(application.id),
+                id=str(application.id),  # 原始UUID，用于API调用
+                application_id=application_id,  # 格式化显示
                 operator_id=str(application.operator_id),
                 operator_name=operator_full_name,
                 operator_username=operator_username,

@@ -187,8 +187,13 @@ class TransactionRecord(Base):
             name="chk_payment_status"
         ),
         # CHECK约束: 余额计算正确性
+        # 充值/消费: balance_after = balance_before + amount (amount可正可负)
+        # 退款: balance_after = balance_before - amount (amount为正值)
         CheckConstraint(
-            "balance_after = balance_before + amount",
+            """
+            (transaction_type != 'refund' AND balance_after = balance_before + amount) OR
+            (transaction_type = 'refund' AND balance_after = balance_before - amount)
+            """,
             name="chk_balance_calc"
         ),
         # 复合索引: 查询运营商交易记录(按时间降序)

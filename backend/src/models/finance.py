@@ -3,7 +3,7 @@ Financial Account Models (T160)
 
 财务账号模型
 """
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, TIMESTAMP, Text, Numeric, Integer
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -193,3 +193,141 @@ class FinanceOperationLog(Base):
     # CREATE TABLE finance_operation_logs (...) PARTITION BY RANGE (created_at);
     # CREATE TABLE finance_operation_logs_2025_10 PARTITION OF finance_operation_logs
     #     FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
+
+
+class FinanceReport(Base):
+    """
+    财务报表表
+
+    存储生成的财务报表记录，支持多种报表类型和导出格式
+    """
+    __tablename__ = "finance_reports"
+
+    # 主键
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # 报表基本信息
+    report_id = Column(String(64), nullable=False, unique=True, comment="报表编号(rpt_YYYYMMDD_XXXXXX)")
+    report_type = Column(
+        String(32),
+        nullable=False,
+        comment="报表类型: daily/weekly/monthly/custom"
+    )
+
+    # 报表周期
+    start_date = Column(DateTime(timezone=True), nullable=False, comment="报表开始日期")
+    end_date = Column(DateTime(timezone=True), nullable=False, comment="报表结束日期")
+    period = Column(String(128), nullable=False, comment="报表周期描述(如: 2025-01-01 至 2025-01-31)")
+
+    # 报表数据
+    total_recharge = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0,
+        comment="总充值金额"
+    )
+    total_consumption = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0,
+        comment="总消费金额"
+    )
+    total_refund = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0,
+        comment="总退款金额"
+    )
+    net_income = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0,
+        comment="净收入(充值-退款)"
+    )
+
+    # 统计数据
+    total_transactions = Column(Integer, nullable=False, default=0, comment="总交易笔数")
+    total_operators = Column(Integer, nullable=False, default=0, comment="涉及运营商数量")
+    active_operators = Column(Integer, nullable=False, default=0, comment="活跃运营商数量")
+
+    # 详细数据(JSON格式)
+    daily_breakdown = Column(
+        JSON,
+        nullable=True,
+        comment="每日明细数据(用于趋势分析)"
+    )
+    top_customers = Column(
+        JSON,
+        nullable=True,
+        comment="Top客户数据"
+    )
+    statistics_data = Column(
+        JSON,
+        nullable=True,
+        comment="其他统计数据"
+    )
+
+    # 导出格式和文件
+    export_format = Column(
+        String(16),
+        nullable=False,
+        default='pdf',
+        comment="导出格式: pdf/excel/csv"
+    )
+    file_path = Column(String(512), nullable=True, comment="文件存储路径")
+    file_size = Column(Integer, nullable=True, comment="文件大小(字节)")
+
+    # 生成状态
+    status = Column(
+        String(32),
+        nullable=False,
+        default='generating',
+        comment="生成状态: generating/completed/failed"
+    )
+    error_message = Column(Text, nullable=True, comment="错误信息(生成失败时)")
+
+    # 生成者信息
+    generated_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("finance_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="生成者(财务人员ID)"
+    )
+
+    # 时间戳
+    generated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+        comment="生成时间"
+    )
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+        comment="创建时间"
+    )
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        comment="更新时间"
+    )
+
+    # 关系
+    generator = relationship(
+        "FinanceAccount",
+        foreign_keys=[generated_by],
+        lazy="select"
+    )
+
+    def __repr__(self):
+        return (
+            f"<FinanceReport("
+            f"report_id='{self.report_id}', "
+            f"type='{self.report_type}', "
+            f"period='{self.period}', "
+            f"status='{self.status}'"
+            f")>"
+        )

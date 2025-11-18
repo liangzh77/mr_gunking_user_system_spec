@@ -13,6 +13,23 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="运营商">
+          <el-select
+            v-model="filterForm.operator_id"
+            placeholder="全部运营商"
+            clearable
+            filterable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="op in operators"
+              :key="op.id"
+              :label="`${op.full_name} (${op.username})`"
+              :value="op.id"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="交易类型">
           <el-select
             v-model="filterForm.transaction_type"
@@ -61,10 +78,11 @@
         style="width: 100%"
       >
         <el-table-column prop="transaction_id" label="交易ID" width="220" show-overflow-tooltip />
+        <el-table-column prop="operator_name" label="运营商" width="150" show-overflow-tooltip />
         <el-table-column prop="transaction_type" label="交易类型" width="120">
           <template #default="{ row }">
-            <el-tag :type="getTransactionTypeTag(row.transaction_type, row)" size="small">
-              {{ getTransactionTypeLabel(row.transaction_type, row) }}
+            <el-tag :type="getTransactionTypeTag(row)" size="small">
+              {{ getTransactionTypeLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -142,17 +160,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useOperatorStore } from '@/stores/operator'
-import type { Transaction } from '@/types'
 import { formatDateTime } from '@/utils/format'
-
-const operatorStore = useOperatorStore()
+import http from '@/utils/http'
 
 const loading = ref(false)
-const transactions = ref<Transaction[]>([])
+const transactions = ref<any[]>([])
+const operators = ref<any[]>([])
 const dateRange = ref<[string, string] | null>(null)
 
 const filterForm = ref({
+  operator_id: '',
   transaction_type: '',
 })
 
@@ -174,7 +191,6 @@ const pageBillingTotal = computed(() => {
   const total = transactions.value
     .filter(t => t.transaction_type === 'consumption')
     .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  // 消费金额后端返回负数，这里取绝对值用于显示
   return Math.abs(total).toFixed(2)
 })
 
@@ -182,21 +198,21 @@ const pageRefundTotal = computed(() => {
   const total = transactions.value
     .filter(t => t.transaction_type === 'refund')
     .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  // 退款金额后端返回负数（余额减少），这里取绝对值用于显示
   return Math.abs(total).toFixed(2)
 })
 
-// 获取交易类型标签（根据payment_method细分充值类型颜色）
-const getTransactionTypeTag = (type: string, row?: any) => {
-  if (type === 'recharge' && row) {
-    // 根据payment_method区分充值类型颜色
-    if (!row.payment_method || row.payment_method === null) {
-      return 'success'  // 财务充值 - 绿色
-    } else if (row.payment_method === 'bank_transfer') {
-      return 'primary'  // 银行充值 - 蓝色
-    } else {
-      return 'success'  // 在线充值 - 绿色
+// 获取交易类型标签
+const getTransactionTypeTag = (row: any) => {
+  const type = row.transaction_type
+
+  // 如果是充值类型，根据description区分
+  if (type === 'recharge') {
+    if (row.description && row.description.includes('银行转账')) {
+      return 'primary'  // 蓝色
+    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
+      return 'success'  // 绿色
     }
+    return 'success'  // 默认绿色
   }
 
   const map: Record<string, any> = {
@@ -206,21 +222,21 @@ const getTransactionTypeTag = (type: string, row?: any) => {
   return map[type] || 'info'
 }
 
-// 获取交易类型标签文本（根据payment_method细分充值类型）
-const getTransactionTypeLabel = (type: string, row?: any) => {
-  if (type === 'recharge' && row) {
-    // 根据payment_method区分充值类型
-    if (!row.payment_method || row.payment_method === null) {
-      return '财务充值'
-    } else if (row.payment_method === 'bank_transfer') {
+// 获取交易类型标签文本
+const getTransactionTypeLabel = (row: any) => {
+  const type = row.transaction_type
+
+  // 如果是充值类型，根据description区分
+  if (type === 'recharge') {
+    if (row.description && row.description.includes('银行转账')) {
       return '银行充值'
-    } else {
-      return '在线充值'
+    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
+      return '财务充值'
     }
+    return '充值'
   }
 
   const map: Record<string, string> = {
-    recharge: '充值',
     consumption: '消费',
     refund: '退款',
   }
@@ -229,17 +245,31 @@ const getTransactionTypeLabel = (type: string, row?: any) => {
 
 // 获取金额CSS类
 const getAmountClass = (type: string) => {
-  // 充值是加钱（绿色），消费和退款都是减钱（红色）
   return type === 'recharge' ? 'amount-positive' : 'amount-negative'
 }
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
   const numAmount = parseFloat(amount)
   const absAmount = Math.abs(numAmount).toFixed(2)
   const prefix = numAmount >= 0 ? '+' : '-'
   return `${prefix}¥${absAmount}`
+}
+
+// 加载运营商列表
+const loadOperators = async () => {
+  try {
+    const response = await http.get('/finance/operators', {
+      params: {
+        page: 1,
+        page_size: 1000,
+        status: 'active',
+      },
+    })
+    operators.value = response.data.items || []
+  } catch (error) {
+    console.error('Load operators error:', error)
+  }
 }
 
 // 加载交易记录
@@ -251,6 +281,10 @@ const loadTransactions = async () => {
       page_size: pagination.value.page_size,
     }
 
+    if (filterForm.value.operator_id) {
+      params.operator_id = filterForm.value.operator_id
+    }
+
     if (filterForm.value.transaction_type) {
       params.transaction_type = filterForm.value.transaction_type
     }
@@ -260,9 +294,9 @@ const loadTransactions = async () => {
       params.end_time = dateRange.value[1]
     }
 
-    const response = await operatorStore.getTransactions(params)
-    transactions.value = response.items
-    pagination.value.total = response.total
+    const response = await http.get('/finance/transactions', { params })
+    transactions.value = response.data.items || []
+    pagination.value.total = response.data.total || 0
   } catch (error) {
     console.error('Load transactions error:', error)
     ElMessage.error('加载交易记录失败')
@@ -281,6 +315,7 @@ const handleSearch = () => {
 const handleReset = () => {
   dateRange.value = null
   filterForm.value = {
+    operator_id: '',
     transaction_type: '',
   }
   pagination.value.page = 1
@@ -294,6 +329,7 @@ const handlePageSizeChange = () => {
 }
 
 onMounted(() => {
+  loadOperators()
   loadTransactions()
 })
 </script>

@@ -77,14 +77,13 @@
     <!-- 使用记录列表 -->
     <el-card class="list-card" style="margin-top: 20px">
       <el-table
+        v-copyable
         v-loading="loading"
         :data="records"
         stripe
         style="width: 100%"
-        @row-click="handleRowClick"
-        :row-style="{ cursor: 'pointer' }"
       >
-        <el-table-column prop="session_id" label="会话ID" width="180" show-overflow-tooltip />
+        <el-table-column prop="session_id" label="会话ID" width="220" show-overflow-tooltip />
         <el-table-column prop="site_name" label="运营点" width="150" />
         <el-table-column prop="app_name" label="应用" width="150" />
         <el-table-column prop="player_count" label="玩家数" width="100" align="center" />
@@ -153,7 +152,6 @@
       v-model="detailDialogVisible"
       title="使用记录详情"
       width="800px"
-      :close-on-click-modal="false"
     >
       <div v-loading="loadingDetail" class="detail-container">
         <template v-if="detailData">
@@ -188,7 +186,7 @@
             <!-- 头显设备信息 -->
             <div v-if="detailData.game_sessions[0].headset_devices && detailData.game_sessions[0].headset_devices.length > 0" style="margin-top: 10px">
               <h4 style="margin-bottom: 8px">头显设备</h4>
-              <el-table :data="detailData.game_sessions[0].headset_devices" border size="small">
+              <el-table v-copyable :data="detailData.game_sessions[0].headset_devices" border size="small">
                 <el-table-column prop="device_id" label="设备ID" width="120" />
                 <el-table-column prop="device_name" label="设备名称" width="120" />
                 <el-table-column prop="start_time" label="开始时间" width="160">
@@ -398,11 +396,6 @@ const showDetail = async (record: UsageRecord) => {
   } finally {
     loadingDetail.value = false
   }
-}
-
-// 行点击事件
-const handleRowClick = (row: UsageRecord) => {
-  showDetail(row)
 }
 
 onMounted(() => {

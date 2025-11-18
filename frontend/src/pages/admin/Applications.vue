@@ -31,6 +31,7 @@
 
       <!-- 应用列表 -->
       <el-table
+        v-copyable
         v-loading="loading"
         :data="applications"
         stripe

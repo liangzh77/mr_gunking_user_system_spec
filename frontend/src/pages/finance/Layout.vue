@@ -21,6 +21,11 @@
           <span>充值记录</span>
         </el-menu-item>
 
+        <el-menu-item index="/finance/transactions">
+          <el-icon><Coin /></el-icon>
+          <span>交易记录</span>
+        </el-menu-item>
+
         <el-sub-menu index="审核">
           <template #title>
             <el-icon><DocumentChecked /></el-icon>
@@ -45,7 +50,8 @@
           <span>财务报表</span>
         </el-menu-item>
 
-        <el-menu-item index="/finance/audit-logs">
+        <!-- 审计日志功能暂时隐藏，将来可通过修改v-if="true"恢复 -->
+        <el-menu-item v-if="false" index="/finance/audit-logs">
           <el-icon><List /></el-icon>
           <span>审计日志</span>
         </el-menu-item>
@@ -96,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+// Cache refresh v3
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -104,6 +111,7 @@ import {
   User,
   Odometer,
   CreditCard,
+  Coin,
   DocumentChecked,
   RefreshLeft,
   Tickets,
@@ -127,6 +135,7 @@ const activeMenu = computed(() => route.path)
 const breadcrumbMap: Record<string, string> = {
   '/finance/dashboard': '财务面板',
   '/finance/recharge-records': '充值记录',
+  '/finance/transactions': '交易记录',
   '/finance/refunds': '退款审核',
   '/finance/invoices': '发票审核',
   '/finance/bank-transfers': '银行转账审核',

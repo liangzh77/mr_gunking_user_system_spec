@@ -14,7 +14,8 @@ class BankTransferStatus(str, Enum):
 
 class BankTransferItem(BaseModel):
     """银行转账申请项"""
-    application_id: str = Field(..., description="申请ID")
+    id: str = Field(..., description="原始申请ID (UUID)")
+    application_id: str = Field(..., description="申请ID (格式化显示)")
     operator_id: str = Field(..., description="运营商ID")
     operator_name: str = Field(..., description="运营商名称")
     operator_username: str = Field(..., description="运营商用户名")
