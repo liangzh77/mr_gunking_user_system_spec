@@ -2735,9 +2735,14 @@ async def deduct_balance(
         operation_log = FinanceOperationLog(
             finance_account_id=UUID(token["sub"]),
             operation_type="deduct",
-            target_operator_id=operator_uuid,
-            amount=deduct_amount,
-            description=description,
+            target_resource_type="operator",
+            target_resource_id=operator_uuid,
+            operation_details={
+                "amount": str(deduct_amount),
+                "description": description,
+                "balance_before": str(balance_before),
+                "balance_after": str(balance_after),
+            },
         )
         db.add(operation_log)
 
