@@ -229,17 +229,18 @@ const getTransactionTypeLabel = (type: string, row?: any) => {
 
 // 获取金额CSS类
 const getAmountClass = (type: string) => {
-  // 充值是加钱（绿色），消费和退款都是减钱（红色）
-  return type === 'recharge' ? 'amount-positive' : 'amount-negative'
+  // 充值-绿色，消费-红色，退款-橙色
+  if (type === 'recharge') return 'amount-recharge'
+  if (type === 'consumption') return 'amount-consumption'
+  if (type === 'refund') return 'amount-refund'
+  return ''
 }
 
 // 获取金额显示
 const getAmountDisplay = (type: string, amount: string) => {
-  // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
+  // 所有金额都是正数，不显示正负号
   const numAmount = parseFloat(amount)
-  const absAmount = Math.abs(numAmount).toFixed(2)
-  const prefix = numAmount >= 0 ? '+' : '-'
-  return `${prefix}¥${absAmount}`
+  return `¥${numAmount.toFixed(2)}`
 }
 
 // 加载交易记录
@@ -335,13 +336,18 @@ onMounted(() => {
   padding: 20px;
 }
 
-.amount-positive {
+.amount-recharge {
   color: #67C23A;
   font-weight: 600;
 }
 
-.amount-negative {
+.amount-consumption {
   color: #F56C6C;
+  font-weight: 600;
+}
+
+.amount-refund {
+  color: #E6A23C;
   font-weight: 600;
 }
 
