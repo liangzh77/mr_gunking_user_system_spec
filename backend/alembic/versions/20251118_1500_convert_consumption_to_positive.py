@@ -31,8 +31,17 @@ def upgrade() -> None:
     # 更新约束：所有交易类型的amount都必须是正数
     print("Updating balance calculation constraint...")
 
-    # 删除旧约束
-    op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+    # 删除旧约束(如果存在)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    constraints = inspector.get_check_constraints('transaction_records')
+    constraint_names = [c['name'] for c in constraints]
+
+    if 'chk_balance_calc' in constraint_names:
+        op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+        print("✓ Dropped existing constraint")
+    else:
+        print("⚠ Constraint 'chk_balance_calc' not found, skipping drop")
 
     # 添加新约束：
     # - 所有amount必须是正数
