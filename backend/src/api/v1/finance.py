@@ -2721,11 +2721,11 @@ async def deduct_balance(
         # 更新运营商余额
         operator.balance = balance_after
 
-        # 创建交易记录（扣费作为负数充值记录）
+        # 创建交易记录（扣费使用refund类型）
         transaction = TransactionRecord(
             operator_id=operator_uuid,
             transaction_type="refund",  # 使用refund类型表示扣费
-            amount=-deduct_amount,  # 负数表示扣费
+            amount=deduct_amount,  # amount必须为正数,通过transaction_type区分增减
             balance_before=balance_before,
             balance_after=balance_after,
             description=f"财务扣费: {description}",
