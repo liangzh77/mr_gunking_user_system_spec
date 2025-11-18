@@ -32,44 +32,44 @@ def upgrade() -> None:
         print("Constraint 'chk_balance_calc' not found, skipping drop")
 
     # 先检查并修复不符合约束的数据
-    print("Checking refund transaction data...")
+    print("Checking and fixing refund transaction data...")
 
-    # 检查当前退款记录的amount值分布
-    result = op.execute("""
-        SELECT
-            COUNT(*) as total_refunds,
-            COUNT(*) FILTER (WHERE amount > 0) as positive_amounts,
-            COUNT(*) FILTER (WHERE amount < 0) as negative_amounts,
-            COUNT(*) FILTER (WHERE amount = 0) as zero_amounts
-        FROM transaction_records
-        WHERE transaction_type = 'refund'
+    # 直接修复负数的退款金额,不需要先检查
+    print("Converting any negative refund amounts to positive...")
+    op.execute("""
+        UPDATE transaction_records
+        SET amount = ABS(amount)
+        WHERE transaction_type = 'refund' AND amount < 0
     """)
-    stats = result.fetchone()
-    print(f"Refund statistics: total={stats[0]}, positive={stats[1]}, negative={stats[2]}, zero={stats[3]}")
+    print("✓ Fixed negative refund amounts (if any)")
 
-    # 修复负数的退款金额
-    if stats[2] > 0:
-        print(f"Converting {stats[2]} negative refund amounts to positive...")
-        op.execute("""
-            UPDATE transaction_records
-            SET amount = ABS(amount)
-            WHERE transaction_type = 'refund' AND amount < 0
-        """)
-        print("✓ Fixed negative refund amounts")
+    # 检查是否还有不符合新约束的数据
+    # 使用connection来获取结果
+    from alembic import context
+    connection = context.get_bind()
 
-    # 检查balance计算是否正确
-    result = op.execute("""
+    result = connection.execute(sa.text("""
         SELECT COUNT(*) as count
         FROM transaction_records
         WHERE transaction_type = 'refund'
-        AND balance_after != balance_before - ABS(amount)
-    """)
-    problematic_count = result.fetchone()[0]
+        AND (balance_after != balance_before - amount OR amount <= 0)
+    """))
+    problematic_count = result.scalar()
 
-    if problematic_count > 0:
-        print(f"⚠ Warning: Found {problematic_count} refund records with incorrect balance")
-        # 暂时不自动修复,先添加约束让其失败,这样可以人工检查
-        # 可以通过查看错误信息来确定是否需要修复
+    if problematic_count and problematic_count > 0:
+        print(f"⚠ Warning: Found {problematic_count} refund records that don't match new constraint")
+        print("These records will be listed for manual review...")
+
+        # 显示问题记录
+        result = connection.execute(sa.text("""
+            SELECT id, amount, balance_before, balance_after, description
+            FROM transaction_records
+            WHERE transaction_type = 'refund'
+            AND (balance_after != balance_before - amount OR amount <= 0)
+            LIMIT 5
+        """))
+        for row in result:
+            print(f"  ID: {row[0]}, amount: {row[1]}, before: {row[2]}, after: {row[3]}")
 
     # 添加新的约束 (退款amount必须是正数, balance_after = balance_before - amount)
     print("Adding new balance calculation constraint...")
