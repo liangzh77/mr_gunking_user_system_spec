@@ -33,7 +33,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_finance
