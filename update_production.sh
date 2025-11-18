@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # 生产环境更新脚本
 # 使用方法: ./update_production.sh
 
