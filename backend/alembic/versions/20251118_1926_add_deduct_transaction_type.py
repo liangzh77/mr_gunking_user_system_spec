@@ -19,19 +19,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. 删除旧的交易类型约束
+    # 1. 先删除所有约束,避免更新数据时违反约束
+    print("Dropping old balance calculation constraint...")
+    op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+
     print("Dropping old transaction type constraint...")
     op.drop_constraint('chk_trans_type', 'transaction_records', type_='check')
 
-    # 2. 添加新的交易类型约束(包含deduct)
-    print("Adding new transaction type constraint with 'deduct'...")
-    op.create_check_constraint(
-        'chk_trans_type',
-        'transaction_records',
-        "transaction_type IN ('recharge', 'consumption', 'refund', 'deduct')"
-    )
-
-    # 3. 修复旧的refund记录(将balance_after < balance_before的refund改为deduct)
+    # 2. 修复旧的refund记录(将balance_after < balance_before的refund改为deduct)
     print("Migrating old refund records that decrease balance to deduct type...")
     op.execute("""
         UPDATE transaction_records
@@ -39,9 +34,13 @@ def upgrade() -> None:
         WHERE transaction_type = 'refund' AND balance_after < balance_before
     """)
 
-    # 4. 删除旧的余额计算约束
-    print("Dropping old balance calculation constraint...")
-    op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+    # 3. 添加新的交易类型约束(包含deduct)
+    print("Adding new transaction type constraint with 'deduct'...")
+    op.create_check_constraint(
+        'chk_trans_type',
+        'transaction_records',
+        "transaction_type IN ('recharge', 'consumption', 'refund', 'deduct')"
+    )
 
     # 4. 添加新的余额计算约束
     # 充值/退款: balance_after = balance_before + amount (增加余额)
