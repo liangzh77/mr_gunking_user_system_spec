@@ -128,32 +128,6 @@
         />
       </div>
     </el-card>
-
-    <!-- 统计信息 -->
-    <el-card v-if="transactions.length > 0" style="margin-top: 20px">
-      <div class="statistics">
-        <div class="stat-item">
-          <div class="stat-label">总记录数</div>
-          <div class="stat-value">{{ pagination.total }}</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">当前页记录</div>
-          <div class="stat-value">{{ transactions.length }}</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">充值总额</div>
-          <div class="stat-value recharge-total">¥{{ pageRechargeTotal }}</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">消费总额</div>
-          <div class="stat-value billing-total">¥{{ pageBillingTotal }}</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">退款总额</div>
-          <div class="stat-value refund-total">¥{{ pageRefundTotal }}</div>
-        </div>
-      </div>
-    </el-card>
   </div>
 </template>
 
@@ -177,28 +151,6 @@ const pagination = ref({
   page: 1,
   page_size: 20,
   total: 0,
-})
-
-// 计算当前页各类交易总额
-const pageRechargeTotal = computed(() => {
-  return transactions.value
-    .filter(t => t.transaction_type === 'recharge')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-    .toFixed(2)
-})
-
-const pageBillingTotal = computed(() => {
-  const total = transactions.value
-    .filter(t => t.transaction_type === 'consumption')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  return Math.abs(total).toFixed(2)
-})
-
-const pageRefundTotal = computed(() => {
-  const total = transactions.value
-    .filter(t => t.transaction_type === 'refund')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  return Math.abs(total).toFixed(2)
 })
 
 // 获取交易类型标签
@@ -397,36 +349,5 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
-}
-
-.statistics {
-  display: flex;
-  gap: 40px;
-  justify-content: center;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.stat-value.recharge-total {
-  color: #67C23A;
-}
-
-.stat-value.billing-total,
-.stat-value.refund-total {
-  color: #F56C6C;
 }
 </style>
