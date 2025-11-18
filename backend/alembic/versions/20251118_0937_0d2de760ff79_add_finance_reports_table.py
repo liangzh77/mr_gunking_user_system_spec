@@ -20,6 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # 检查表是否已存在
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    if 'finance_reports' in inspector.get_table_names():
+        print("Table 'finance_reports' already exists, skipping creation")
+        return
+
     # 创建财务报表表
     op.create_table(
         'finance_reports',
