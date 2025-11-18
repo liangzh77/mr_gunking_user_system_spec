@@ -17,8 +17,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop the old constraint
-    op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+    # 检查约束是否存在再删除
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    # 获取表的约束
+    constraints = inspector.get_check_constraints('transaction_records')
+    constraint_names = [c['name'] for c in constraints]
+
+    if 'chk_balance_calc' in constraint_names:
+        # Drop the old constraint
+        op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
+    else:
+        print("Constraint 'chk_balance_calc' not found, skipping drop")
 
     # Update existing negative refund amounts to positive
     op.execute("""
