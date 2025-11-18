@@ -19,24 +19,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 先删除旧约束
-    print("Dropping old constraint...")
+    # 删除旧约束
+    print("Updating balance calculation constraint...")
     op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
-    print("✓ Old constraint dropped")
-
-    # 修复退款记录的 balance_after
-    # 退款应该是: balance_after = balance_before - amount (减少运营商余额)
-    print("Fixing refund balance calculations...")
-    op.execute("""
-        UPDATE transaction_records
-        SET balance_after = balance_before - amount
-        WHERE transaction_type = 'refund' AND balance_after = balance_before + amount
-    """)
-
-    print("✓ Fixed refund balance calculations")
-
-    # 添加新约束
-    print("Adding new balance calculation constraint...")
 
     # 添加新约束：
     # - 所有amount必须是正数

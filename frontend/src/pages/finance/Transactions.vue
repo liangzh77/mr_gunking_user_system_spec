@@ -142,15 +142,15 @@
         </div>
         <div class="stat-item">
           <div class="stat-label">充值总额</div>
-          <div class="stat-value recharge-total">+¥{{ pageRechargeTotal }}</div>
+          <div class="stat-value recharge-total">¥{{ pageRechargeTotal }}</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">消费总额</div>
-          <div class="stat-value billing-total">-¥{{ pageBillingTotal }}</div>
+          <div class="stat-value billing-total">¥{{ pageBillingTotal }}</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">退款总额</div>
-          <div class="stat-value refund-total">-¥{{ pageRefundTotal }}</div>
+          <div class="stat-value refund-total">¥{{ pageRefundTotal }}</div>
         </div>
       </div>
     </el-card>
