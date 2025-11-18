@@ -575,11 +575,17 @@ const handleDeductSubmit = async () => {
     try {
       deductLoading.value = true
 
+      // 构造FormData (后端使用Form参数)
+      const formData = new FormData()
+      formData.append('operator_id', deductForm.operator_id)
+      formData.append('amount', deductForm.amount.toString())
+      formData.append('description', deductForm.description)
+
       // 调用后端API
-      await http.post('/finance/deduct', {
-        operator_id: deductForm.operator_id,
-        amount: deductForm.amount,
-        description: deductForm.description
+      await http.post('/finance/deduct', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       })
 
       ElMessage.success('扣费成功')
