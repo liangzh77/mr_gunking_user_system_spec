@@ -31,7 +31,15 @@ def upgrade() -> None:
         "transaction_type IN ('recharge', 'consumption', 'refund', 'deduct')"
     )
 
-    # 3. 删除旧的余额计算约束
+    # 3. 修复旧的refund记录(将balance_after < balance_before的refund改为deduct)
+    print("Migrating old refund records that decrease balance to deduct type...")
+    op.execute("""
+        UPDATE transaction_records
+        SET transaction_type = 'deduct'
+        WHERE transaction_type = 'refund' AND balance_after < balance_before
+    """)
+
+    # 4. 删除旧的余额计算约束
     print("Dropping old balance calculation constraint...")
     op.drop_constraint('chk_balance_calc', 'transaction_records', type_='check')
 
