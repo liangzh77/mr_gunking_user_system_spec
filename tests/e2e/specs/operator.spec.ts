@@ -480,50 +480,72 @@ test.describe('运营商角色测试', () => {
 
       // 等待页面加载
       await page.waitForLoadState('networkidle');
-      await page.waitForSelector('.el-form', { timeout: 10000 });
 
-      // 查找编辑按钮
-      const editButton = page.getByRole('button', { name: /编辑|修改/ }).first();
-      if (await editButton.isVisible({ timeout: 2000 })) {
+      // 查找并点击"编辑信息"按钮
+      const editButton = page.getByRole('button', { name: /编辑信息/ }).first();
+      if (await editButton.isVisible({ timeout: 5000 })) {
         await editButton.click();
-        console.log('✅ 点击编辑按钮');
+        console.log('✅ 点击编辑信息按钮');
 
-        // 等待表单可编辑
-        await page.waitForTimeout(500);
+        // 等待对话框出现
+        const dialog = page.locator('.el-dialog').last();
+        await expect(dialog).toBeVisible({ timeout: 3000 });
+        console.log('✅ 编辑对话框已打开');
 
-        // 修改联系电话
-        const phoneInput = page.locator('input[placeholder*="手机"]');
-        if (await phoneInput.isVisible({ timeout: 1000 }) && await phoneInput.isEnabled()) {
+        // 在对话框中查找表单
+        const dialogForm = dialog.locator('.el-form');
+        await expect(dialogForm).toBeVisible({ timeout: 2000 });
+
+        // 修改手机号 - 通过 form-item label 定位
+        const phoneFormItem = dialog.locator('.el-form-item').filter({ hasText: '手机号' });
+        const phoneInput = phoneFormItem.locator('input').first();
+
+        if (await phoneInput.isVisible({ timeout: 1000 })) {
           const originalPhone = await phoneInput.inputValue();
-          await phoneInput.fill('13800138888');
-          console.log('✅ 修改联系电话');
+          console.log(`📱 原始手机号: ${originalPhone}`);
 
-          // 保存修改
-          const saveButton = page.getByRole('button', { name: /保存|确定/ }).first();
+          await phoneInput.fill('13800138888');
+          console.log('✅ 修改手机号为: 13800138888');
+
+          // 点击保存按钮
+          const saveButton = dialog.getByRole('button', { name: /保存/ }).first();
           if (await saveButton.isVisible({ timeout: 1000 })) {
             await saveButton.click();
+            console.log('✅ 点击保存按钮');
+
+            // 等待对话框关闭(表示保存成功)
+            await expect(dialog).toBeHidden({ timeout: 5000 });
+            console.log('✅ 对话框已关闭');
 
             // 等待成功消息
-            const successMessage = page.locator('.el-message--success');
+            const successMessage = page.locator('.el-message--success, .el-message');
             if (await successMessage.isVisible({ timeout: 3000 })) {
               console.log('✅ 个人资料修改成功');
 
               // 恢复原始值
-              await page.waitForTimeout(1000);
+              await page.waitForTimeout(1500);
               await editButton.click();
+              console.log('✅ 重新打开编辑对话框以恢复数据');
+
               await page.waitForTimeout(500);
-              await phoneInput.fill(originalPhone);
-              await saveButton.click();
+              const phoneInputRestore = dialog.locator('.el-form-item').filter({ hasText: '手机号' }).locator('input').first();
+              await phoneInputRestore.fill(originalPhone);
+              console.log(`✅ 恢复原始手机号: ${originalPhone}`);
+
+              const saveButtonRestore = dialog.getByRole('button', { name: /保存/ }).first();
+              await saveButtonRestore.click();
+
+              await page.waitForTimeout(1000);
               console.log('✅ 已恢复原始数据');
             } else {
               console.log('⚠️  未收到成功消息,可能修改失败');
             }
           }
         } else {
-          console.log('⚠️  表单不可编辑或结构已变更');
+          console.log('⚠️  未找到手机号输入框');
         }
       } else {
-        console.log('⚠️  未找到编辑按钮');
+        console.log('⚠️  未找到编辑信息按钮');
       }
     });
 
