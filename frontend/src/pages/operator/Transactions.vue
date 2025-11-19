@@ -203,7 +203,7 @@ const loadTransactions = async () => {
     }
 
     if (filterForm.value.transaction_type) {
-      params.transaction_type = filterForm.value.transaction_type
+      params.type = filterForm.value.transaction_type
     }
 
     if (dateRange.value) {

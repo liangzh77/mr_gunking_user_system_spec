@@ -33,7 +33,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_db, require_finance
@@ -2334,9 +2334,9 @@ async def get_recharge_records(
     from ...models.operator import OperatorAccount
 
     try:
-        # 构建基础查询 - 只查询充值类型的交易
+        # 构建基础查询 - 查询充值和扣费类型的交易
         query = select(TransactionRecord).where(
-            TransactionRecord.transaction_type == "recharge"
+            TransactionRecord.transaction_type.in_(["recharge", "deduct"])
         ).options(
             selectinload(TransactionRecord.operator)
         )
@@ -2383,8 +2383,14 @@ async def get_recharge_records(
         # 按充值方式筛选
         if recharge_method:
             if recharge_method == "manual":
-                # 手动充值: payment_channel为空
-                filters.append(TransactionRecord.payment_channel.is_(None))
+                # 手动充值: payment_channel为空且transaction_type为recharge
+                filters.append(and_(
+                    TransactionRecord.payment_channel.is_(None),
+                    TransactionRecord.transaction_type == 'recharge'
+                ))
+            elif recharge_method == "deduct":
+                # 财务扣费: transaction_type为deduct
+                filters.append(TransactionRecord.transaction_type == 'deduct')
             elif recharge_method == "online":
                 # 在线充值: payment_channel不为空且不是bank_transfer
                 filters.append(and_(
@@ -2404,7 +2410,7 @@ async def get_recharge_records(
 
         # 统计总数
         count_query = select(func.count()).select_from(TransactionRecord).where(
-            TransactionRecord.transaction_type == "recharge"
+            TransactionRecord.transaction_type.in_(["recharge", "deduct"])
         )
         if filters:
             count_query = count_query.where(and_(*filters))
@@ -2423,8 +2429,12 @@ async def get_recharge_records(
         # 构建响应数据
         items = []
         for record in records:
-            # 判断充值方式
-            if record.payment_channel == 'bank_transfer':
+            # 判断充值方式/交易类型
+            if record.transaction_type == 'deduct':
+                # 扣费类型
+                recharge_method = "财务扣费"
+                payment_info = None
+            elif record.payment_channel == 'bank_transfer':
                 recharge_method = "银行转账"
                 payment_info = {
                     "channel": record.payment_channel,
@@ -2522,8 +2532,8 @@ async def get_transactions(
     from ...models import TransactionRecord, OperatorAccount
 
     try:
-        # 构建查询条件
-        filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund'])]
+        # 构建查询条件 - 包含所有交易类型（充值、消费、退款、扣费）
+        filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund', 'deduct'])]
 
         # 按运营商筛选
         if operator_id:
@@ -2544,7 +2554,7 @@ async def get_transactions(
 
         # 按交易类型筛选
         if transaction_type:
-            if transaction_type not in ['recharge', 'consumption', 'refund']:
+            if transaction_type not in ['recharge', 'consumption', 'refund', 'deduct']:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"error_code": "INVALID_TRANSACTION_TYPE", "message": "交易类型无效"}
@@ -2652,6 +2662,7 @@ async def get_transactions(
     """
 )
 async def deduct_balance(
+    request: Request,
     operator_id: str = Form(..., description="运营商ID"),
     amount: float = Form(..., description="扣费金额"),
     description: str = Form(..., description="扣费原因"),
@@ -2661,7 +2672,7 @@ async def deduct_balance(
     """财务扣费API"""
     from decimal import Decimal
     from sqlalchemy import select
-    from ...models import Operator, TransactionRecord, FinanceOperationLog
+    from ...models import OperatorAccount, TransactionRecord, FinanceOperationLog
 
     try:
         # 验证金额
@@ -2692,7 +2703,7 @@ async def deduct_balance(
             )
 
         # 查询运营商
-        stmt = select(Operator).where(Operator.id == operator_uuid)
+        stmt = select(OperatorAccount).where(OperatorAccount.id == operator_uuid)
         result = await db.execute(stmt)
         operator = result.scalar_one_or_none()
 
@@ -2720,11 +2731,11 @@ async def deduct_balance(
         # 更新运营商余额
         operator.balance = balance_after
 
-        # 创建交易记录（扣费作为负数充值记录）
+        # 创建交易记录（扣费使用deduct类型）
         transaction = TransactionRecord(
             operator_id=operator_uuid,
-            transaction_type="refund",  # 使用refund类型表示扣费
-            amount=-deduct_amount,  # 负数表示扣费
+            transaction_type="deduct",  # 使用deduct类型表示财务扣费
+            amount=deduct_amount,  # amount必须为正数,通过transaction_type区分增减
             balance_before=balance_before,
             balance_after=balance_after,
             description=f"财务扣费: {description}",
@@ -2732,12 +2743,22 @@ async def deduct_balance(
         db.add(transaction)
 
         # 记录财务操作日志
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "")
+
         operation_log = FinanceOperationLog(
-            finance_user_id=UUID(token["user_id"]),
+            finance_account_id=UUID(token["sub"]),
             operation_type="deduct",
-            target_operator_id=operator_uuid,
-            amount=deduct_amount,
-            description=description,
+            target_resource_type="operator",
+            target_resource_id=operator_uuid,
+            operation_details={
+                "amount": str(deduct_amount),
+                "description": description,
+                "balance_before": str(balance_before),
+                "balance_after": str(balance_after),
+            },
+            ip_address=client_ip,
+            user_agent=user_agent,
         )
         db.add(operation_log)
 

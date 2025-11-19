@@ -40,6 +40,7 @@
             <el-option label="充值" value="recharge" />
             <el-option label="消费" value="consumption" />
             <el-option label="退款" value="refund" />
+            <el-option label="扣费" value="deduct" />
           </el-select>
         </el-form-item>
 
@@ -170,6 +171,7 @@ const getTransactionTypeTag = (row: any) => {
   const map: Record<string, any> = {
     consumption: 'warning',
     refund: 'info',
+    deduct: 'danger',  // 扣费 - 红色
   }
   return map[type] || 'info'
 }
@@ -191,16 +193,18 @@ const getTransactionTypeLabel = (row: any) => {
   const map: Record<string, string> = {
     consumption: '消费',
     refund: '退款',
+    deduct: '扣费',
   }
   return map[type] || type
 }
 
 // 获取金额CSS类
 const getAmountClass = (type: string) => {
-  // 充值-绿色，消费-红色，退款-橙色
+  // 充值-绿色，消费-红色，退款-橙色，扣费-深红色
   if (type === 'recharge') return 'amount-recharge'
   if (type === 'consumption') return 'amount-consumption'
   if (type === 'refund') return 'amount-refund'
+  if (type === 'deduct') return 'amount-deduct'
   return ''
 }
 
@@ -338,6 +342,11 @@ onMounted(() => {
 
 .amount-refund {
   color: #E6A23C;
+  font-weight: 600;
+}
+
+.amount-deduct {
+  color: #F56C6C;
   font-weight: 600;
 }
 

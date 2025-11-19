@@ -27,7 +27,7 @@ from .app_request import ApplicationRequest
 from .application import Application
 from .authorization import OperatorAppAuthorization
 from .bank_transfer import BankTransferApplication
-from .finance import FinanceAccount
+from .finance import FinanceAccount, FinanceOperationLog
 from .game_session import GameSession
 from .headset_device import HeadsetDevice
 from .headset_game_record import HeadsetGameRecord
@@ -52,6 +52,7 @@ __all__ = [
     "BankTransferApplication",
     "ApplicationRequest",
     "FinanceAccount",
+    "FinanceOperationLog",
     "OperatorMessage",
     "HeadsetDevice",
     "GameSession",

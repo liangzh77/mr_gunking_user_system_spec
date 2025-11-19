@@ -39,6 +39,7 @@ class TransactionType(str, Enum):
     RECHARGE = "recharge"      # 充值
     CONSUMPTION = "consumption"  # 消费
     REFUND = "refund"          # 退款
+    DEDUCT = "deduct"          # 财务扣费
 
 
 class TransactionStatus(str, Enum):
@@ -173,7 +174,7 @@ class TransactionRecord(Base):
     __table_args__ = (
         # CHECK约束: 交易类型枚举
         CheckConstraint(
-            "transaction_type IN ('recharge', 'consumption', 'refund')",
+            "transaction_type IN ('recharge', 'consumption', 'refund', 'deduct')",
             name="chk_trans_type"
         ),
         # CHECK约束: 支付渠道枚举(如果非空)
@@ -187,12 +188,14 @@ class TransactionRecord(Base):
             name="chk_payment_status"
         ),
         # CHECK约束: 余额计算正确性
-        # 充值/消费: balance_after = balance_before + amount (amount可正可负)
-        # 退款: balance_after = balance_before - amount (amount为正值)
+        # 充值/退款: balance_after = balance_before + amount (amount为正值,增加余额)
+        # 消费/扣费: balance_after = balance_before - amount (amount为正值,减少余额)
         CheckConstraint(
             """
-            (transaction_type != 'refund' AND balance_after = balance_before + amount) OR
-            (transaction_type = 'refund' AND balance_after = balance_before - amount)
+            amount > 0 AND (
+                (transaction_type IN ('recharge', 'refund') AND balance_after = balance_before + amount) OR
+                (transaction_type IN ('consumption', 'deduct') AND balance_after = balance_before - amount)
+            )
             """,
             name="chk_balance_calc"
         ),
