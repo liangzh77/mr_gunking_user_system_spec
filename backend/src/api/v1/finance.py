@@ -2334,9 +2334,9 @@ async def get_recharge_records(
     from ...models.operator import OperatorAccount
 
     try:
-        # 构建基础查询 - 只查询充值类型的交易
+        # 构建基础查询 - 查询充值和扣费类型的交易
         query = select(TransactionRecord).where(
-            TransactionRecord.transaction_type == "recharge"
+            TransactionRecord.transaction_type.in_(["recharge", "deduct"])
         ).options(
             selectinload(TransactionRecord.operator)
         )
@@ -2383,8 +2383,14 @@ async def get_recharge_records(
         # 按充值方式筛选
         if recharge_method:
             if recharge_method == "manual":
-                # 手动充值: payment_channel为空
-                filters.append(TransactionRecord.payment_channel.is_(None))
+                # 手动充值: payment_channel为空且transaction_type为recharge
+                filters.append(and_(
+                    TransactionRecord.payment_channel.is_(None),
+                    TransactionRecord.transaction_type == 'recharge'
+                ))
+            elif recharge_method == "deduct":
+                # 财务扣费: transaction_type为deduct
+                filters.append(TransactionRecord.transaction_type == 'deduct')
             elif recharge_method == "online":
                 # 在线充值: payment_channel不为空且不是bank_transfer
                 filters.append(and_(
@@ -2404,7 +2410,7 @@ async def get_recharge_records(
 
         # 统计总数
         count_query = select(func.count()).select_from(TransactionRecord).where(
-            TransactionRecord.transaction_type == "recharge"
+            TransactionRecord.transaction_type.in_(["recharge", "deduct"])
         )
         if filters:
             count_query = count_query.where(and_(*filters))
@@ -2423,8 +2429,12 @@ async def get_recharge_records(
         # 构建响应数据
         items = []
         for record in records:
-            # 判断充值方式
-            if record.payment_channel == 'bank_transfer':
+            # 判断充值方式/交易类型
+            if record.transaction_type == 'deduct':
+                # 扣费类型
+                recharge_method = "财务扣费"
+                payment_info = None
+            elif record.payment_channel == 'bank_transfer':
                 recharge_method = "银行转账"
                 payment_info = {
                     "channel": record.payment_channel,
@@ -2522,8 +2532,8 @@ async def get_transactions(
     from ...models import TransactionRecord, OperatorAccount
 
     try:
-        # 构建查询条件
-        filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund'])]
+        # 构建查询条件 - 包含所有交易类型（充值、消费、退款、扣费）
+        filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund', 'deduct'])]
 
         # 按运营商筛选
         if operator_id:
@@ -2544,7 +2554,7 @@ async def get_transactions(
 
         # 按交易类型筛选
         if transaction_type:
-            if transaction_type not in ['recharge', 'consumption', 'refund']:
+            if transaction_type not in ['recharge', 'consumption', 'refund', 'deduct']:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"error_code": "INVALID_TRANSACTION_TYPE", "message": "交易类型无效"}

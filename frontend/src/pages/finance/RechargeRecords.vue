@@ -25,13 +25,14 @@
       <div class="filter-container">
         <el-select
           v-model="queryForm.recharge_method"
-          placeholder="充值方式"
+          placeholder="交易方式"
           clearable
           @change="handleQuery"
           style="width: 150px"
         >
           <el-option label="全部" value="" />
           <el-option label="财务充值" value="manual" />
+          <el-option label="财务扣费" value="deduct" />
           <el-option label="在线充值" value="online" />
           <el-option label="银行转账" value="bank_transfer" />
         </el-select>
@@ -68,9 +69,11 @@
       <el-table v-copyable :data="records" v-loading="loading" stripe>
         <el-table-column prop="transaction_id" label="交易ID" width="220" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="运营商" width="150" show-overflow-tooltip />
-        <el-table-column prop="amount" label="充值金额" width="120" align="right">
+        <el-table-column prop="amount" label="交易金额" width="120" align="right">
           <template #default="{ row }">
-            <span style="color: #67c23a; font-weight: bold">+¥{{ row.amount }}</span>
+            <span :style="{ color: row.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
+              ¥{{ row.amount }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="余额" width="120" align="right">
@@ -80,7 +83,7 @@
         </el-table-column>
         <el-table-column prop="recharge_method" label="充值方式" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.recharge_method === '财务充值' ? 'warning' : 'success'" size="small">
+            <el-tag :type="getRechargeMethodTagType(row.recharge_method)" size="small">
               {{ row.recharge_method }}
             </el-tag>
           </template>
@@ -117,17 +120,19 @@
       <el-descriptions :column="2" border v-if="currentRecord">
         <el-descriptions-item label="交易ID">{{ currentRecord.transaction_id }}</el-descriptions-item>
         <el-descriptions-item label="运营商">{{ currentRecord.operator_name }}</el-descriptions-item>
-        <el-descriptions-item label="充值方式">
-          <el-tag :type="currentRecord.recharge_method === '财务充值' ? 'warning' : 'success'" size="small">
+        <el-descriptions-item label="交易方式">
+          <el-tag :type="getRechargeMethodTagType(currentRecord.recharge_method)" size="small">
             {{ currentRecord.recharge_method }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="充值金额">
-          <span style="color: #67c23a; font-weight: bold">¥{{ currentRecord.amount }}</span>
+        <el-descriptions-item label="交易金额">
+          <span :style="{ color: currentRecord.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
+            {{ currentRecord.recharge_method === '财务扣费' ? '-' : '+' }}¥{{ currentRecord.amount }}
+          </span>
         </el-descriptions-item>
-        <el-descriptions-item label="充值前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
-        <el-descriptions-item label="充值后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
-        <el-descriptions-item label="充值时间" :span="2">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
+        <el-descriptions-item label="交易前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
+        <el-descriptions-item label="交易后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
+        <el-descriptions-item label="交易时间" :span="2">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ currentRecord.description || '-' }}</el-descriptions-item>
         <el-descriptions-item label="支付信息" :span="2" v-if="currentRecord.payment_info">
           <div>
@@ -606,6 +611,13 @@ const handleDeductSubmit = async () => {
       deductLoading.value = false
     }
   })
+}
+
+// 获取充值方式标签颜色
+const getRechargeMethodTagType = (method: string) => {
+  if (method === '财务扣费') return 'danger'
+  if (method === '财务充值') return 'warning'
+  return 'success'
 }
 
 // 页面加载
