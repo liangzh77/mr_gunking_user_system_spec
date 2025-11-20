@@ -122,10 +122,24 @@
           <template #header>
             <div class="card-header">
               <span>历史报表</span>
-              <el-button type="primary" size="small" @click="fetchReports">
-                <el-icon><Refresh /></el-icon>
-                刷新
-              </el-button>
+              <div class="header-actions">
+                <el-input
+                  v-model="searchQuery"
+                  placeholder="搜索报表ID..."
+                  clearable
+                  @keyup.enter="fetchReports"
+                  @clear="fetchReports"
+                  style="width: 250px; margin-right: 10px"
+                >
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+                <el-button type="primary" size="small" @click="fetchReports">
+                  <el-icon><Refresh /></el-icon>
+                  刷新
+                </el-button>
+              </div>
             </div>
           </template>
 
@@ -211,7 +225,7 @@
 // Updated: 2025-11-18 - Fixed report table columns display - Force refresh v2
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { DocumentAdd, Calendar, Refresh, Download } from '@element-plus/icons-vue'
+import { DocumentAdd, Calendar, Refresh, Download, Search } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 import { formatDateTime } from '@/utils/format'
 
@@ -238,6 +252,7 @@ const queryParams = reactive({
 const reports = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
+const searchQuery = ref('')
 
 // 生成报表
 const generateReport = async () => {
@@ -313,8 +328,12 @@ const resetForm = () => {
 const fetchReports = async () => {
   loading.value = true
   try {
+    const params: any = { ...queryParams }
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
     const response = await http.get('/finance/reports', {
-      params: queryParams,
+      params,
     })
     console.log('API Response:', response.data)
     if (response.data.items && response.data.items.length > 0) {

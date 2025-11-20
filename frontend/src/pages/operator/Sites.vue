@@ -16,6 +16,26 @@
 
     <!-- 运营点列表 -->
     <el-card class="list-card" style="margin-top: 20px">
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索运营点名称、地址..."
+          clearable
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+          style="width: 300px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleSearch" style="margin-left: 12px">
+          <el-icon><Search /></el-icon>
+          查询
+        </el-button>
+      </div>
+
       <el-table
         v-copyable
         v-loading="loading"
@@ -159,6 +179,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { OperationSite } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -172,6 +193,7 @@ const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
 const editingSite = ref<OperationSite | null>(null)
+const searchQuery = ref('')
 
 const formData = ref({
   name: '',
@@ -201,13 +223,24 @@ const dialogTitle = computed(() => {
 const loadSites = async () => {
   loading.value = true
   try {
-    sites.value = await operatorStore.getSites()
+    const params: any = {}
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
+    sites.value = await operatorStore.getSites(params)
   } catch (error) {
     console.error('Load sites error:', error)
     ElMessage.error('加载运营点列表失败')
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  loadSites()
 }
 
 // 打开创建对话框

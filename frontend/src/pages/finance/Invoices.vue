@@ -37,9 +37,9 @@
 
       <!-- 发票列表 -->
       <el-table v-copyable :data="invoices" v-loading="loading" stripe>
-        <el-table-column prop="invoice_number" label="发票号码" width="180">
+        <el-table-column prop="invoice_number" label="发票号码" width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-if="row.invoice_number" class="invoice-number">{{ row.invoice_number }}</span>
             <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
@@ -345,6 +345,18 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.invoice-number {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-text {
+  color: #909399;
 }
 
 .pagination {

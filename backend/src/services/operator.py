@@ -443,7 +443,8 @@ class OperatorService:
         page_size: int = 20,
         transaction_type: Optional[str] = None,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
+        search: Optional[str] = None
     ) -> tuple[list, int]:
         """查询运营商交易记录(分页) (T073)
 
@@ -454,6 +455,7 @@ class OperatorService:
             transaction_type: 交易类型过滤 (recharge/consumption/all)
             start_time: 开始时间(可选)
             end_time: 结束时间(可选)
+            search: 搜索关键词(可选)
 
         Returns:
             tuple[list, int]: (交易记录列表, 总记录数)
@@ -462,7 +464,7 @@ class OperatorService:
             HTTPException 404: 运营商不存在
         """
         from ..models.transaction import TransactionRecord
-        from sqlalchemy import func, desc
+        from sqlalchemy import func, desc, or_, cast, String
 
         # 1. 验证运营商存在
         operator_stmt = select(OperatorAccount).where(
@@ -496,6 +498,16 @@ class OperatorService:
         if end_time:
             conditions.append(TransactionRecord.created_at <= end_time)
 
+        # 搜索过滤
+        if search:
+            conditions.append(
+                or_(
+                    cast(TransactionRecord.id, String).ilike(f"%{search}%"),
+                    TransactionRecord.description.ilike(f"%{search}%"),
+                    cast(TransactionRecord.amount, String).ilike(f"%{search}%")
+                )
+            )
+
         # 3. 查询总记录数
         count_stmt = select(func.count(TransactionRecord.id)).where(*conditions)
         total_result = await self.db.execute(count_stmt)
@@ -520,7 +532,8 @@ class OperatorService:
         self,
         operator_id: UUID,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 20,
+        search: Optional[str] = None
     ) -> tuple[list, int]:
         """查询运营商退款记录(分页) (T075)
 
@@ -528,6 +541,7 @@ class OperatorService:
             operator_id: 运营商ID
             page: 页码(从1开始)
             page_size: 每页数量
+            search: 搜索关键词(退款ID、退款金额、状态)
 
         Returns:
             tuple[list, int]: (退款记录列表, 总记录数)
@@ -559,6 +573,19 @@ class OperatorService:
         conditions = [
             RefundRecord.operator_id == operator_id
         ]
+
+        # 搜索筛选(退款ID、退款金额、状态、退款原因)
+        if search:
+            from sqlalchemy import or_, cast, String
+            conditions.append(
+                or_(
+                    cast(RefundRecord.id, String).ilike(f"%{search}%"),
+                    cast(RefundRecord.requested_amount, String).ilike(f"%{search}%"),
+                    cast(RefundRecord.actual_amount, String).ilike(f"%{search}%"),
+                    RefundRecord.status.ilike(f"%{search}%"),
+                    RefundRecord.refund_reason.ilike(f"%{search}%")
+                )
+            )
 
         # 3. 查询总记录数
         count_stmt = select(func.count(RefundRecord.id)).where(*conditions)
@@ -832,7 +859,8 @@ class OperatorService:
         self,
         operator_id: UUID,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 20,
+        search: Optional[str] = None
     ) -> tuple[list, int]:
         """查询运营商发票记录(分页) (T077)
 
@@ -840,6 +868,7 @@ class OperatorService:
             operator_id: 运营商ID
             page: 页码(从1开始)
             page_size: 每页数量
+            search: 搜索关键词(发票ID、发票抬头、税号、发票金额、状态)
 
         Returns:
             tuple[list, int]: (发票记录列表, 总记录数)
@@ -871,6 +900,20 @@ class OperatorService:
         conditions = [
             InvoiceRecord.operator_id == operator_id
         ]
+
+        # 搜索筛选(发票ID、发票抬头、税号、发票金额、发票号码、状态)
+        if search:
+            from sqlalchemy import or_, cast, String
+            conditions.append(
+                or_(
+                    cast(InvoiceRecord.id, String).ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_title.ilike(f"%{search}%"),
+                    InvoiceRecord.tax_id.ilike(f"%{search}%"),
+                    cast(InvoiceRecord.invoice_amount, String).ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_number.ilike(f"%{search}%"),
+                    InvoiceRecord.status.ilike(f"%{search}%")
+                )
+            )
 
         # 3. 查询总记录数
         count_stmt = select(func.count(InvoiceRecord.id)).where(*conditions)
@@ -965,7 +1008,8 @@ class OperatorService:
         site_id: Optional[str] = None,
         app_id: Optional[str] = None,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
+        search: Optional[str] = None
     ) -> tuple[list, int]:
         """查询运营商使用记录(分页) (T102/T110)
 
@@ -977,6 +1021,7 @@ class OperatorService:
             app_id: 应用ID筛选(可选)
             start_time: 开始时间(可选)
             end_time: 结束时间(可选)
+            search: 搜索关键词(运营点名称、应用名称)
 
         Returns:
             tuple[list, int]: (使用记录列表, 总记录数)
@@ -1043,8 +1088,30 @@ class OperatorService:
         if end_time:
             conditions.append(UsageRecord.game_started_at <= end_time)
 
+        # 搜索筛选(运营点名称、应用名称)
+        if search:
+            from sqlalchemy import or_
+            # 需要join表才能搜索site和application的名称
+            # 这部分在下面的主查询中处理,这里先标记
+            search_filter = or_(
+                OperationSite.name.ilike(f"%{search}%"),
+                Application.app_name.ilike(f"%{search}%")
+            )
+        else:
+            search_filter = None
+
         # 3. 查询总记录数
-        count_stmt = select(func.count(UsageRecord.id)).where(*conditions)
+        # 如果有搜索条件,需要join表
+        if search_filter is not None:
+            count_stmt = (
+                select(func.count(UsageRecord.id))
+                .select_from(UsageRecord)
+                .join(OperationSite, UsageRecord.site_id == OperationSite.id)
+                .join(Application, UsageRecord.application_id == Application.id)
+                .where(*conditions, search_filter)
+            )
+        else:
+            count_stmt = select(func.count(UsageRecord.id)).where(*conditions)
         total_result = await self.db.execute(count_stmt)
         total = total_result.scalar() or 0
 
@@ -1052,17 +1119,34 @@ class OperatorService:
         # 原方案: 1次查询 + N次site查询 + N次application查询 = 1+2N次
         # 新方案: 1次查询 + 2次批量加载 = 3次
         offset = (page - 1) * page_size
-        stmt = (
-            select(UsageRecord)
-            .where(*conditions)
-            .order_by(desc(UsageRecord.game_started_at))  # 按游戏启动时间降序
-            .offset(offset)
-            .limit(page_size)
-            .options(
-                selectinload(UsageRecord.site),
-                selectinload(UsageRecord.application)
+
+        # 如果有搜索条件,需要join表来过滤
+        if search_filter is not None:
+            stmt = (
+                select(UsageRecord)
+                .join(OperationSite, UsageRecord.site_id == OperationSite.id)
+                .join(Application, UsageRecord.application_id == Application.id)
+                .where(*conditions, search_filter)
+                .order_by(desc(UsageRecord.game_started_at))  # 按游戏启动时间降序
+                .offset(offset)
+                .limit(page_size)
+                .options(
+                    selectinload(UsageRecord.site),
+                    selectinload(UsageRecord.application)
+                )
             )
-        )
+        else:
+            stmt = (
+                select(UsageRecord)
+                .where(*conditions)
+                .order_by(desc(UsageRecord.game_started_at))  # 按游戏启动时间降序
+                .offset(offset)
+                .limit(page_size)
+                .options(
+                    selectinload(UsageRecord.site),
+                    selectinload(UsageRecord.application)
+                )
+            )
 
         result = await self.db.execute(stmt)
         usage_records = result.scalars().all()
@@ -1126,13 +1210,15 @@ class OperatorService:
     async def get_sites(
         self,
         operator_id: UUID,
-        include_deleted: bool = False
+        include_deleted: bool = False,
+        search: Optional[str] = None
     ) -> list:
         """获取运营商的运营点列表 (T093)
 
         Args:
             operator_id: 运营商ID
             include_deleted: 是否包含已删除的运营点(默认false)
+            search: 搜索关键词(运营点名称、地址)
 
         Returns:
             list[OperationSite]: 运营点列表(按创建时间降序)
@@ -1168,6 +1254,17 @@ class OperatorService:
         # 是否包含已删除的运营点
         if not include_deleted:
             conditions.append(OperationSite.deleted_at.is_(None))
+
+        # 搜索筛选(运营点名称、地址)
+        if search:
+            from sqlalchemy import or_, cast, String
+            conditions.append(
+                or_(
+                    OperationSite.name.ilike(f"%{search}%"),
+                    OperationSite.address.ilike(f"%{search}%"),
+                    cast(OperationSite.id, String).ilike(f"%{search}%")
+                )
+            )
 
         # 3. 查询运营点列表(按创建时间降序)
         stmt = (
@@ -1716,7 +1813,8 @@ class OperatorService:
 
     async def get_authorized_applications(
         self,
-        operator_id: UUID
+        operator_id: UUID,
+        search: Optional[str] = None
     ) -> list:
         """查询运营商已授权的应用列表 (T097)
 
@@ -1729,6 +1827,7 @@ class OperatorService:
 
         Args:
             operator_id: 运营商ID
+            search: 搜索关键词(应用名称、应用代码、描述)
 
         Returns:
             list[dict]: 已授权应用列表,包含应用信息和授权元数据
@@ -1772,13 +1871,33 @@ class OperatorService:
             )
         )
 
+        # 搜索筛选(应用名称、应用代码、描述)
+        if search:
+            from sqlalchemy import cast, String
+            search_filter = or_(
+                Application.app_name.ilike(f"%{search}%"),
+                Application.app_code.ilike(f"%{search}%"),
+                Application.description.ilike(f"%{search}%"),
+                cast(Application.id, String).ilike(f"%{search}%")
+            )
+        else:
+            search_filter = None
+
         # 3. 联表查询授权和应用信息
-        stmt = (
-            select(OperatorAppAuthorization, Application)
-            .join(Application, OperatorAppAuthorization.application_id == Application.id)
-            .where(*conditions)
-            .order_by(OperatorAppAuthorization.authorized_at.desc())  # 按授权时间降序
-        )
+        if search_filter is not None:
+            stmt = (
+                select(OperatorAppAuthorization, Application)
+                .join(Application, OperatorAppAuthorization.application_id == Application.id)
+                .where(*conditions, search_filter)
+                .order_by(OperatorAppAuthorization.authorized_at.desc())  # 按授权时间降序
+            )
+        else:
+            stmt = (
+                select(OperatorAppAuthorization, Application)
+                .join(Application, OperatorAppAuthorization.application_id == Application.id)
+                .where(*conditions)
+                .order_by(OperatorAppAuthorization.authorized_at.desc())  # 按授权时间降序
+            )
 
         result = await self.db.execute(stmt)
         rows = result.all()

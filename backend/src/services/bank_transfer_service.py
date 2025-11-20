@@ -77,14 +77,10 @@ class BankTransferService:
         await self.db.commit()
         await self.db.refresh(application)
 
-        # Generate application ID (format: BTR_YYYYMMDD_XXXXX)
-        application_created_time = application.created_at
-        application_id = f"BTR_{application_created_time.strftime('%Y%m%d')}_{str(application.id)[:5].upper()}"
-
         # Return response
         return BankTransferResponse(
             id=str(application.id),
-            application_id=application_id,
+            application_id=str(application.id),
             operator_id=str(application.operator_id),
             amount=str(application.amount),
             voucher_image_url=application.voucher_image_url,
@@ -148,10 +144,6 @@ class BankTransferService:
         # Convert to response items
         items = []
         for app in applications:
-            # Generate application ID (format: BTR_YYYYMMDD_XXXXX)
-            app_created_time = app.created_at
-            application_id = f"BTR_{app_created_time.strftime('%Y%m%d')}_{str(app.id)[:5].upper()}"
-
             # Convert relative URL to absolute URL
             voucher_url = app.voucher_image_url
             if voucher_url and not voucher_url.startswith(('http://', 'https://', '/')):
@@ -159,7 +151,7 @@ class BankTransferService:
 
             items.append(BankTransferResponse(
                 id=str(app.id),
-                application_id=application_id,
+                application_id=str(app.id),
                 operator_id=str(app.operator_id),
                 amount=str(app.amount),
                 voucher_image_url=voucher_url,
@@ -315,13 +307,9 @@ class BankTransferService:
             operator_username = row.username
             operator_full_name = row.full_name
 
-            # Generate human-readable application ID (format: BTR_YYYYMMDD_XXXXX)
-            app_created_time = application.created_at
-            application_id = f"BTR_{app_created_time.strftime('%Y%m%d')}_{str(application.id)[:5].upper()}"
-
             items.append(BankTransferItem(
-                id=str(application.id),  # 原始UUID，用于API调用
-                application_id=application_id,  # 格式化显示
+                id=str(application.id),
+                application_id=str(application.id),
                 operator_id=str(application.operator_id),
                 operator_name=operator_full_name,
                 operator_username=operator_username,

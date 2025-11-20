@@ -16,6 +16,26 @@
 
     <!-- 退款申请列表 -->
     <el-card class="list-card" style="margin-top: 20px">
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索退款ID或退款原因..."
+          clearable
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+          style="width: 300px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleSearch" style="margin-left: 12px">
+          <el-icon><Search /></el-icon>
+          查询
+        </el-button>
+      </div>
+
       <el-table
         v-copyable
         v-loading="loading"
@@ -156,6 +176,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -164,6 +185,7 @@ const operatorStore = useOperatorStore()
 
 const loading = ref(false)
 const refunds = ref<Refund[]>([])
+const searchQuery = ref('')
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
@@ -246,10 +268,16 @@ const loadBalance = async () => {
 const loadRefunds = async () => {
   loading.value = true
   try {
-    const response = await operatorStore.getRefunds({
+    const params: any = {
       page: pagination.value.page,
       page_size: pagination.value.page_size,
-    })
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
+    const response = await operatorStore.getRefunds(params)
     refunds.value = response.items
     pagination.value.total = response.total
   } catch (error) {
@@ -298,6 +326,12 @@ const handleSubmit = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+// 搜索
+const handleSearch = () => {
+  pagination.value.page = 1
+  loadRefunds()
 }
 
 // 页大小变化

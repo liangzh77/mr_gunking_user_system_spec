@@ -17,6 +17,21 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="搜索">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索会话ID、运营点、应用..."
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+            style="width: 250px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item label="时间范围">
           <el-date-picker
             v-model="dateRange"
@@ -236,6 +251,7 @@ const records = ref<UsageRecord[]>([])
 const sites = ref<OperationSite[]>([])
 const applications = ref<AuthorizedApplication[]>([])
 const dateRange = ref<[string, string] | null>(null)
+const searchQuery = ref('')
 
 const filterForm = ref({
   site_id: '',
@@ -267,6 +283,10 @@ const loadRecords = async () => {
     const params: any = {
       page: pagination.value.page,
       page_size: pagination.value.page_size,
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
     }
 
     if (dateRange.value) {
@@ -325,6 +345,7 @@ const handleSearch = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   dateRange.value = null
   filterForm.value = {
     site_id: '',
@@ -346,6 +367,10 @@ const handleExport = async () => {
   try {
     const params: any = {
       format: 'excel',
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
     }
 
     if (dateRange.value) {

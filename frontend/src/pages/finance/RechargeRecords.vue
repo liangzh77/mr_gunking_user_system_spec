@@ -23,6 +23,19 @@
 
       <!-- 筛选条件 -->
       <div class="filter-container">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索交易ID或备注..."
+          clearable
+          @keyup.enter="handleQuery"
+          @clear="handleQuery"
+          style="width: 250px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
         <el-select
           v-model="queryForm.recharge_method"
           placeholder="交易方式"
@@ -322,7 +335,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
-import { Refresh as RefreshIcon, Right, Money, Plus, Remove } from '@element-plus/icons-vue'
+import { Refresh as RefreshIcon, Right, Money, Plus, Remove, Search } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
@@ -346,6 +359,7 @@ const pagination = reactive({
 const records = ref<any[]>([])
 const operators = ref<any[]>([])
 const loading = ref(false)
+const searchQuery = ref('')
 
 // 详情对话框
 const detailDialogVisible = ref(false)
@@ -358,6 +372,10 @@ const fetchRecords = async () => {
     const params: any = {
       page: pagination.page,
       page_size: pagination.page_size,
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
     }
 
     if (queryForm.operator_id) {
@@ -408,6 +426,7 @@ const handleQuery = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   queryForm.operator_id = ''
   queryForm.date_range = []
   queryForm.recharge_method = ''

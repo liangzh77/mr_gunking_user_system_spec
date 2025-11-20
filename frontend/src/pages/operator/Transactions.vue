@@ -13,6 +13,21 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="搜索">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索交易ID或描述..."
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+            style="width: 300px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item label="交易类型">
           <el-select
             v-model="filterForm.transaction_type"
@@ -125,6 +140,7 @@ const operatorStore = useOperatorStore()
 
 const loading = ref(false)
 const transactions = ref<Transaction[]>([])
+const searchQuery = ref('')
 const dateRange = ref<[string, string] | null>(null)
 
 const filterForm = ref({
@@ -206,6 +222,10 @@ const loadTransactions = async () => {
       page_size: pagination.value.page_size,
     }
 
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
     if (filterForm.value.transaction_type) {
       params.type = filterForm.value.transaction_type
     }
@@ -234,6 +254,7 @@ const handleSearch = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   dateRange.value = null
   filterForm.value = {
     transaction_type: '',

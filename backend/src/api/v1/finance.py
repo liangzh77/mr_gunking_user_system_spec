@@ -2456,13 +2456,9 @@ async def get_recharge_records(
                 recharge_method = "财务充值"
                 payment_info = None
 
-            # Generate human-readable transaction ID (format: TXN_YYYYMMDD_XXXXX)
-            trans_created_time = record.created_at
-            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(record.id)[:5].upper()}"
-
             items.append({
-                "id": transaction_id,
-                "transaction_id": transaction_id,
+                "id": str(record.id),
+                "transaction_id": str(record.id),
                 "operator_id": f"op_{record.operator_id}",
                 "operator_username": record.operator.username,
                 "operator_name": record.operator.full_name,
@@ -2607,12 +2603,8 @@ async def get_transactions(
         # 构建返回数据
         items = []
         for record, operator in records:
-            # Generate human-readable transaction ID
-            trans_created_time = record.created_at
-            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(record.id)[:5].upper()}"
-
             items.append({
-                "transaction_id": transaction_id,
+                "transaction_id": str(record.id),
                 "operator_id": f"op_{record.operator_id}",
                 "operator_name": operator.full_name,
                 "transaction_type": record.transaction_type,
@@ -2770,7 +2762,7 @@ async def deduct_balance(
         await db.refresh(transaction)
 
         return {
-            "transaction_id": f"TXN_{transaction.created_at.strftime('%Y%m%d')}_{str(transaction.id)[:5].upper()}",
+            "transaction_id": str(transaction.id),
             "operator_id": f"op_{operator_uuid}",
             "operator_name": operator.full_name,
             "amount": f"{deduct_amount:.2f}",

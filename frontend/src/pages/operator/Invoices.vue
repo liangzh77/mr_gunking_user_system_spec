@@ -16,6 +16,26 @@
 
     <!-- 发票申请列表 -->
     <el-card class="list-card" style="margin-top: 20px">
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索发票号码、抬头、税号..."
+          clearable
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+          style="width: 300px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleSearch" style="margin-left: 12px">
+          <el-icon><Search /></el-icon>
+          查询
+        </el-button>
+      </div>
+
       <el-table
         v-copyable
         v-loading="loading"
@@ -23,9 +43,9 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="invoice_number" label="发票号码" width="180">
+        <el-table-column prop="invoice_number" label="发票号码" width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-if="row.invoice_number" class="invoice-number">{{ row.invoice_number }}</span>
             <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
@@ -176,6 +196,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Invoice } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -187,6 +208,7 @@ const invoices = ref<Invoice[]>([])
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const searchQuery = ref('')
 
 const formData = ref({
   amount: '',
@@ -261,10 +283,16 @@ const getStatusLabel = (status: string) => {
 const loadInvoices = async () => {
   loading.value = true
   try {
-    const response = await operatorStore.getInvoices({
+    const params: any = {
       page: pagination.value.page,
       page_size: pagination.value.page_size,
-    })
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
+    const response = await operatorStore.getInvoices(params)
     invoices.value = response?.items || []
     pagination.value.total = response?.total || 0
   } catch (error) {
@@ -275,6 +303,12 @@ const loadInvoices = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  pagination.value.page = 1
+  loadInvoices()
 }
 
 // 打开创建对话框
@@ -402,6 +436,14 @@ onMounted(() => {
 
 .empty-text {
   color: #909399;
+}
+
+.invoice-number {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-state {

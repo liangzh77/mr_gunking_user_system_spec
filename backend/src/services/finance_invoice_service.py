@@ -178,10 +178,8 @@ class FinanceInvoiceService:
         invoice.reviewed_at = datetime.now(timezone.utc)
         invoice.issued_at = datetime.now(timezone.utc)
 
-        # Generate invoice number (format: INV_YYYYMMDD_XXXXX)
-        now = datetime.now(timezone.utc)
-        invoice_number = f"INV_{now.strftime('%Y%m%d')}_{str(invoice.id)[:5].upper()}"
-        invoice.invoice_number = invoice_number
+        # Use invoice ID as invoice number
+        invoice.invoice_number = str(invoice.id)
 
         # Generate PDF URL (placeholder - actual PDF generation would be handled by separate service)
         # For now, create a deterministic URL
@@ -202,7 +200,7 @@ class FinanceInvoiceService:
             operator_id=operator.id,
             operator_name=operator.username,
             invoice_amount=str(invoice.invoice_amount),
-            invoice_number=invoice_number,
+            invoice_number=str(invoice.id),
             note=note
         )
 
@@ -212,7 +210,7 @@ class FinanceInvoiceService:
             operator_id=operator.id,
             invoice_id=invoice.id,
             invoice_amount=str(invoice.invoice_amount),
-            invoice_number=invoice_number,
+            invoice_number=str(invoice.id),
             pdf_url=pdf_url,
             note=note
         )

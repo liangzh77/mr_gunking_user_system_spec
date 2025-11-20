@@ -265,10 +265,24 @@
       <template #header>
         <div class="card-header">
           <span>充值申请记录</span>
-          <el-button type="primary" size="small" @click="loadBankTransfers">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <div class="header-actions">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索申请ID或备注..."
+              clearable
+              @keyup.enter="loadBankTransfers"
+              @clear="loadBankTransfers"
+              style="width: 250px; margin-right: 10px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-button type="primary" size="small" @click="loadBankTransfers">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -374,6 +388,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
+import { Search, Refresh } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { RechargeResponse } from '@/types'
 import dayjs from 'dayjs'
@@ -388,6 +403,7 @@ const submitting = ref(false)
 const paymentInfo = ref<RechargeResponse | null>(null)
 const loadingBankInfo = ref(false)
 const loadingTransfers = ref(false)
+const searchQuery = ref('')
 const voucherImageUrl = ref('')
 const voucherFile = ref<File | null>(null)
 const voucherDialogVisible = ref(false)
@@ -673,11 +689,15 @@ const resetForm = () => {
 const loadBankTransfers = async () => {
   loadingTransfers.value = true
   try {
+    const params: any = {
+      page: transferPagination.value.page,
+      page_size: transferPagination.value.page_size,
+    }
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
     const response = await http.get('/operators/me/bank-transfers', {
-      params: {
-        page: transferPagination.value.page,
-        page_size: transferPagination.value.page_size,
-      }
+      params
     })
     bankTransfers.value = response.data.items
     transferPagination.value.total = response.data.total

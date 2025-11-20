@@ -112,13 +112,9 @@ class FinanceRefundService:
             operator = refund.operator
             current_balance = str(operator.balance) if operator else "0.00"
 
-            # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-            refund_created_time = refund.created_at
-            refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
             items.append(RefundItemFinance(
                 id=str(refund.id),
-                refund_id=refund_id,
+                refund_id=str(refund.id),
                 operator_id=str(refund.operator_id),
                 operator_name=operator.full_name if operator else "Unknown",
                 operator_category=operator.customer_tier if operator else None,
@@ -180,13 +176,9 @@ class FinanceRefundService:
         # Get operator finance details
         operator_finance = await self._get_operator_finance_details(refund.operator_id)
 
-        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-        refund_created_time = refund.created_at
-        refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
         # Build response
         return RefundDetailsResponse(
-            refund_id=refund_id,
+            refund_id=str(refund.id),
             operator_id=str(refund.operator_id),
             operator_name=operator.full_name if operator else "Unknown",
             operator_category=operator.customer_tier if operator else None,
@@ -311,13 +303,9 @@ class FinanceRefundService:
         await self.db.commit()
         await self.db.refresh(refund)
 
-        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-        refund_created_time = refund.created_at
-        refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
         # Return response
         return RefundApproveResponse(
-            refund_id=refund_id,
+            refund_id=str(refund.id),
             requested_amount=str(refund.requested_amount),
             actual_refund_amount=str(actual_refund_amount),
             balance_after=str(balance_after)

@@ -13,6 +13,21 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="搜索">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索交易ID或描述..."
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+            style="width: 300px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item label="运营商">
           <el-select
             v-model="filterForm.operator_id"
@@ -69,12 +84,11 @@
     </el-card>
 
     <!-- 数据表格 -->
-    <el-card style="margin-top: 20px">
+    <el-card class="list-card" style="margin-top: 20px">
       <el-table
         v-copyable
         :data="tableData"
         v-loading="loading"
-        border
         stripe
         style="width: 100%"
       >
@@ -162,6 +176,7 @@ interface FilterForm {
 const loading = ref(false)
 const tableData = ref<Transaction[]>([])
 const operators = ref<Operator[]>([])
+const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -199,6 +214,10 @@ const fetchTransactions = async () => {
       page_size: pageSize.value,
     }
 
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
     if (filterForm.operator_id) {
       params.operator_id = filterForm.operator_id
     }
@@ -231,6 +250,7 @@ const handleSearch = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   filterForm.operator_id = ''
   filterForm.transaction_type = ''
   dateRange.value = []
@@ -317,11 +337,12 @@ onMounted(() => {
 
 <style scoped>
 .transactions-page {
-  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .header-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .header-content {
@@ -333,14 +354,18 @@ onMounted(() => {
 .title-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .title-section h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: #303133;
+}
+
+.list-card :deep(.el-card__body) {
+  padding: 20px;
 }
 
 .pagination-container {
