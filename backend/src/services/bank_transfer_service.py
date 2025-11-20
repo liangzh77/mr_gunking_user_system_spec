@@ -271,11 +271,12 @@ class BankTransferService:
                 )
 
         if search:
+            from sqlalchemy import cast, String
             search_pattern = f"%{search}%"
             query = query.where(
                 (OperatorAccount.username.ilike(search_pattern)) |
                 (OperatorAccount.full_name.ilike(search_pattern)) |
-                (BankTransferApplication.id.ilike(search_pattern))
+                (cast(BankTransferApplication.id, String).ilike(search_pattern))
             )
 
         if start_date:

@@ -41,6 +41,7 @@ class FinanceRefundService:
     async def get_refunds(
         self,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> RefundListResponse:
@@ -48,6 +49,7 @@ class FinanceRefundService:
 
         Args:
             status: Filter by status (pending/approved/rejected/all)
+            search: Search by operator name or refund ID
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -61,6 +63,19 @@ class FinanceRefundService:
         if status and status != "all":
             query = query.where(RefundRecord.status == status)
 
+        # Add search filter (search operator name or refund ID)
+        if search:
+            # Join with operator table to search by operator name
+            query = query.join(RefundRecord.operator)
+            # Search in operator full_name or refund ID (using CAST to text for UUID)
+            from sqlalchemy import or_, cast, String
+            query = query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    cast(RefundRecord.id, String).ilike(f"%{search}%")
+                )
+            )
+
         # Order by created_at desc (newest first)
         query = query.order_by(desc(RefundRecord.created_at))
 
@@ -68,6 +83,15 @@ class FinanceRefundService:
         count_query = select(func.count()).select_from(RefundRecord)
         if status and status != "all":
             count_query = count_query.where(RefundRecord.status == status)
+        if search:
+            count_query = count_query.join(OperatorAccount)
+            from sqlalchemy import or_, cast, String
+            count_query = count_query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    cast(RefundRecord.id, String).ilike(f"%{search}%")
+                )
+            )
 
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()

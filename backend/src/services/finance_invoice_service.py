@@ -37,6 +37,7 @@ class FinanceInvoiceService:
     async def get_invoices(
         self,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> InvoiceListResponse:
@@ -44,6 +45,7 @@ class FinanceInvoiceService:
 
         Args:
             status: Filter by status (pending/approved/rejected/all)
+            search: Search by operator name or invoice number
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -57,6 +59,19 @@ class FinanceInvoiceService:
         if status and status != "all":
             query = query.where(InvoiceRecord.status == status)
 
+        # Add search filter (search operator name or invoice number)
+        if search:
+            # Join with operator table to search by operator name
+            query = query.join(InvoiceRecord.operator)
+            # Search in operator full_name or invoice number
+            from sqlalchemy import or_
+            query = query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_number.ilike(f"%{search}%")
+                )
+            )
+
         # Order by requested_at desc (newest first)
         query = query.order_by(desc(InvoiceRecord.requested_at))
 
@@ -64,6 +79,15 @@ class FinanceInvoiceService:
         count_query = select(func.count()).select_from(InvoiceRecord)
         if status and status != "all":
             count_query = count_query.where(InvoiceRecord.status == status)
+        if search:
+            count_query = count_query.join(OperatorAccount)
+            from sqlalchemy import or_
+            count_query = count_query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_number.ilike(f"%{search}%")
+                )
+            )
 
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()

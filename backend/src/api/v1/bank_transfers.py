@@ -30,7 +30,7 @@ router = APIRouter(prefix="/bank-transfers", tags=["财务-银行转账审核"])
     description="财务人员查询所有运营商的银行转账充值申请列表"
 )
 async def get_bank_transfers(
-    status: Optional[str] = Query(None, description="申请状态筛选: pending/approved/rejected/cancelled"),
+    application_status: Optional[str] = Query(None, alias="status", description="申请状态筛选: pending/approved/rejected/cancelled"),
     search: Optional[str] = Query(None, description="搜索关键词: 运营商名称/用户名/申请ID"),
     operator_id: Optional[str] = Query(None, description="运营商ID筛选"),
     page: int = Query(1, ge=1, description="页码"),
@@ -43,7 +43,7 @@ async def get_bank_transfers(
     """查询银行转账充值申请列表API
 
     Args:
-        status: 状态筛选
+        application_status: 状态筛选
         search: 搜索关键词
         operator_id: 运营商ID筛选
         page: 页码
@@ -57,9 +57,9 @@ async def get_bank_transfers(
         BankTransferListResponse: 申请列表
     """
     # 验证状态参数
-    if status:
+    if application_status:
         valid_statuses = ["pending", "approved", "rejected", "cancelled"]
-        if status not in valid_statuses:
+        if application_status not in valid_statuses:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={"error_code": "INVALID_STATUS", "message": f"无效的状态值，必须是: {', '.join(valid_statuses)}"}
@@ -69,7 +69,7 @@ async def get_bank_transfers(
     transfer_service = BankTransferService(db)
     try:
         return await transfer_service.get_applications_for_finance(
-            status=status,
+            status=application_status,
             search=search,
             operator_id=operator_id,
             page=page,

@@ -436,6 +436,7 @@ async def get_customer_finance_details(
 )
 async def get_refunds(
     status: Optional[str] = Query("all", description="状态筛选(pending/approved/rejected/all)"),
+    search: Optional[str] = Query(None, description="搜索运营商名称或退款ID"),
     page: int = Query(1, ge=1, description="页码(从1开始)"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -445,6 +446,7 @@ async def get_refunds(
 
     Args:
         status: 状态筛选
+        search: 搜索运营商名称或退款ID
         page: 页码
         page_size: 每页条数
         token: JWT Token payload
@@ -461,7 +463,7 @@ async def get_refunds(
     try:
         refund_service = FinanceRefundService(db)
         refunds = await refund_service.get_refunds(
-            status=status, page=page, page_size=page_size
+            status=status, search=search, page=page, page_size=page_size
         )
         return refunds
 
@@ -831,6 +833,7 @@ async def reject_refund(
 )
 async def get_invoices(
     status: Optional[str] = Query("all", description="状态筛选(pending/approved/rejected/all)"),
+    search: Optional[str] = Query(None, description="搜索运营商名称或发票号"),
     page: int = Query(1, ge=1, description="页码(从1开始)"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -840,6 +843,7 @@ async def get_invoices(
 
     Args:
         status: 状态筛选
+        search: 搜索运营商名称或发票号
         page: 页码
         page_size: 每页条数
         token: JWT Token payload
@@ -856,7 +860,7 @@ async def get_invoices(
     try:
         invoice_service = FinanceInvoiceService(db)
         invoices = await invoice_service.get_invoices(
-            status=status, page=page, page_size=page_size
+            status=status, search=search, page=page, page_size=page_size
         )
         return invoices
 
