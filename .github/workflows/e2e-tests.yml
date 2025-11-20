@@ -1,0 +1,175 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop, '001-mr*' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Test environment'
+        required: true
+        default: 'localhost'
+        type: choice
+        options:
+          - localhost
+          - production
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: mr_gunking_db
+          POSTGRES_USER: mr_gunking_user
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD || 'dev_password' }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://mr_gunking_user:${{ secrets.DB_PASSWORD || 'dev_password' }}@localhost:5432/mr_gunking_db
+        run: |
+          alembic upgrade head
+
+      - name: Start backend server
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://mr_gunking_user:${{ secrets.DB_PASSWORD || 'dev_password' }}@localhost:5432/mr_gunking_db
+          REDIS_URL: redis://localhost:6379
+        run: |
+          uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+
+      - name: Setup frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start frontend server
+        working-directory: frontend
+        run: |
+          npm run preview -- --port 3000 --host &
+          sleep 5
+
+      - name: Install E2E test dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Create .env file
+        working-directory: tests
+        run: |
+          cat > .env << EOF
+          # Localhost Environment
+          LOCALHOST_BASE_URL=http://localhost:3000
+          LOCALHOST_ADMIN_USERNAME=${{ secrets.LOCALHOST_ADMIN_USERNAME || 'admin' }}
+          LOCALHOST_ADMIN_PASSWORD=${{ secrets.LOCALHOST_ADMIN_PASSWORD || 'admin123' }}
+          LOCALHOST_FINANCE_USERNAME=${{ secrets.LOCALHOST_FINANCE_USERNAME || 'finance' }}
+          LOCALHOST_FINANCE_PASSWORD=${{ secrets.LOCALHOST_FINANCE_PASSWORD || 'finance123' }}
+          LOCALHOST_OPERATOR_USERNAME=${{ secrets.LOCALHOST_OPERATOR_USERNAME || 'operator' }}
+          LOCALHOST_OPERATOR_PASSWORD=${{ secrets.LOCALHOST_OPERATOR_PASSWORD || 'operator123' }}
+
+          # Database
+          LOCALHOST_DB_HOST=localhost
+          LOCALHOST_DB_PORT=5432
+          LOCALHOST_DB_DATABASE=mr_gunking_db
+          LOCALHOST_DB_USER=mr_gunking_user
+          LOCALHOST_DB_PASSWORD=${{ secrets.DB_PASSWORD || 'dev_password' }}
+          EOF
+
+      - name: Run E2E tests (Shard ${{ matrix.shard }}/3)
+        working-directory: tests
+        env:
+          TEST_ENV: localhost
+        run: npx playwright test --shard=${{ matrix.shard }}/3
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload test traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.shard }}
+          path: tests/test-results/
+          retention-days: 7
+
+  merge-reports:
+    if: always()
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-report-*
+          path: all-reports
+
+      - name: Merge reports
+        run: |
+          npx playwright merge-reports --reporter html all-reports
+
+      - name: Upload merged report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-merged
+          path: playwright-report/
+          retention-days: 30

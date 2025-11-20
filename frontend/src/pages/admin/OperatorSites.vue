@@ -31,7 +31,7 @@
             <el-option
               v-for="operator in operators"
               :key="operator.id"
-              :label="operator.full_name"
+              :label="`${operator.full_name} (${operator.username})`"
               :value="operator.id"
             />
           </el-select>
@@ -61,7 +61,11 @@
         <el-table-column prop="name" label="运营点名称" min-width="150" />
         <el-table-column prop="address" label="地址" min-width="200" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="operator_name" label="所属运营商" min-width="150" />
+        <el-table-column prop="operator_name" label="所属运营商" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ getOperatorDisplay(row) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
@@ -127,7 +131,7 @@
             <el-option
               v-for="operator in operators"
               :key="operator.id"
-              :label="operator.full_name"
+              :label="`${operator.full_name} (${operator.username})`"
               :value="operator.id"
             />
           </el-select>
@@ -210,6 +214,19 @@ const filteredSites = computed(() => {
   }
   return sites.value.filter(site => site.operator_id === searchOperatorId.value)
 })
+
+// 获取运营商显示文本 (显示: 全名 (账号名))
+const getOperatorDisplay = (site: Site) => {
+  // 从运营商列表中查找对应的运营商,获取username
+  const operator = operators.value.find(op => op.id === site.operator_id)
+
+  if (operator && operator.username) {
+    return `${site.operator_name || '未知运营商'} (${operator.username})`
+  }
+
+  // 如果找不到运营商或没有username,只显示名称
+  return site.operator_name || '未知运营商'
+}
 
 // 加载运营点列表
 const loadSites = async () => {

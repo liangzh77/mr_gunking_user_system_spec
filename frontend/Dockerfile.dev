@@ -1,0 +1,30 @@
+# =============================================================================
+# 前端开发环境 Dockerfile
+# =============================================================================
+# 说明：
+# - 此 Dockerfile 用于开发环境，支持热更新
+# - 使用 Vite 开发服务器
+# - 代码通过 volume 挂载，无需重新构建
+# =============================================================================
+
+FROM node:18-alpine
+
+# 使用国内镜像源加速
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+WORKDIR /app
+
+# 配置 npm 使用国内镜像
+RUN npm config set registry https://registry.npmmirror.com
+
+# 复制 package 文件
+COPY package*.json ./
+
+# 安装依赖
+RUN npm ci
+
+# 暴露 Vite 开发服务器端口
+EXPOSE 5173
+
+# 启动开发服务器（命令在 docker-compose.yml 中覆盖）
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

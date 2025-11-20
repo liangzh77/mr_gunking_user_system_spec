@@ -1,0 +1,30 @@
+{
+  "name": "mr-gunking-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for MR Gunking User System",
+  "scripts": {
+    "test": "playwright test",
+    "test:localhost": "cross-env TEST_ENV=localhost playwright test",
+    "test:production": "cross-env TEST_ENV=production playwright test --grep @readonly",
+    "test:localhost:ui": "cross-env TEST_ENV=localhost playwright test --ui",
+    "test:production:ui": "cross-env TEST_ENV=production playwright test --ui --grep @readonly",
+    "test:localhost:headed": "cross-env TEST_ENV=localhost playwright test --headed",
+    "test:localhost:debug": "cross-env TEST_ENV=localhost playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:codegen:localhost": "cross-env TEST_ENV=localhost playwright codegen https://localhost",
+    "test:codegen:production": "cross-env TEST_ENV=production playwright codegen https://mrgun.chu-jiao.com",
+    "cleanup": "npx tsx e2e/scripts/cleanup-test-data.ts"
+  },
+  "keywords": ["e2e", "playwright", "testing"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.0",
+    "typescript": "^5.0.0"
+  }
+}
