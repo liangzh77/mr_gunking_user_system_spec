@@ -41,18 +41,23 @@ export class DatabaseHelper {
   /**
    * 创建测试运营商账户
    */
-  async createTestOperator(username: string = 'e2e_test_operator'): Promise<string> {
+  async createTestOperator(username?: string): Promise<string> {
     if (!this.pool) {
       console.warn('Skipping createTestOperator - no database connection');
       return '';
     }
 
-    console.log(`📝 Creating test operator: ${username}`);
+    // 生成唯一的用户名(始终添加时间戳确保唯一性)
+    const timestamp = Date.now();
+    const baseUsername = username || 'e2e_test_operator';
+    const uniqueUsername = `${baseUsername}_${timestamp}`;
+
+    console.log(`📝 Creating test operator: ${uniqueUsername}`);
 
     // 生成UUID、密码哈希和API密钥
     const operatorId = randomUUID();
     const passwordHash = '$2b$12$test_hash_placeholder_for_e2e_testing_only';
-    const apiKey = `e2e_test_key_${Date.now()}`;
+    const apiKey = `e2e_test_key_${timestamp}`;
     const apiKeyHash = '$2b$12$test_api_key_hash_placeholder_for_e2e';
 
     await this.query<{ id: string }>(`
@@ -64,10 +69,10 @@ export class DatabaseHelper {
       RETURNING id
     `, [
       operatorId,
-      username,
+      uniqueUsername,
       'E2E测试运营商',
-      '13800138000',
-      'e2e_test@example.com',
+      `138${timestamp.toString().slice(-8)}`, // 生成唯一手机号
+      `e2e_test_${timestamp}@example.com`,    // 生成唯一邮箱
       passwordHash,
       apiKey,
       apiKeyHash,
@@ -167,16 +172,60 @@ export class DatabaseHelper {
     console.log('🧹 Cleaning up test data...');
 
     try {
+      // 删除所有E2E测试相关的发票记录
+      await this.query(`
+        DELETE FROM invoice_records
+        WHERE invoice_title LIKE '%E2E%' OR invoice_title LIKE '%自动化测试%'
+      `);
+
+      // 删除所有E2E测试相关的退款记录
+      await this.query(`
+        DELETE FROM refund_records
+        WHERE refund_reason LIKE '%E2E%' OR refund_reason LIKE '%自动化测试%'
+      `);
+
+      // 删除所有E2E测试相关的应用授权申请
+      await this.query(`
+        DELETE FROM application_authorization_requests
+        WHERE request_reason LIKE '%E2E%' OR request_reason LIKE '%自动化测试%'
+      `);
+
+      // 删除所有E2E测试相关的银行转账申请
+      await this.query(`
+        DELETE FROM bank_transfer_applications
+        WHERE remark LIKE '%E2E%' OR remark LIKE '%自动化测试%'
+      `);
+
+      // 删除所有E2E测试相关的充值订单
+      await this.query(`
+        DELETE FROM recharge_orders
+        WHERE order_id LIKE 'e2e_%'
+      `);
+
       // 删除所有E2E测试相关的交易记录
       await this.query(`
         DELETE FROM transaction_records
-        WHERE description LIKE 'E2E测试%'
+        WHERE description LIKE '%E2E测试%' OR description LIKE '%E2E%'
+      `);
+
+      // 删除所有E2E测试站点
+      await this.query(`
+        DELETE FROM operation_sites
+        WHERE name LIKE '%E2E测试%' OR name LIKE '%E2E%'
+      `);
+
+      // 删除所有E2E测试应用
+      await this.query(`
+        DELETE FROM applications
+        WHERE app_name LIKE '%E2E测试%' OR app_code LIKE 'e2e_%'
       `);
 
       // 删除所有E2E测试运营商
       await this.query(`
         DELETE FROM operator_accounts
-        WHERE username LIKE 'e2e_%' OR full_name LIKE 'E2E测试%'
+        WHERE username LIKE 'e2e_%'
+          OR full_name LIKE '%E2E测试%'
+          OR full_name LIKE 'E2E测试运营商%'
       `);
 
       this.testDataIds = {};

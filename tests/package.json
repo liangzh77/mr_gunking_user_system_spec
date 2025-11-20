@@ -12,7 +12,8 @@
     "test:localhost:debug": "cross-env TEST_ENV=localhost playwright test --debug",
     "test:report": "playwright show-report",
     "test:codegen:localhost": "cross-env TEST_ENV=localhost playwright codegen https://localhost",
-    "test:codegen:production": "cross-env TEST_ENV=production playwright codegen https://mrgun.chu-jiao.com"
+    "test:codegen:production": "cross-env TEST_ENV=production playwright codegen https://mrgun.chu-jiao.com",
+    "cleanup": "npx tsx e2e/scripts/cleanup-test-data.ts"
   },
   "keywords": ["e2e", "playwright", "testing"],
   "author": "",

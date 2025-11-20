@@ -5,6 +5,7 @@ node_modules/
 test-results/
 playwright-report/
 playwright/.cache/
+test-artifacts/
 *.mp4
 *.webm
 trace.zip

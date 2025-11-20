@@ -10,6 +10,9 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1, // 单线程执行
 
+  // 全局清理 - 所有测试结束后自动清理测试数据
+  globalTeardown: './e2e/global-teardown.ts',
+
   timeout: 60 * 1000, // 60秒超时
   expect: {
     timeout: 10 * 1000, // 10秒断言超时
