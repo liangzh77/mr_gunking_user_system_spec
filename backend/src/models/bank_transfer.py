@@ -75,6 +75,14 @@ class BankTransferApplication(Base):
         comment="申请备注(可选,最多500字符)"
     )
 
+    payment_method: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="bank_transfer",
+        server_default="bank_transfer",
+        comment="支付方式: bank_transfer/wechat"
+    )
+
     # ==================== 审核状态 ====================
     status: Mapped[str] = mapped_column(
         String(32),

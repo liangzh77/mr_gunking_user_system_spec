@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>充值记录</span>
+          <span>转账记录</span>
           <div class="header-actions">
             <el-button type="success" size="small" @click="showRechargeDialog = true">
               <el-icon><Money /></el-icon>
@@ -149,7 +149,7 @@
     </el-card>
 
     <!-- 充值详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="充值记录详情" width="700px">
+    <el-dialog v-model="detailDialogVisible" title="转账记录详情" width="700px">
       <el-descriptions :column="2" border v-if="currentRecord">
         <el-descriptions-item label="交易ID">{{ currentRecord.transaction_id }}</el-descriptions-item>
         <el-descriptions-item label="运营商">{{ currentRecord.operator_name }}</el-descriptions-item>
@@ -169,7 +169,7 @@
         <el-descriptions-item label="备注" :span="2">{{ currentRecord.description || '-' }}</el-descriptions-item>
         <el-descriptions-item label="支付信息" :span="2" v-if="currentRecord.payment_info">
           <div>
-            <div>支付渠道: {{ currentRecord.payment_info.channel === 'wechat' ? '微信支付' : '支付宝' }}</div>
+            <div>支付渠道: {{ currentRecord.payment_info.channel === 'wechat' ? '微信转账' : '支付宝' }}</div>
             <div>订单号: {{ currentRecord.payment_info.order_no }}</div>
             <div>状态: {{ currentRecord.payment_info.status }}</div>
           </div>
@@ -656,6 +656,8 @@ const handleDeductSubmit = async () => {
 const getRechargeMethodTagType = (method: string) => {
   if (method === '财务扣费') return 'danger'
   if (method === '财务充值') return 'warning'
+  if (method === '银行转账') return 'primary'
+  if (method === '微信转账') return 'success'
   return 'success'
 }
 

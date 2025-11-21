@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>银行转账审核</span>
+          <span>付款审核</span>
           <el-button type="primary" size="small" @click="fetchTransfers">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -88,7 +88,7 @@
         </el-form>
       </div>
 
-      <!-- 银行转账申请列表 -->
+      <!-- 转账申请列表 -->
       <el-table v-copyable :data="transfers" v-loading="loading" stripe>
         <el-table-column label="申请ID" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -97,6 +97,13 @@
         </el-table-column>
         <el-table-column prop="operator_name" label="运营商" width="150" />
         <el-table-column prop="operator_username" label="用户名" width="120" />
+        <el-table-column label="付款类型" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getPaymentMethodType(row.payment_method)" size="small">
+              {{ getPaymentMethodLabel(row.payment_method) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
             <span class="amount-text">¥{{ row.amount }}</span>
@@ -255,7 +262,7 @@ const queryParams = reactive({
 // 日期范围
 const dateRange = ref<[Date, Date] | null>(null)
 
-// 银行转账列表
+// 转账申请列表
 const transfers = ref<any[]>([])
 const operators = ref<any[]>([])
 const total = ref(0)
@@ -286,7 +293,7 @@ const reviewRules: FormRules = {
 
 // 计算属性
 const reviewDialogTitle = computed(() => {
-  return reviewAction.value === 'approve' ? '批准银行转账申请' : '拒绝银行转账申请'
+  return reviewAction.value === 'approve' ? '批准转账申请' : '拒绝转账申请'
 })
 
 const reviewButtonType = computed(() => {
@@ -321,7 +328,7 @@ const handleReset = () => {
   fetchTransfers()
 }
 
-// 获取银行转账列表
+// 获取转账申请列表
 const fetchTransfers = async () => {
   loading.value = true
   try {
@@ -331,7 +338,7 @@ const fetchTransfers = async () => {
     transfers.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error: any) {
-    ElMessage.error('获取银行转账列表失败')
+    ElMessage.error('获取转账申请列表失败')
   } finally {
     loading.value = false
   }
@@ -447,6 +454,23 @@ const getStatusLabel = (status: string) => {
     case 'rejected': return '已拒绝'
     case 'cancelled': return '已取消'
     default: return '未知'
+  }
+}
+
+// 付款类型标签
+const getPaymentMethodType = (method: string) => {
+  switch (method) {
+    case 'wechat': return 'success'
+    case 'bank_transfer': return ''
+    default: return 'info'
+  }
+}
+
+const getPaymentMethodLabel = (method: string) => {
+  switch (method) {
+    case 'wechat': return '微信转账'
+    case 'bank_transfer': return '银行转账'
+    default: return method || '银行转账'
   }
 }
 

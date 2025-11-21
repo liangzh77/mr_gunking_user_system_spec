@@ -180,7 +180,7 @@
             </el-button>
             <el-button type="success" @click="$router.push('/finance/bank-transfers')">
               <el-icon><Money /></el-icon>
-              银行转账审核
+              转账审核
             </el-button>
             <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>

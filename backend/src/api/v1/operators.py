@@ -2875,22 +2875,21 @@ async def get_player_distribution(
 # ========== 数据导出接口 (T116-T117) ==========
 
 @router.get(
-    "/me/usage-records/export",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
+    "/me/usage-records-export",
     summary="导出使用记录",
-    description="导出使用记录到Excel或CSV文件(模拟实现)"
+    description="导出使用记录到Excel或CSV文件"
 )
 async def export_usage_records(
     format: str = Query("excel", description="导出格式: excel或csv"),
-    start_time: Optional[datetime] = Query(None, description="开始时间"),
-    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间"),
     site_id: Optional[str] = Query(None, description="运营点ID筛选"),
     app_id: Optional[str] = Query(None, description="应用ID筛选"),
+    search: Optional[str] = Query(None, description="搜索会话ID、运营点、应用"),
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
-) -> dict:
-    """导出使用记录API (T116 - 模拟实现)
+):
+    """导出使用记录API (T116)
 
     Args:
         format: 导出格式 (excel/csv)
@@ -2898,30 +2897,23 @@ async def export_usage_records(
         end_time: 结束时间(可选)
         site_id: 运营点ID筛选(可选)
         app_id: 应用ID筛选(可选)
+        search: 搜索关键字(可选)
         token: JWT Token payload
         db: 数据库会话
 
     Returns:
-        dict: {
-            "success": true,
-            "data": {
-                "export_id": "export_xxx",
-                "filename": "usage_records_20250115.xlsx",
-                "format": "excel",
-                "download_url": "https://storage.example.com/exports/xxx.xlsx",
-                "file_size": 102400,
-                "expires_at": "2025-01-15T12:30:00Z",
-                "created_at": "2025-01-15T12:00:00Z"
-            }
-        }
+        StreamingResponse: Excel/CSV文件流
 
     Raises:
         HTTPException 400: 格式参数无效
         HTTPException 401: 未认证或Token无效
         HTTPException 404: 运营商不存在
     """
-    from datetime import timedelta
-    import uuid
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    import csv
 
     operator_service = OperatorService(db)
 
@@ -2963,44 +2955,123 @@ async def export_usage_records(
     except HTTPException:
         raise
 
-    # 模拟导出实现
-    export_id = f"export_{uuid.uuid4()}"
-    file_ext = "xlsx" if format == "excel" else "csv"
-    filename = f"usage_records_{datetime.now().strftime('%Y%m%d')}.{file_ext}"
-    created_at = datetime.now()
-    expires_at = created_at + timedelta(minutes=30)
+    # 获取使用记录数据 (不分页,导出全部)
+    records_list, total = await operator_service.get_usage_records(
+        operator_id=operator_id,
+        start_time=start_time,
+        end_time=end_time,
+        site_id=site_id,
+        app_id=app_id,
+        search=search,
+        page=1,
+        page_size=10000  # 导出最多10000条
+    )
 
-    return {
-        "success": True,
-        "data": {
-            "export_id": export_id,
-            "filename": filename,
-            "format": format,
-            "download_url": f"https://storage.example.com/exports/{filename}",
-            "file_size": 102400,  # 模拟文件大小100KB
-            "expires_at": expires_at,
-            "created_at": created_at
-        }
-    }
+    # 生成文件名
+    file_ext = "xlsx" if format == "excel" else "csv"
+    filename = f"usage_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_ext}"
+
+    if format == "excel":
+        # 创建Excel文件
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "使用记录"
+
+        # 表头
+        headers = ["会话ID", "运营点", "应用", "玩家数", "单价(元)", "总费用(元)", "使用时间"]
+        ws.append(headers)
+
+        # 设置表头样式
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # 添加数据行
+        for record in records_list:
+            # record是UsageRecord ORM对象,直接访问属性
+            created_at_str = record.game_started_at.strftime('%Y-%m-%d %H:%M:%S') if record.game_started_at else ''
+            ws.append([
+                str(record.id),
+                record.site.name if record.site else '',
+                record.application.app_name if record.application else '',
+                record.player_count,
+                float(record.price_per_player),
+                float(record.total_cost),
+                created_at_str
+            ])
+
+        # 调整列宽
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 20
+        ws.column_dimensions['D'].width = 10
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 12
+        ws.column_dimensions['G'].width = 20
+
+        # 保存到内存
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            }
+        )
+    else:
+        # 创建CSV文件
+        output = BytesIO()
+        writer = csv.writer(output)
+
+        # 表头
+        writer.writerow(["会话ID", "运营点", "应用", "玩家数", "单价(元)", "总费用(元)", "使用时间"])
+
+        # 数据行
+        for record in records_list:
+            # record是UsageRecord ORM对象,直接访问属性
+            created_at_str = record.game_started_at.strftime('%Y-%m-%d %H:%M:%S') if record.game_started_at else ''
+            writer.writerow([
+                str(record.id),
+                record.site.name if record.site else '',
+                record.application.app_name if record.application else '',
+                record.player_count,
+                record.price_per_player,
+                record.total_cost,
+                created_at_str
+            ])
+
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            }
+        )
 
 
 @router.get(
     "/me/statistics/export",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
     summary="导出统计报表",
-    description="导出统计报表到Excel或CSV文件(模拟实现)"
+    description="导出统计报表到Excel或CSV文件"
 )
 async def export_statistics(
     format: str = Query("excel", description="导出格式: excel或csv"),
     report_type: str = Query(..., description="报表类型: site/application/consumption/player_distribution"),
-    start_time: Optional[datetime] = Query(None, description="开始时间"),
-    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间"),
     dimension: Optional[str] = Query(None, description="时间维度(consumption报表): day/week/month"),
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
-) -> dict:
-    """导出统计报表API (T117 - 模拟实现)
+):
+    """导出统计报表API (T117)
 
     Args:
         format: 导出格式 (excel/csv)
@@ -3012,26 +3083,18 @@ async def export_statistics(
         db: 数据库会话
 
     Returns:
-        dict: {
-            "success": true,
-            "data": {
-                "export_id": "export_xxx",
-                "filename": "statistics_by_site_20250115.xlsx",
-                "format": "excel",
-                "download_url": "https://storage.example.com/exports/xxx.xlsx",
-                "file_size": 51200,
-                "expires_at": "2025-01-15T12:30:00Z",
-                "created_at": "2025-01-15T12:00:00Z"
-            }
-        }
+        StreamingResponse: Excel/CSV文件流
 
     Raises:
         HTTPException 400: 参数无效
         HTTPException 401: 未认证或Token无效
         HTTPException 404: 运营商不存在
     """
-    from datetime import timedelta
-    import uuid
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    import csv
 
     operator_service = OperatorService(db)
 
@@ -3094,31 +3157,189 @@ async def export_statistics(
     except HTTPException:
         raise
 
-    # 模拟导出实现
-    export_id = f"export_{uuid.uuid4()}"
-    file_ext = "xlsx" if format == "excel" else "csv"
-    report_name_map = {
-        "site": "by_site",
-        "application": "by_application",
-        "consumption": "consumption",
-        "player_distribution": "player_distribution"
-    }
-    filename = f"statistics_{report_name_map[report_type]}_{datetime.now().strftime('%Y%m%d')}.{file_ext}"
-    created_at = datetime.now()
-    expires_at = created_at + timedelta(minutes=30)
+    # 解析时间参数
+    start_time_dt = None
+    end_time_dt = None
+    if start_time:
+        try:
+            start_time_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    if end_time:
+        try:
+            end_time_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        except ValueError:
+            pass
 
-    return {
-        "success": True,
-        "data": {
-            "export_id": export_id,
-            "filename": filename,
-            "format": format,
-            "download_url": f"https://storage.example.com/exports/{filename}",
-            "file_size": 51200,  # 模拟文件大小50KB
-            "expires_at": expires_at,
-            "created_at": created_at
-        }
-    }
+    # 获取所有4种统计数据
+    sheets_data = []
+
+    # 1. 按运营点统计
+    site_result = await operator_service.get_statistics_by_site(
+        operator_id=operator_id,
+        start_time=start_time_dt,
+        end_time=end_time_dt
+    )
+    site_data = []
+    for site in site_result:
+        site_data.append([
+            site.get('site_name', ''),
+            site.get('total_players', 0),
+            float(site.get('total_cost', 0))
+        ])
+    sheets_data.append({
+        'title': '按运营点统计',
+        'headers': ["运营点", "总玩家数", "总费用(元)"],
+        'data': site_data
+    })
+
+    # 2. 按应用统计
+    app_result = await operator_service.get_statistics_by_app(
+        operator_id=operator_id,
+        start_time=start_time_dt,
+        end_time=end_time_dt
+    )
+    app_data = []
+    for app in app_result:
+        app_data.append([
+            app.get('app_name', ''),
+            app.get('total_players', 0),
+            float(app.get('total_cost', 0))
+        ])
+    sheets_data.append({
+        'title': '按应用统计',
+        'headers': ["应用名称", "总玩家数", "总费用(元)"],
+        'data': app_data
+    })
+
+    # 3. 消费趋势
+    consumption_result = await operator_service.get_consumption_statistics(
+        operator_id=operator_id,
+        dimension=dimension or 'day',
+        start_time=start_time_dt,
+        end_time=end_time_dt
+    )
+    consumption_data = []
+    for item in consumption_result.get('chart_data', []):
+        consumption_data.append([
+            item.get('date', ''),
+            item.get('total_players', 0),
+            float(item.get('total_cost', 0))
+        ])
+    sheets_data.append({
+        'title': '消费趋势',
+        'headers': ["日期", "玩家数", "费用(元)"],
+        'data': consumption_data
+    })
+
+    # 4. 玩家分布
+    distribution_result = await operator_service.get_player_distribution_statistics(
+        operator_id=operator_id,
+        start_time=start_time_dt,
+        end_time=end_time_dt
+    )
+    distribution_data = []
+    for item in distribution_result.get('distribution', []):
+        distribution_data.append([
+            item.get('player_count', 0),
+            item.get('session_count', 0),
+            round(item.get('percentage', 0), 1),
+            float(item.get('total_cost', 0))
+        ])
+    sheets_data.append({
+        'title': '玩家分布',
+        'headers': ["玩家数", "场次数量", "占比(%)", "总费用(元)"],
+        'data': distribution_data
+    })
+
+    # 生成文件名
+    file_ext = "xlsx" if format == "excel" else "csv"
+    filename = f"statistics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{file_ext}"
+
+    if format == "excel":
+        # 创建Excel文件，包含4个工作表
+        wb = Workbook()
+
+        # 删除默认的第一个工作表（稍后会创建新的）
+        wb.remove(wb.active)
+
+        # 为每个统计类型创建一个工作表
+        for idx, sheet_info in enumerate(sheets_data):
+            ws = wb.create_sheet(title=sheet_info['title'])
+
+            # 表头
+            ws.append(sheet_info['headers'])
+
+            # 设置表头样式
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF")
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            # 添加数据行
+            for row_data in sheet_info['data']:
+                ws.append(row_data)
+
+            # 调整列宽
+            for col_idx, header in enumerate(sheet_info['headers'], start=1):
+                column_letter = ws.cell(row=1, column=col_idx).column_letter
+                if "费用" in header or "总" in header:
+                    ws.column_dimensions[column_letter].width = 15
+                elif "日期" in header:
+                    ws.column_dimensions[column_letter].width = 20
+                elif "占比" in header:
+                    ws.column_dimensions[column_letter].width = 12
+                else:
+                    ws.column_dimensions[column_letter].width = 20
+
+        # 保存到内存
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            }
+        )
+    else:
+        # 创建CSV文件（合并所有数据到一个文件）
+        output = BytesIO()
+        # 使用text mode写入CSV
+        import io
+        text_output = io.StringIO()
+        writer = csv.writer(text_output)
+
+        # 为每个统计类型写入数据
+        for sheet_info in sheets_data:
+            # 写入分类标题
+            writer.writerow([f"===== {sheet_info['title']} ====="])
+
+            # 表头
+            writer.writerow(sheet_info['headers'])
+
+            # 数据行
+            for row_data in sheet_info['data']:
+                writer.writerow(row_data)
+
+            # 空行分隔
+            writer.writerow([])
+
+        # 转换为bytes
+        output.write(text_output.getvalue().encode('utf-8-sig'))  # 使用BOM以便Excel正确识别
+        output.seek(0)
+
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            }
+        )
 
 
 # ========== 应用授权管理接口 (T097-T099) ==========

@@ -386,15 +386,8 @@ const handleExport = async () => {
       params.app_id = filterForm.value.app_id
     }
 
-    const response = await operatorStore.exportUsageRecords(params)
-
-    // 创建下载链接
-    const link = document.createElement('a')
-    link.href = response.download_url
-    link.download = response.filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // 调用导出API (现在返回blob)
+    await operatorStore.exportUsageRecords(params)
 
     ElMessage.success('导出成功')
   } catch (error) {

@@ -28,6 +28,7 @@ class BankTransferCreate(BaseModel):
     amount: float = Field(..., gt=0, description="充值金额")
     voucher_image_url: str = Field(..., description="转账凭证图片URL")
     remark: Optional[str] = Field(None, max_length=500, description="备注")
+    payment_method: Optional[str] = Field('bank_transfer', description="支付方式: bank_transfer或wechat")
 
     class Config:
         from_attributes = True
@@ -41,6 +42,7 @@ class BankTransferResponse(BaseModel):
     amount: float = Field(..., description="充值金额")
     voucher_image_url: str = Field(..., description="转账凭证图片URL")
     remark: Optional[str] = Field(None, description="备注")
+    payment_method: Optional[str] = Field('bank_transfer', description="支付方式")
     status: str = Field(..., description="申请状态")
     reject_reason: Optional[str] = Field(None, description="拒绝原因")
     created_at: datetime = Field(..., description="申请时间")

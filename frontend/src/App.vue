@@ -52,4 +52,32 @@ body,
   height: 100%;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
 }
+
+/* 全局表格样式 - 防止文本换行,超出部分截断 */
+.el-table .el-table__cell {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.el-table .cell {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 确保表格列本身也不换行 */
+.el-table__body-wrapper .el-table__cell .cell {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 针对所有表格内容 */
+.el-table td.el-table__cell div,
+.el-table th.el-table__cell div {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
 </style>
