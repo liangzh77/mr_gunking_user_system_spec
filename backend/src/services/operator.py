@@ -583,7 +583,8 @@ class OperatorService:
                     cast(RefundRecord.requested_amount, String).ilike(f"%{search}%"),
                     cast(RefundRecord.actual_amount, String).ilike(f"%{search}%"),
                     RefundRecord.status.ilike(f"%{search}%"),
-                    RefundRecord.refund_reason.ilike(f"%{search}%")
+                    RefundRecord.refund_reason.ilike(f"%{search}%"),
+                    RefundRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 
@@ -911,7 +912,8 @@ class OperatorService:
                     InvoiceRecord.tax_id.ilike(f"%{search}%"),
                     cast(InvoiceRecord.invoice_amount, String).ilike(f"%{search}%"),
                     InvoiceRecord.invoice_number.ilike(f"%{search}%"),
-                    InvoiceRecord.status.ilike(f"%{search}%")
+                    InvoiceRecord.status.ilike(f"%{search}%"),
+                    InvoiceRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 
@@ -1021,7 +1023,7 @@ class OperatorService:
             app_id: 应用ID筛选(可选)
             start_time: 开始时间(可选)
             end_time: 结束时间(可选)
-            search: 搜索关键词(运营点名称、应用名称)
+            search: 搜索关键词(会话ID、运营点名称、应用名称)
 
         Returns:
             tuple[list, int]: (使用记录列表, 总记录数)
@@ -1088,12 +1090,13 @@ class OperatorService:
         if end_time:
             conditions.append(UsageRecord.game_started_at <= end_time)
 
-        # 搜索筛选(运营点名称、应用名称)
+        # 搜索筛选(会话ID、运营点名称、应用名称)
         if search:
-            from sqlalchemy import or_
+            from sqlalchemy import or_, cast, String
             # 需要join表才能搜索site和application的名称
             # 这部分在下面的主查询中处理,这里先标记
             search_filter = or_(
+                cast(UsageRecord.id, String).ilike(f"%{search}%"),
                 OperationSite.name.ilike(f"%{search}%"),
                 Application.app_name.ilike(f"%{search}%")
             )
@@ -1218,7 +1221,7 @@ class OperatorService:
         Args:
             operator_id: 运营商ID
             include_deleted: 是否包含已删除的运营点(默认false)
-            search: 搜索关键词(运营点名称、地址)
+            search: 搜索关键词(运营点名称、地址、描述)
 
         Returns:
             list[OperationSite]: 运营点列表(按创建时间降序)
@@ -1255,13 +1258,14 @@ class OperatorService:
         if not include_deleted:
             conditions.append(OperationSite.deleted_at.is_(None))
 
-        # 搜索筛选(运营点名称、地址)
+        # 搜索筛选(运营点名称、地址、描述)
         if search:
             from sqlalchemy import or_, cast, String
             conditions.append(
                 or_(
                     OperationSite.name.ilike(f"%{search}%"),
                     OperationSite.address.ilike(f"%{search}%"),
+                    OperationSite.description.ilike(f"%{search}%"),
                     cast(OperationSite.id, String).ilike(f"%{search}%")
                 )
             )

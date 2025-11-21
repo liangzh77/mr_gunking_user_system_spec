@@ -38,6 +38,9 @@ class FinanceInvoiceService:
         self,
         status: Optional[str] = None,
         search: Optional[str] = None,
+        operator_id: Optional[str] = None,
+        invoice_type: Optional[str] = None,
+        date_range: Optional[list] = None,
         page: int = 1,
         page_size: int = 20
     ) -> InvoiceListResponse:
@@ -45,47 +48,111 @@ class FinanceInvoiceService:
 
         Args:
             status: Filter by status (pending/approved/rejected/all)
-            search: Search by operator name or invoice number
+            search: Search by operator name, invoice ID, invoice title, tax ID, or reject reason
+            operator_id: Filter by operator ID
+            invoice_type: Filter by invoice type (vat_normal/vat_special)
+            date_range: Filter by date range [start_date, end_date]
             page: Page number (starts from 1)
             page_size: Items per page
 
         Returns:
             InvoiceListResponse: Paginated list of invoice applications
         """
-        # Build query with eager loading to avoid N+1 queries
-        query = select(InvoiceRecord).options(selectinload(InvoiceRecord.operator))
+        from sqlalchemy import or_, cast, String
+
+        # Build query - always join with operator table for consistent querying
+        # Also use selectinload to ensure operator relationship is loaded
+        query = (
+            select(InvoiceRecord)
+            .join(OperatorAccount, InvoiceRecord.operator_id == OperatorAccount.id)
+            .options(selectinload(InvoiceRecord.operator))
+        )
 
         # Add status filter
         if status and status != "all":
             query = query.where(InvoiceRecord.status == status)
 
-        # Add search filter (search operator name or invoice number)
+        # Add operator ID filter
+        if operator_id:
+            # Handle op_ prefix format
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                query = query.where(InvoiceRecord.operator_id == operator_uuid)
+            except ValueError:
+                pass  # Invalid UUID, ignore filter
+
+        # Add invoice type filter
+        if invoice_type:
+            query = query.where(InvoiceRecord.invoice_type == invoice_type)
+
+        # Add date range filter
+        if date_range and len(date_range) == 2:
+            try:
+                start_date = datetime.strptime(date_range[0], "%Y-%m-%d")
+                end_date = datetime.strptime(date_range[1], "%Y-%m-%d")
+                # Make end_date inclusive
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                query = query.where(InvoiceRecord.requested_at >= start_date)
+                query = query.where(InvoiceRecord.requested_at <= end_date)
+            except (ValueError, TypeError):
+                pass  # Invalid date format, ignore filter
+
+        # Add search filter
         if search:
-            # Join with operator table to search by operator name
-            query = query.join(InvoiceRecord.operator)
-            # Search in operator full_name or invoice number
-            from sqlalchemy import or_
+            # Search in multiple fields (operator already joined above)
             query = query.where(
                 or_(
                     OperatorAccount.full_name.ilike(f"%{search}%"),
-                    InvoiceRecord.invoice_number.ilike(f"%{search}%")
+                    OperatorAccount.username.ilike(f"%{search}%"),
+                    cast(InvoiceRecord.id, String).ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_number.ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_title.ilike(f"%{search}%"),
+                    InvoiceRecord.tax_id.ilike(f"%{search}%"),
+                    InvoiceRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 
         # Order by requested_at desc (newest first)
         query = query.order_by(desc(InvoiceRecord.requested_at))
 
-        # Get total count
-        count_query = select(func.count()).select_from(InvoiceRecord)
+        # Get total count - use the same query structure as above
+        count_query = (
+            select(func.count())
+            .select_from(InvoiceRecord)
+            .join(OperatorAccount, InvoiceRecord.operator_id == OperatorAccount.id)
+        )
         if status and status != "all":
             count_query = count_query.where(InvoiceRecord.status == status)
+        if operator_id:
+            # Handle op_ prefix format (same as above)
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                count_query = count_query.where(InvoiceRecord.operator_id == operator_uuid)
+            except ValueError:
+                pass
+        if invoice_type:
+            count_query = count_query.where(InvoiceRecord.invoice_type == invoice_type)
+        if date_range and len(date_range) == 2:
+            try:
+                start_date = datetime.strptime(date_range[0], "%Y-%m-%d")
+                end_date = datetime.strptime(date_range[1], "%Y-%m-%d")
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                count_query = count_query.where(InvoiceRecord.requested_at >= start_date)
+                count_query = count_query.where(InvoiceRecord.requested_at <= end_date)
+            except (ValueError, TypeError):
+                pass
         if search:
-            count_query = count_query.join(OperatorAccount)
-            from sqlalchemy import or_
             count_query = count_query.where(
                 or_(
                     OperatorAccount.full_name.ilike(f"%{search}%"),
-                    InvoiceRecord.invoice_number.ilike(f"%{search}%")
+                    OperatorAccount.username.ilike(f"%{search}%"),
+                    cast(InvoiceRecord.id, String).ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_number.ilike(f"%{search}%"),
+                    InvoiceRecord.invoice_title.ilike(f"%{search}%"),
+                    InvoiceRecord.tax_id.ilike(f"%{search}%"),
+                    InvoiceRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 

@@ -54,7 +54,7 @@
             <el-option
               v-for="site in sites"
               :key="site.site_id"
-              :label="site.site_name"
+              :label="site.name"
               :value="site.site_id"
             />
           </el-select>

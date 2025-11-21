@@ -20,7 +20,7 @@
       <div class="filter-container" style="margin-bottom: 16px">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索运营点名称、地址..."
+          placeholder="搜索运营点名称、地址、描述..."
           clearable
           @keyup.enter="handleSearch"
           @clear="handleSearch"

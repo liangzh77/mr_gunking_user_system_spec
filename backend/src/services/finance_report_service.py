@@ -345,7 +345,7 @@ class FinanceReportService:
         return report
 
     async def get_reports_list(
-        self, page: int = 1, page_size: int = 20
+        self, page: int = 1, page_size: int = 20, search: Optional[str] = None
     ) -> tuple[list[FinanceReport], int]:
         """
         获取报表列表（分页）
@@ -353,18 +353,29 @@ class FinanceReportService:
         Args:
             page: 页码
             page_size: 每页条数
+            search: 搜索报表ID
 
         Returns:
             tuple: (报表列表, 总数)
         """
-        # 查询总数
+        # Build base query
+        query = select(FinanceReport)
         count_query = select(func.count(FinanceReport.id))
+
+        # Add search filter
+        if search:
+            from sqlalchemy import cast, String
+            search_pattern = f"%{search}%"
+            query = query.where(cast(FinanceReport.report_id, String).ilike(search_pattern))
+            count_query = count_query.where(cast(FinanceReport.report_id, String).ilike(search_pattern))
+
+        # 查询总数
         count_result = await self.db.execute(count_query)
         total = count_result.scalar() or 0
 
         # 查询报表列表
         query = (
-            select(FinanceReport)
+            query
             .order_by(FinanceReport.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)

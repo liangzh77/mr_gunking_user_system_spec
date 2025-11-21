@@ -30,7 +30,7 @@
 - 用户类型要求: finance
 """
 
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Form, UploadFile, File, Request
@@ -436,7 +436,8 @@ async def get_customer_finance_details(
 )
 async def get_refunds(
     status: Optional[str] = Query("all", description="状态筛选(pending/approved/rejected/all)"),
-    search: Optional[str] = Query(None, description="搜索运营商名称或退款ID"),
+    operator_id: Optional[str] = Query(None, description="运营商ID筛选"),
+    search: Optional[str] = Query(None, description="搜索运营商名称、退款ID、退款原因、拒绝原因"),
     page: int = Query(1, ge=1, description="页码(从1开始)"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -446,7 +447,8 @@ async def get_refunds(
 
     Args:
         status: 状态筛选
-        search: 搜索运营商名称或退款ID
+        operator_id: 运营商ID筛选
+        search: 搜索运营商名称、退款ID、退款原因、拒绝原因
         page: 页码
         page_size: 每页条数
         token: JWT Token payload
@@ -463,7 +465,7 @@ async def get_refunds(
     try:
         refund_service = FinanceRefundService(db)
         refunds = await refund_service.get_refunds(
-            status=status, search=search, page=page, page_size=page_size
+            status=status, operator_id=operator_id, search=search, page=page, page_size=page_size
         )
         return refunds
 
@@ -833,7 +835,10 @@ async def reject_refund(
 )
 async def get_invoices(
     status: Optional[str] = Query("all", description="状态筛选(pending/approved/rejected/all)"),
-    search: Optional[str] = Query(None, description="搜索运营商名称或发票号"),
+    search: Optional[str] = Query(None, description="搜索运营商名称、发票ID、抬头、税号、拒绝原因"),
+    operator_id: Optional[str] = Query(None, description="运营商ID筛选"),
+    invoice_type: Optional[str] = Query(None, description="发票类型筛选(vat_normal/vat_special)"),
+    date_range: Optional[List[str]] = Query(None, description="申请时间范围筛选(数组格式: [start_date, end_date])"),
     page: int = Query(1, ge=1, description="页码(从1开始)"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -843,7 +848,10 @@ async def get_invoices(
 
     Args:
         status: 状态筛选
-        search: 搜索运营商名称或发票号
+        search: 搜索运营商名称、发票ID、抬头、税号、拒绝原因
+        operator_id: 运营商ID筛选
+        invoice_type: 发票类型筛选
+        date_range: 申请时间范围筛选
         page: 页码
         page_size: 每页条数
         token: JWT Token payload
@@ -860,7 +868,13 @@ async def get_invoices(
     try:
         invoice_service = FinanceInvoiceService(db)
         invoices = await invoice_service.get_invoices(
-            status=status, search=search, page=page, page_size=page_size
+            status=status,
+            search=search,
+            operator_id=operator_id,
+            invoice_type=invoice_type,
+            date_range=date_range,
+            page=page,
+            page_size=page_size
         )
         return invoices
 
@@ -1376,6 +1390,7 @@ async def generate_report(
 async def get_reports(
     page: int = Query(1, ge=1, description="页码(从1开始)"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
+    search: Optional[str] = Query(None, description="搜索报表ID"),
     token: dict = Depends(require_finance),
     db: AsyncSession = Depends(get_db),
 ) -> ReportListResponse:
@@ -1384,6 +1399,7 @@ async def get_reports(
     Args:
         page: 页码
         page_size: 每页条数
+        search: 搜索报表ID
         token: JWT Token payload
         db: 数据库会话
 
@@ -1400,7 +1416,7 @@ async def get_reports(
         from ...schemas.finance import FinanceReportItem
 
         report_service = FinanceReportService(db)
-        reports, total = await report_service.get_reports_list(page=page, page_size=page_size)
+        reports, total = await report_service.get_reports_list(page=page, page_size=page_size, search=search)
 
         # 构建响应数据
         items = []
@@ -2314,10 +2330,11 @@ async def manual_recharge(
     description="财务人员查询所有运营商的充值记录，支持筛选和分页",
 )
 async def get_recharge_records(
+    search: Optional[str] = Query(None, description="搜索交易ID或备注"),
     operator_id: Optional[str] = Query(None, description="运营商ID筛选（格式: op_xxx或uuid）"),
     start_date: Optional[str] = Query(None, description="开始日期（格式: YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="结束日期（格式: YYYY-MM-DD）"),
-    recharge_method: Optional[str] = Query(None, description="充值方式筛选(manual/online/bank_transfer)"),
+    recharge_method: Optional[str] = Query(None, description="充值方式筛选(manual/online/bank_transfer/deduct)"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     token: dict = Depends(require_finance),
@@ -2347,6 +2364,17 @@ async def get_recharge_records(
 
         # 筛选条件
         filters = []
+
+        # 搜索筛选（交易ID或描述）
+        if search:
+            from sqlalchemy import or_, cast, String
+            search_pattern = f"%{search}%"
+            filters.append(
+                or_(
+                    cast(TransactionRecord.id, String).ilike(search_pattern),
+                    TransactionRecord.description.ilike(search_pattern)
+                )
+            )
 
         # 按运营商筛选
         if operator_id:
@@ -2517,6 +2545,7 @@ async def get_recharge_records(
     """
 )
 async def get_transactions(
+    search: Optional[str] = Query(None, description="搜索交易ID或描述"),
     operator_id: Optional[str] = Query(None, description="运营商ID筛选"),
     transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
     start_time: Optional[str] = Query(None, description="开始时间"),
@@ -2528,12 +2557,22 @@ async def get_transactions(
 ) -> dict:
     """获取交易记录列表"""
     from datetime import datetime
-    from sqlalchemy import select, and_, or_, func
+    from sqlalchemy import select, and_, or_, func, cast, String
     from ...models import TransactionRecord, OperatorAccount
 
     try:
         # 构建查询条件 - 包含所有交易类型（充值、消费、退款、扣费）
         filters = [TransactionRecord.transaction_type.in_(['recharge', 'consumption', 'refund', 'deduct'])]
+
+        # 搜索筛选（交易ID或描述）
+        if search:
+            search_pattern = f"%{search}%"
+            filters.append(
+                or_(
+                    cast(TransactionRecord.id, String).ilike(search_pattern),
+                    TransactionRecord.description.ilike(search_pattern)
+                )
+            )
 
         # 按运营商筛选
         if operator_id:

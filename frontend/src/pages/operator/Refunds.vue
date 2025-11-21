@@ -18,22 +18,57 @@
     <el-card class="list-card" style="margin-top: 20px">
       <!-- 搜索栏 -->
       <div class="filter-container" style="margin-bottom: 16px">
-        <el-input
-          v-model="searchQuery"
-          placeholder="搜索退款ID或退款原因..."
-          clearable
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-          style="width: 300px"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <el-button type="primary" @click="handleSearch" style="margin-left: 12px">
-          <el-icon><Search /></el-icon>
-          查询
-        </el-button>
+        <el-form :inline="true">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索退款ID、退款原因、拒绝原因..."
+              clearable
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+              style="width: 320px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select
+              v-model="filterStatus"
+              placeholder="全部状态"
+              clearable
+              @change="handleSearch"
+              style="width: 130px"
+            >
+              <el-option label="待审核" value="pending" />
+              <el-option label="已通过" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+              <el-option label="已完成" value="completed" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="申请时间">
+            <el-date-picker
+              v-model="filterDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleSearch"
+              style="width: 280px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
       <el-table
@@ -176,7 +211,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -186,6 +221,8 @@ const operatorStore = useOperatorStore()
 const loading = ref(false)
 const refunds = ref<Refund[]>([])
 const searchQuery = ref('')
+const filterStatus = ref('')
+const filterDateRange = ref<[Date, Date] | null>(null)
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
@@ -277,9 +314,27 @@ const loadRefunds = async () => {
       params.search = searchQuery.value
     }
 
-    const response = await operatorStore.getRefunds(params)
-    refunds.value = response.items
-    pagination.value.total = response.total
+    // 前端筛选（API不支持这些参数时使用）
+    let response = await operatorStore.getRefunds(params)
+    let items = response?.items || []
+
+    // 应用前端筛选
+    if (filterStatus.value) {
+      items = items.filter(item => item.status === filterStatus.value)
+    }
+
+    if (filterDateRange.value && filterDateRange.value.length === 2) {
+      const [start, end] = filterDateRange.value
+      const startTime = new Date(start).setHours(0, 0, 0, 0)
+      const endTime = new Date(end).setHours(23, 59, 59, 999)
+      items = items.filter(item => {
+        const itemTime = new Date(item.created_at).getTime()
+        return itemTime >= startTime && itemTime <= endTime
+      })
+    }
+
+    refunds.value = items
+    pagination.value.total = items.length
   } catch (error) {
     console.error('Load refunds error:', error)
     ElMessage.error('加载退款申请失败')
@@ -330,6 +385,15 @@ const handleSubmit = async () => {
 
 // 搜索
 const handleSearch = () => {
+  pagination.value.page = 1
+  loadRefunds()
+}
+
+// 重置搜索条件
+const handleReset = () => {
+  searchQuery.value = ''
+  filterStatus.value = ''
+  filterDateRange.value = null
   pagination.value.page = 1
   loadRefunds()
 }

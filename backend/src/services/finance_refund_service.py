@@ -41,6 +41,7 @@ class FinanceRefundService:
     async def get_refunds(
         self,
         status: Optional[str] = None,
+        operator_id: Optional[str] = None,
         search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
@@ -49,7 +50,8 @@ class FinanceRefundService:
 
         Args:
             status: Filter by status (pending/approved/rejected/all)
-            search: Search by operator name or refund ID
+            operator_id: Filter by operator ID
+            search: Search by operator name, refund ID, refund reason, reject reason
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -63,16 +65,34 @@ class FinanceRefundService:
         if status and status != "all":
             query = query.where(RefundRecord.status == status)
 
-        # Add search filter (search operator name or refund ID)
+        # Add operator_id filter
+        if operator_id:
+            # Handle op_ prefix format
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                query = query.where(RefundRecord.operator_id == operator_uuid)
+            except ValueError:
+                # Invalid UUID format, return empty result
+                return RefundListResponse(
+                    page=page,
+                    page_size=page_size,
+                    total=0,
+                    items=[]
+                )
+
+        # Add search filter (search operator name, refund ID, refund reason, reject reason)
         if search:
             # Join with operator table to search by operator name
             query = query.join(RefundRecord.operator)
-            # Search in operator full_name or refund ID (using CAST to text for UUID)
+            # Search in operator full_name, refund ID, refund_reason, reject_reason
             from sqlalchemy import or_, cast, String
             query = query.where(
                 or_(
                     OperatorAccount.full_name.ilike(f"%{search}%"),
-                    cast(RefundRecord.id, String).ilike(f"%{search}%")
+                    cast(RefundRecord.id, String).ilike(f"%{search}%"),
+                    RefundRecord.refund_reason.ilike(f"%{search}%"),
+                    RefundRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 
@@ -83,13 +103,23 @@ class FinanceRefundService:
         count_query = select(func.count()).select_from(RefundRecord)
         if status and status != "all":
             count_query = count_query.where(RefundRecord.status == status)
+        if operator_id:
+            # Handle op_ prefix format (same as above)
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                count_query = count_query.where(RefundRecord.operator_id == operator_uuid)
+            except ValueError:
+                pass  # Already returned empty result above
         if search:
             count_query = count_query.join(OperatorAccount)
             from sqlalchemy import or_, cast, String
             count_query = count_query.where(
                 or_(
                     OperatorAccount.full_name.ilike(f"%{search}%"),
-                    cast(RefundRecord.id, String).ilike(f"%{search}%")
+                    cast(RefundRecord.id, String).ilike(f"%{search}%"),
+                    RefundRecord.refund_reason.ilike(f"%{search}%"),
+                    RefundRecord.reject_reason.ilike(f"%{search}%")
                 )
             )
 

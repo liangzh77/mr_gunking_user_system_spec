@@ -94,21 +94,29 @@
           </template>
 
           <div class="quick-reports">
-            <el-button type="success" @click="quickReport('today')" style="width: 100%">
-              <el-icon><Calendar /></el-icon>
-              今日财务报表
+            <el-button type="success" @click="quickReport('today')" class="quick-report-btn">
+              <div class="btn-content">
+                <el-icon><Calendar /></el-icon>
+                <span>今日财务报表</span>
+              </div>
             </el-button>
-            <el-button type="warning" @click="quickReport('this_week')" style="width: 100%">
-              <el-icon><Calendar /></el-icon>
-              本周财务报表
+            <el-button type="warning" @click="quickReport('this_week')" class="quick-report-btn">
+              <div class="btn-content">
+                <el-icon><Calendar /></el-icon>
+                <span>本周财务报表</span>
+              </div>
             </el-button>
-            <el-button type="danger" @click="quickReport('this_month')" style="width: 100%">
-              <el-icon><Calendar /></el-icon>
-              本月财务报表
+            <el-button type="danger" @click="quickReport('this_month')" class="quick-report-btn">
+              <div class="btn-content">
+                <el-icon><Calendar /></el-icon>
+                <span>本月财务报表</span>
+              </div>
             </el-button>
-            <el-button type="info" @click="quickReport('last_month')" style="width: 100%">
-              <el-icon><Calendar /></el-icon>
-              上月财务报表
+            <el-button type="info" @click="quickReport('last_month')" class="quick-report-btn">
+              <div class="btn-content">
+                <el-icon><Calendar /></el-icon>
+                <span>上月财务报表</span>
+              </div>
             </el-button>
           </div>
         </el-card>
@@ -127,15 +135,19 @@
                   v-model="searchQuery"
                   placeholder="搜索报表ID..."
                   clearable
-                  @keyup.enter="fetchReports"
-                  @clear="fetchReports"
+                  @keyup.enter="handleSearch"
+                  @clear="handleSearch"
                   style="width: 250px; margin-right: 10px"
                 >
                   <template #prefix>
                     <el-icon><Search /></el-icon>
                   </template>
                 </el-input>
-                <el-button type="primary" size="small" @click="fetchReports">
+                <el-button type="primary" @click="handleSearch">
+                  <el-icon><Search /></el-icon>
+                  查询
+                </el-button>
+                <el-button @click="fetchReports" style="margin-left: 10px">
                   <el-icon><Refresh /></el-icon>
                   刷新
                 </el-button>
@@ -305,12 +317,59 @@ const generateReport = async () => {
 // 快速报表
 const quickReport = async (period: string) => {
   try {
+    const today = new Date()
+    let startDate: Date
+    let endDate: Date
+    let reportType: string
+
+    switch (period) {
+      case 'today':
+        // 今日报表
+        startDate = new Date(today)
+        endDate = new Date(today)
+        reportType = 'daily'
+        break
+
+      case 'this_week':
+        // 本周报表（周一到周日）
+        const dayOfWeek = today.getDay()
+        const startOfWeek = new Date(today)
+        // 如果是周日(0)，则往前推6天；否则往前推 dayOfWeek-1 天到周一
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        startOfWeek.setDate(today.getDate() - daysToMonday)
+        startDate = startOfWeek
+        endDate = new Date(today)
+        reportType = 'weekly'
+        break
+
+      case 'this_month':
+        // 本月报表（1号到今天）
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1)
+        endDate = new Date(today)
+        reportType = 'monthly'
+        break
+
+      case 'last_month':
+        // 上月报表（上月1号到上月最后一天）
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        startDate = lastMonth
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0) // 上月最后一天
+        reportType = 'monthly'
+        break
+
+      default:
+        ElMessage.error('未知的报表类型')
+        return
+    }
+
     await http.post('/finance/reports/generate', {
-      report_type: 'quick',
-      period: period,
-      export_format: 'pdf',
+      report_type: reportType,
+      start_date: formatDate(startDate),
+      end_date: formatDate(endDate),
+      format: 'pdf',
     })
-    ElMessage.success('报表生成成功')
+
+    ElMessage.success('报表生成成功，请稍后在历史报表中查看')
     fetchReports()
   } catch (error: any) {
     ElMessage.error('报表生成失败')
@@ -347,6 +406,12 @@ const fetchReports = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  queryParams.page = 1
+  fetchReports()
 }
 
 // 下载报表
@@ -442,6 +507,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.quick-report-btn {
+  width: 25%;
+  height: 40px;
+  padding: 0;
+  margin: 0 !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-content .el-icon {
+  margin-right: 8px;
 }
 
 .pagination {

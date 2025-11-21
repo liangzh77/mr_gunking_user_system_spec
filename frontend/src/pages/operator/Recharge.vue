@@ -265,26 +265,62 @@
       <template #header>
         <div class="card-header">
           <span>充值申请记录</span>
-          <div class="header-actions">
+        </div>
+      </template>
+
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-form :inline="true">
+          <el-form-item label="搜索">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索申请ID或备注..."
+              placeholder="搜索申请ID、备注、拒绝原因..."
               clearable
-              @keyup.enter="loadBankTransfers"
-              @clear="loadBankTransfers"
-              style="width: 250px; margin-right: 10px"
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+              style="width: 300px"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
-            <el-button type="primary" size="small" @click="loadBankTransfers">
-              <el-icon><Refresh /></el-icon>
-              刷新
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select
+              v-model="filterStatus"
+              placeholder="全部状态"
+              clearable
+              @change="handleSearch"
+              style="width: 130px"
+            >
+              <el-option label="待审核" value="pending" />
+              <el-option label="已通过" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="申请时间">
+            <el-date-picker
+              v-model="filterDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleSearch"
+              style="width: 280px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              查询
             </el-button>
-          </div>
-        </div>
-      </template>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
       <el-table
         :data="bankTransfers"
@@ -388,7 +424,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { RechargeResponse } from '@/types'
 import dayjs from 'dayjs'
@@ -404,6 +440,8 @@ const paymentInfo = ref<RechargeResponse | null>(null)
 const loadingBankInfo = ref(false)
 const loadingTransfers = ref(false)
 const searchQuery = ref('')
+const filterStatus = ref('')
+const filterDateRange = ref<[Date, Date] | null>(null)
 const voucherImageUrl = ref('')
 const voucherFile = ref<File | null>(null)
 const voucherDialogVisible = ref(false)
@@ -693,14 +731,36 @@ const loadBankTransfers = async () => {
       page: transferPagination.value.page,
       page_size: transferPagination.value.page_size,
     }
+
     if (searchQuery.value) {
       params.search = searchQuery.value
     }
+
+    if (filterStatus.value) {
+      params.status = filterStatus.value
+    }
+
     const response = await http.get('/operators/me/bank-transfers', {
       params
     })
-    bankTransfers.value = response.data.items
-    transferPagination.value.total = response.data.total
+
+    // 前端筛选日期（后端不支持日期筛选）
+    let items = response.data.items || []
+    let total = response.data.total || 0
+
+    if (filterDateRange.value && filterDateRange.value.length === 2) {
+      const [start, end] = filterDateRange.value
+      const startTime = new Date(start).setHours(0, 0, 0, 0)
+      const endTime = new Date(end).setHours(23, 59, 59, 999)
+      items = items.filter((item: any) => {
+        const itemTime = new Date(item.created_at).getTime()
+        return itemTime >= startTime && itemTime <= endTime
+      })
+      total = items.length
+    }
+
+    bankTransfers.value = items
+    transferPagination.value.total = total
   } catch (error) {
     console.error('Load bank transfers error:', error)
     ElMessage.error('加载申请列表失败')
@@ -740,6 +800,21 @@ const cancelTransfer = async (row: any) => {
       ElMessage.error('取消申请失败')
     }
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  transferPagination.value.page = 1
+  loadBankTransfers()
+}
+
+// 重置搜索条件
+const handleReset = () => {
+  searchQuery.value = ''
+  filterStatus.value = ''
+  filterDateRange.value = null
+  transferPagination.value.page = 1
+  loadBankTransfers()
 }
 
 // 页大小变化

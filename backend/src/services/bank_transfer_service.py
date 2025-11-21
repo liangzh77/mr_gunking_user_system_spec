@@ -97,6 +97,7 @@ class BankTransferService:
         self,
         operator_id: PyUUID,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> BankTransferListResponse:
@@ -105,6 +106,7 @@ class BankTransferService:
         Args:
             operator_id: Operator ID
             status: Filter by status (pending/approved/rejected/all)
+            search: Search by application ID, remark, reject reason
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -120,6 +122,18 @@ class BankTransferService:
         if status and status != "all":
             query = query.where(BankTransferApplication.status == status)
 
+        # Add search filter
+        if search:
+            from sqlalchemy import cast, String, or_
+            search_pattern = f"%{search}%"
+            query = query.where(
+                or_(
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
+            )
+
         # Order by created_at desc (newest first)
         query = query.order_by(desc(BankTransferApplication.created_at))
 
@@ -129,6 +143,16 @@ class BankTransferService:
         )
         if status and status != "all":
             count_query = count_query.where(BankTransferApplication.status == status)
+        if search:
+            from sqlalchemy import cast, String, or_
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                or_(
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
+            )
 
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()
@@ -249,8 +273,10 @@ class BankTransferService:
             query = query.where(BankTransferApplication.status == status)
 
         if operator_id:
+            # Handle op_ prefix format
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
             try:
-                operator_uuid = PyUUID(operator_id)
+                operator_uuid = PyUUID(actual_operator_id)
                 query = query.where(BankTransferApplication.operator_id == operator_uuid)
             except ValueError:
                 # Invalid UUID, return empty result
@@ -263,12 +289,16 @@ class BankTransferService:
                 )
 
         if search:
-            from sqlalchemy import cast, String
+            from sqlalchemy import cast, String, or_
             search_pattern = f"%{search}%"
             query = query.where(
-                (OperatorAccount.username.ilike(search_pattern)) |
-                (OperatorAccount.full_name.ilike(search_pattern)) |
-                (cast(BankTransferApplication.id, String).ilike(search_pattern))
+                or_(
+                    OperatorAccount.username.ilike(search_pattern),
+                    OperatorAccount.full_name.ilike(search_pattern),
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
             )
 
         if start_date:
