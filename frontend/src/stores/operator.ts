@@ -175,9 +175,32 @@ export const useOperatorStore = defineStore('operator', () => {
     end_time?: string
     site_id?: string
     app_id?: string
-  }): Promise<{ download_url: string; filename: string }> {
-    const response = await http.get('/operators/me/usage-records/export', { params })
-    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
+    search?: string
+  }): Promise<void> {
+    const response = await http.get('/operators/me/usage-records-export', {
+      params,
+      responseType: 'blob'  // 接收二进制数据
+    })
+
+    // 从响应头获取文件名
+    const contentDisposition = response.headers['content-disposition']
+    let filename = 'usage_records.xlsx'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/)
+      if (filenameMatch) {
+        filename = decodeURIComponent(filenameMatch[1])
+      }
+    }
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   async function exportStatistics(params: {
@@ -186,9 +209,31 @@ export const useOperatorStore = defineStore('operator', () => {
     start_time?: string
     end_time?: string
     dimension?: 'day' | 'week' | 'month'
-  }): Promise<{ download_url: string; filename: string }> {
-    const response = await http.get('/operators/me/statistics/export', { params })
-    return response.data.data  // API返回 { success: true, data: {...} }，需要提取data字段
+  }): Promise<void> {
+    const response = await http.get('/operators/me/statistics/export', {
+      params,
+      responseType: 'blob'  // 接收二进制数据
+    })
+
+    // 从响应头获取文件名
+    const contentDisposition = response.headers['content-disposition']
+    let filename = 'statistics.xlsx'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/)
+      if (filenameMatch) {
+        filename = decodeURIComponent(filenameMatch[1])
+      }
+    }
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   return {
