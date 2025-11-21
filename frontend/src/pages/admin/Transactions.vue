@@ -5,7 +5,7 @@
       <div class="header-content">
         <div class="title-section">
           <el-icon :size="24"><Coin /></el-icon>
-          <h2>交易记录管理</h2>
+          <h2>转账记录管理</h2>
         </div>
       </div>
     </el-card>
@@ -52,9 +52,10 @@
             clearable
             style="width: 150px"
           >
-            <el-option label="充值" value="recharge" />
+            <el-option label="转账" value="recharge" />
             <el-option label="消费" value="consumption" />
             <el-option label="退款" value="refund" />
+            <el-option label="财务扣费" value="deduct" />
           </el-select>
         </el-form-item>
 
@@ -276,20 +277,22 @@ const handleCurrentChange = (page: number) => {
 const getTransactionTypeTag = (row: any) => {
   const type = row.transaction_type
 
-  // 如果是充值类型，根据payment_method或description区分
+  // 如果是充值类型，根据payment_channel区分
   if (type === 'recharge') {
-    // 检查description中是否包含"财务"或"银行"
-    if (row.description && row.description.includes('银行转账')) {
-      return 'primary'  // 蓝色
-    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
-      return 'success'  // 绿色
+    if (row.payment_channel === 'bank_transfer') {
+      return 'primary'  // 银行转账 - 蓝色
+    } else if (row.payment_channel === 'wechat') {
+      return 'success'  // 微信转账 - 绿色
+    } else if (row.payment_channel) {
+      return 'success'  // 在线充值 - 绿色
     }
-    return 'success'  // 默认绿色
+    return 'warning'  // 财务充值 - 橙色
   }
 
   const typeMap: Record<string, string> = {
     consumption: 'danger',
     refund: 'warning',
+    deduct: 'danger',  // 财务扣费 - 红色
   }
   return typeMap[type] || 'info'
 }
@@ -297,19 +300,23 @@ const getTransactionTypeTag = (row: any) => {
 const getTransactionTypeText = (row: any) => {
   const type = row.transaction_type
 
-  // 如果是充值类型，根据description区分
+  // 如果是充值类型，根据payment_channel区分
   if (type === 'recharge') {
-    if (row.description && row.description.includes('银行转账')) {
-      return '银行充值'
-    } else if (row.description && (row.description.includes('财务') || row.description.includes('手动'))) {
-      return '财务充值'
+    if (row.payment_channel === 'wechat') {
+      return '微信转账'
+    } else if (row.payment_channel === 'bank_transfer') {
+      return '银行转账'
+    } else if (row.payment_channel) {
+      return '在线充值'
     }
-    return '充值'
+    // payment_channel为空表示手动充值
+    return '财务充值'
   }
 
   const typeMap: Record<string, string> = {
     consumption: '消费',
     refund: '退款',
+    deduct: '财务扣费',
   }
   return typeMap[type] || type
 }

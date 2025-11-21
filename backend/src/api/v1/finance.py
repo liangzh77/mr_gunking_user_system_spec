@@ -2424,14 +2424,17 @@ async def get_recharge_records(
                 # 财务扣费: transaction_type为deduct
                 filters.append(TransactionRecord.transaction_type == 'deduct')
             elif recharge_method == "online":
-                # 在线充值: payment_channel不为空且不是bank_transfer
+                # 在线充值: payment_channel不为空且不是bank_transfer/wechat
                 filters.append(and_(
                     TransactionRecord.payment_channel.isnot(None),
-                    TransactionRecord.payment_channel != 'bank_transfer'
+                    TransactionRecord.payment_channel.notin_(['bank_transfer', 'wechat'])
                 ))
             elif recharge_method == "bank_transfer":
                 # 银行转账
                 filters.append(TransactionRecord.payment_channel == 'bank_transfer')
+            elif recharge_method == "wechat":
+                # 微信支付
+                filters.append(TransactionRecord.payment_channel == 'wechat')
 
         # 应用筛选条件
         if filters:
@@ -2466,6 +2469,13 @@ async def get_recharge_records(
                 # 扣费类型
                 recharge_method = "财务扣费"
                 payment_info = None
+            elif record.payment_channel == 'wechat':
+                recharge_method = "微信转账"
+                payment_info = {
+                    "channel": record.payment_channel,
+                    "order_no": record.payment_order_no,
+                    "status": record.payment_status,
+                }
             elif record.payment_channel == 'bank_transfer':
                 recharge_method = "银行转账"
                 payment_info = {
@@ -2647,6 +2657,7 @@ async def get_transactions(
                 "operator_id": f"op_{record.operator_id}",
                 "operator_name": operator.full_name,
                 "transaction_type": record.transaction_type,
+                "payment_channel": record.payment_channel,
                 "amount": f"{record.amount:.2f}",
                 "balance_before": f"{record.balance_before:.2f}",
                 "balance_after": f"{record.balance_after:.2f}",

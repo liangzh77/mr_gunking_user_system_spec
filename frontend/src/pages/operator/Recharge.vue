@@ -5,7 +5,7 @@
       <div class="header-content">
         <div class="title-section">
           <el-icon :size="24"><CreditCard /></el-icon>
-          <h2>在线充值</h2>
+          <h2>在线转账</h2>
         </div>
       </div>
     </el-card>
@@ -49,10 +49,10 @@
                 <span>银行转账</span>
               </div>
             </el-radio>
-            <el-radio value="wechat" disabled>
-              <div class="payment-method disabled">
-                <el-icon :size="20" color="#909399"><ChatDotRound /></el-icon>
-                <span>微信支付(即将上线)</span>
+            <el-radio value="wechat">
+              <div class="payment-method">
+                <el-icon :size="20" color="#07C160"><ChatDotRound /></el-icon>
+                <span>微信转账</span>
               </div>
             </el-radio>
             <el-radio value="alipay" disabled>
@@ -183,9 +183,109 @@
           </el-form-item>
         </template>
 
+        <!-- 微信支付信息 -->
+        <template v-if="formData.payment_method === 'wechat'">
+          <el-alert
+            title="微信扫码支付说明"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 20px"
+          >
+            <template #default>
+              <div class="wechat-notice">
+                <p>1. 请使用微信扫描下方二维码</p>
+                <p>2. 输入充值金额完成支付</p>
+                <p>3. 支付完成后,上传支付凭证截图</p>
+                <p>4. 提交申请后,财务人员将在1-2个工作日内审核</p>
+                <p>5. 审核通过后,款项将自动充值到您的账户</p>
+              </div>
+            </template>
+          </el-alert>
+
+          <el-card class="wechat-info-card" shadow="never">
+            <template #header>
+              <div class="wechat-info-header">
+                <el-icon><Wallet /></el-icon>
+                <span>收款信息</span>
+              </div>
+            </template>
+            <div class="wechat-content">
+              <div class="qr-code-section">
+                <div class="qr-code-wrapper">
+                  <el-image
+                    :src="wechatQRCode"
+                    fit="contain"
+                    style="width: 200px; height: 200px"
+                  >
+                    <template #error>
+                      <div class="image-error">
+                        <el-icon><Picture /></el-icon>
+                        <span>二维码加载失败</span>
+                      </div>
+                    </template>
+                  </el-image>
+                </div>
+                <div class="qr-code-hint">请使用微信扫描二维码支付</div>
+              </div>
+              <el-descriptions :column="1" border class="company-info">
+                <el-descriptions-item label="收款方">
+                  <span class="copyable-text" @click="copyCompanyName">北京触角科技有限公司</span>
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </el-card>
+
+          <el-form-item label="支付凭证" prop="voucher_image" style="margin-top: 20px">
+            <!-- 隐藏的上传组件 -->
+            <el-upload
+              ref="voucherUploadRef"
+              class="voucher-uploader-hidden"
+              :auto-upload="false"
+              :on-change="handleVoucherChange"
+              :show-file-list="false"
+              accept="image/jpeg,image/jpg,image/png"
+              :limit="1"
+              v-show="false"
+            >
+            </el-upload>
+
+            <!-- 自定义上传区域 -->
+            <div v-if="voucherImageUrl" class="voucher-preview" @click="handleReuploadVoucher">
+              <el-image
+                :src="voucherImageUrl"
+                fit="contain"
+                style="width: 200px; height: 200px; border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer"
+              >
+                <template #error>
+                  <div class="image-error">
+                    <el-icon><Picture /></el-icon>
+                    <span>加载失败</span>
+                  </div>
+                </template>
+              </el-image>
+            </div>
+            <div v-else class="upload-trigger" @click="triggerUpload">
+              <el-icon class="upload-icon"><Plus /></el-icon>
+              <div class="upload-text">点击上传支付凭证</div>
+              <div class="upload-hint">支持 JPG、PNG 格式,不超过 5MB</div>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="备注" prop="remark">
+            <el-input
+              v-model="formData.remark"
+              type="textarea"
+              :rows="3"
+              placeholder="选填,可注明支付时间等信息"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+        </template>
+
         <el-form-item>
           <el-button type="primary" :loading="submitting" @click="handleSubmit">
-            {{ formData.payment_method === 'bank_transfer' ? '提交申请' : '立即充值' }}
+            {{ formData.payment_method === 'bank_transfer' || formData.payment_method === 'wechat' ? '提交申请' : '立即充值' }}
           </el-button>
           <el-button @click="handleCancel">取消</el-button>
         </el-form-item>
@@ -330,6 +430,13 @@
         style="width: 100%"
       >
         <el-table-column prop="application_id" label="申请ID" width="200" show-overflow-tooltip />
+        <el-table-column label="付款类型" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getPaymentMethodType(row.payment_method)" size="small">
+              {{ getPaymentMethodLabel(row.payment_method) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
             <span class="amount-text">¥{{ row.amount }}</span>
@@ -430,6 +537,9 @@ import type { RechargeResponse } from '@/types'
 import dayjs from 'dayjs'
 import http from '@/utils/http'
 
+// 微信收款码图片
+const wechatQRCode = new URL('@/assets/payment/wechat-qr.png', import.meta.url).href
+
 const router = useRouter()
 const operatorStore = useOperatorStore()
 
@@ -498,7 +608,7 @@ const formRules: FormRules = {
 
 const paymentMethodLabel = computed(() => {
   const labels = {
-    wechat: '微信支付',
+    wechat: '微信转账',
     alipay: '支付宝',
     bank_transfer: '银行转账'
   }
@@ -554,6 +664,16 @@ const copyBankName = async () => {
   try {
     await navigator.clipboard.writeText(bankAccountInfo.value.bank_name)
     ElMessage.success('开户行已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('复制失败')
+  }
+}
+
+// 复制公司名
+const copyCompanyName = async () => {
+  try {
+    await navigator.clipboard.writeText('北京触角科技有限公司')
+    ElMessage.success('已复制')
   } catch (error) {
     ElMessage.error('复制失败')
   }
@@ -617,10 +737,10 @@ const handleSubmit = async () => {
     return
   }
 
-  // 银行转账提交
-  if (formData.value.payment_method === 'bank_transfer') {
+  // 银行转账或微信支付提交
+  if (formData.value.payment_method === 'bank_transfer' || formData.value.payment_method === 'wechat') {
     if (!voucherFile.value) {
-      ElMessage.error('请上传转账凭证')
+      ElMessage.error(formData.value.payment_method === 'wechat' ? '请上传支付凭证' : '请上传转账凭证')
       return
     }
 
@@ -638,18 +758,22 @@ const handleSubmit = async () => {
 
       const voucherUrl = uploadResponse.data.url
 
-      // 提交银行转账申请
+      // 提交申请
       const response = await http.post('/operators/me/bank-transfers', {
         amount: formData.value.amount,
         voucher_image_url: voucherUrl,
         remark: formData.value.remark || null,
+        payment_method: formData.value.payment_method,  // 传递支付方式
       })
 
-      ElMessage.success('银行转账充值申请已提交,请等待财务审核')
+      const successMessage = formData.value.payment_method === 'wechat'
+        ? '微信转账充值申请已提交,请等待财务审核'
+        : '银行转账充值申请已提交,请等待财务审核'
+      ElMessage.success(successMessage)
       resetForm()
       await loadBankTransfers()
     } catch (error: any) {
-      console.error('Submit bank transfer error:', error)
+      console.error('Submit payment error:', error)
       ElMessage.error(error.response?.data?.detail?.message || '提交申请失败')
     } finally {
       submitting.value = false
@@ -843,6 +967,23 @@ const getStatusLabel = (status: string) => {
   return labels[status] || status
 }
 
+// 付款类型标签
+const getPaymentMethodType = (method: string) => {
+  const types: Record<string, any> = {
+    wechat: 'success',
+    bank_transfer: 'primary',
+  }
+  return types[method] || 'info'
+}
+
+const getPaymentMethodLabel = (method: string) => {
+  const labels: Record<string, string> = {
+    wechat: '微信转账',
+    bank_transfer: '银行转账',
+  }
+  return labels[method] || method || '银行转账'
+}
+
 onMounted(() => {
   loadBankAccountInfo()
   loadBankTransfers()
@@ -925,6 +1066,64 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-weight: 600;
+}
+
+.wechat-notice p {
+  margin: 5px 0;
+  line-height: 1.6;
+}
+
+.wechat-info-card {
+  margin-top: 15px;
+  background-color: #f5f7fa;
+}
+
+.wechat-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.wechat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.qr-code-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.qr-code-wrapper {
+  padding: 15px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-hint {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #606266;
+  text-align: center;
+}
+
+.company-info {
+  margin-top: 10px;
+}
+
+.copyable-text {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.copyable-text:hover {
+  color: #409EFF;
 }
 
 .account-number {

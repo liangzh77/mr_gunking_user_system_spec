@@ -158,16 +158,18 @@ const getTransactionTypeTag = (type: string, row?: any) => {
   if (type === 'recharge' && row) {
     // 根据payment_method区分充值类型颜色
     if (!row.payment_method || row.payment_method === null) {
-      return 'success'  // 财务充值 - 绿色
+      return 'warning'  // 财务充值 - 橙色
     } else if (row.payment_method === 'bank_transfer') {
-      return 'primary'  // 银行充值 - 蓝色
+      return 'primary'  // 银行转账 - 蓝色
+    } else if (row.payment_method === 'wechat') {
+      return 'success'  // 微信转账 - 绿色
     } else {
       return 'success'  // 在线充值 - 绿色
     }
   }
 
   const map: Record<string, any> = {
-    consumption: 'warning',
+    consumption: 'danger',  // 消费 - 红色
     refund: 'info',
     deduct: 'danger',
   }
@@ -181,7 +183,9 @@ const getTransactionTypeLabel = (type: string, row?: any) => {
     if (!row.payment_method || row.payment_method === null) {
       return '财务充值'
     } else if (row.payment_method === 'bank_transfer') {
-      return '银行充值'
+      return '银行转账'
+    } else if (row.payment_method === 'wechat') {
+      return '微信转账'
     } else {
       return '在线充值'
     }

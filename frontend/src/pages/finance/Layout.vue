@@ -18,7 +18,7 @@
 
         <el-menu-item index="/finance/recharge-records">
           <el-icon><CreditCard /></el-icon>
-          <span>充值记录</span>
+          <span>转账记录</span>
         </el-menu-item>
 
         <el-menu-item index="/finance/transactions">
@@ -41,7 +41,7 @@
           </el-menu-item>
           <el-menu-item index="/finance/bank-transfers">
             <el-icon><Money /></el-icon>
-            <span>银行转账审核</span>
+            <span>转账审核</span>
           </el-menu-item>
         </el-sub-menu>
 
@@ -134,11 +134,11 @@ const activeMenu = computed(() => route.path)
 // 面包屑
 const breadcrumbMap: Record<string, string> = {
   '/finance/dashboard': '财务面板',
-  '/finance/recharge-records': '充值记录',
+  '/finance/recharge-records': '转账记录',
   '/finance/transactions': '交易记录',
   '/finance/refunds': '退款审核',
   '/finance/invoices': '发票审核',
-  '/finance/bank-transfers': '银行转账审核',
+  '/finance/bank-transfers': '转账审核',
   '/finance/reports': '财务报表',
   '/finance/audit-logs': '审计日志',
 }

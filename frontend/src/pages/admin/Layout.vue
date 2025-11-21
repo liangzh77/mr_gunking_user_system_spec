@@ -58,7 +58,7 @@
           </template>
           <el-menu-item index="/admin/transactions">
             <el-icon><List /></el-icon>
-            <span>交易记录</span>
+            <span>转账记录</span>
           </el-menu-item>
         </el-sub-menu>
 
@@ -174,7 +174,7 @@ const breadcrumbMap: Record<string, string> = {
   '/admin/applications': '应用列表',
   '/admin/authorizations': '授权应用',
   '/admin/app-requests': '授权申请',
-  '/admin/transactions': '交易记录',
+  '/admin/transactions': '转账记录',
   '/admin/usage-stats': '使用统计',
   '/admin/revenue-stats': '收入统计',
   '/admin/settings': '系统设置',

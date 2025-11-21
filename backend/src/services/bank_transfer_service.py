@@ -70,6 +70,7 @@ class BankTransferService:
             amount=data.amount,
             voucher_image_url=data.voucher_image_url,
             remark=data.remark,
+            payment_method=data.payment_method,
             status="pending"
         )
 
@@ -85,6 +86,7 @@ class BankTransferService:
             amount=str(application.amount),
             voucher_image_url=application.voucher_image_url,
             remark=application.remark,
+            payment_method=application.payment_method,
             status=application.status,
             reject_reason=application.reject_reason,
             reviewed_by=str(application.reviewed_by) if application.reviewed_by else None,
@@ -180,6 +182,7 @@ class BankTransferService:
                 amount=str(app.amount),
                 voucher_image_url=voucher_url,
                 remark=app.remark,
+                payment_method=app.payment_method,
                 status=app.status,
                 reject_reason=app.reject_reason,
                 reviewed_by=str(app.reviewed_by) if app.reviewed_by else None,
@@ -346,6 +349,7 @@ class BankTransferService:
                 amount=float(application.amount),
                 voucher_image_url=application.voucher_image_url,
                 remark=application.remark,
+                payment_method=application.payment_method,
                 status=application.status,
                 reject_reason=application.reject_reason,
                 created_at=application.created_at,
@@ -414,16 +418,18 @@ class BankTransferService:
         balance_after = balance_before + application.amount
 
         # Create recharge transaction record
+        # Use payment_method from application (bank_transfer or wechat)
+        payment_method_label = "微信支付" if application.payment_method == "wechat" else "银行转账"
         transaction = TransactionRecord(
             operator_id=application.operator_id,
             transaction_type=TransactionType.RECHARGE.value,
             amount=application.amount,
             balance_before=balance_before,
             balance_after=balance_after,
-            payment_channel="bank_transfer",
+            payment_channel=application.payment_method,  # Use the actual payment method
             payment_status="success",
             payment_callback_at=datetime.now(timezone.utc),
-            description=f"银行转账充值 - 申请ID: {application.id}"
+            description=f"{payment_method_label}充值 - 申请ID: {application.id}"
         )
         self.db.add(transaction)
 
