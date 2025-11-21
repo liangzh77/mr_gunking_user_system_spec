@@ -19,6 +19,20 @@
     <!-- 搜索栏 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :inline="true">
+        <el-form-item label="搜索">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索运营点名称、地址或描述..."
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+            style="width: 300px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
         <el-form-item label="运营商">
           <el-select
             v-model="searchOperatorId"
@@ -173,6 +187,7 @@ const adminStore = useAdminStore()
 const loading = ref(false)
 const sites = ref<Site[]>([])
 const operators = ref<Operator[]>([])
+const searchQuery = ref<string>('')
 const searchOperatorId = ref<string>('')
 const dialogVisible = ref(false)
 const submitting = ref(false)
@@ -209,10 +224,27 @@ const dialogTitle = computed(() => {
 
 // 筛选后的运营点列表
 const filteredSites = computed(() => {
-  if (!searchOperatorId.value) {
-    return sites.value
+  let result = sites.value
+
+  // 运营商筛选
+  if (searchOperatorId.value) {
+    result = result.filter(site => site.operator_id === searchOperatorId.value)
   }
-  return sites.value.filter(site => site.operator_id === searchOperatorId.value)
+
+  // 字符串搜索
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(site => {
+      return (
+        site.name?.toLowerCase().includes(query) ||
+        site.address?.toLowerCase().includes(query) ||
+        site.description?.toLowerCase().includes(query) ||
+        site.operator_name?.toLowerCase().includes(query)
+      )
+    })
+  }
+
+  return result
 })
 
 // 获取运营商显示文本 (显示: 全名 (账号名))
@@ -356,6 +388,7 @@ const handleSearch = () => {
 
 // 重置搜索
 const handleReset = () => {
+  searchQuery.value = ''
   searchOperatorId.value = ''
 }
 

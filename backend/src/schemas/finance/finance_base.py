@@ -540,8 +540,8 @@ class RefundItemFinance(BaseModel):
 
     refund_id: str = Field(
         ...,
-        description="退款ID（人类可读格式，用于显示）",
-        examples=["RFD_20251118_FC11C"]
+        description="退款ID",
+        examples=["550e8400-e29b-41d4-a716-446655440000"]
     )
 
     operator_id: str = Field(

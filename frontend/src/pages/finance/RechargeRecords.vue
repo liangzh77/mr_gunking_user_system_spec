@@ -23,46 +23,79 @@
 
       <!-- 筛选条件 -->
       <div class="filter-container">
-        <el-select
-          v-model="queryForm.recharge_method"
-          placeholder="交易方式"
-          clearable
-          @change="handleQuery"
-          style="width: 150px"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="财务充值" value="manual" />
-          <el-option label="财务扣费" value="deduct" />
-          <el-option label="在线充值" value="online" />
-          <el-option label="银行转账" value="bank_transfer" />
-        </el-select>
+        <el-form :inline="true">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索交易ID或备注..."
+              clearable
+              @keyup.enter="handleQuery"
+              @clear="handleQuery"
+              style="width: 280px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
 
-        <el-select
-          v-model="queryForm.operator_id"
-          placeholder="全部运营商"
-          clearable
-          filterable
-          style="width: 200px"
-        >
-          <el-option
-            v-for="op in operators"
-            :key="op.id"
-            :label="`${op.full_name} (${op.username})`"
-            :value="op.id"
-          />
-        </el-select>
+          <el-form-item label="运营商">
+            <el-select
+              v-model="queryForm.operator_id"
+              placeholder="全部运营商"
+              clearable
+              filterable
+              @change="handleQuery"
+              style="width: 220px"
+            >
+              <el-option
+                v-for="op in operators"
+                :key="op.id"
+                :label="`${op.full_name} (${op.username})`"
+                :value="op.id"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-date-picker
-          v-model="queryForm.date_range"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          style="width: 240px"
-          value-format="YYYY-MM-DD"
-        />
+          <el-form-item label="交易方式">
+            <el-select
+              v-model="queryForm.recharge_method"
+              placeholder="全部方式"
+              clearable
+              @change="handleQuery"
+              style="width: 150px"
+            >
+              <el-option label="财务充值" value="manual" />
+              <el-option label="财务扣费" value="deduct" />
+              <el-option label="在线充值" value="online" />
+              <el-option label="银行转账" value="bank_transfer" />
+            </el-select>
+          </el-form-item>
 
-        <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-form-item label="交易时间">
+            <el-date-picker
+              v-model="queryForm.date_range"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleQuery"
+              style="width: 280px"
+              value-format="YYYY-MM-DD"
+            />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" @click="handleQuery">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
       <!-- 充值记录表格 -->
@@ -322,7 +355,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
-import { Refresh as RefreshIcon, Right, Money, Plus, Remove } from '@element-plus/icons-vue'
+import { Refresh as RefreshIcon, RefreshLeft, Right, Money, Plus, Remove, Search } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
@@ -346,6 +379,7 @@ const pagination = reactive({
 const records = ref<any[]>([])
 const operators = ref<any[]>([])
 const loading = ref(false)
+const searchQuery = ref('')
 
 // 详情对话框
 const detailDialogVisible = ref(false)
@@ -358,6 +392,10 @@ const fetchRecords = async () => {
     const params: any = {
       page: pagination.page,
       page_size: pagination.page_size,
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
     }
 
     if (queryForm.operator_id) {
@@ -408,6 +446,7 @@ const handleQuery = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   queryForm.operator_id = ''
   queryForm.date_range = []
   queryForm.recharge_method = ''

@@ -78,8 +78,8 @@ export const useOperatorStore = defineStore('operator', () => {
     return response.data
   }
 
-  async function getSites(): Promise<OperationSite[]> {
-    const response = await http.get('/operators/me/sites')
+  async function getSites(params?: any): Promise<OperationSite[]> {
+    const response = await http.get('/operators/me/sites', { params })
     return response.data.data?.sites || []
   }
 
@@ -98,8 +98,8 @@ export const useOperatorStore = defineStore('operator', () => {
   }
 
   // ========== 应用授权 ==========
-  async function getAuthorizedApplications(): Promise<AuthorizedApplication[]> {
-    const response = await http.get('/operators/me/applications')
+  async function getAuthorizedApplications(params?: any): Promise<AuthorizedApplication[]> {
+    const response = await http.get('/operators/me/applications', { params })
     return response.data.data?.applications || []
   }
 

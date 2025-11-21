@@ -13,37 +13,79 @@
 
       <!-- 筛选条件 -->
       <div class="filter-container">
-        <el-select v-model="queryParams.status" placeholder="状态" clearable @change="fetchTransfers" style="width: 150px">
-          <el-option label="全部" value="" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已批准" value="approved" />
-          <el-option label="已拒绝" value="rejected" />
-          <el-option label="已取消" value="cancelled" />
-        </el-select>
+        <el-form :inline="true">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="queryParams.search"
+              placeholder="搜索运营商、申请ID、备注、拒绝原因..."
+              clearable
+              @keyup.enter="fetchTransfers"
+              @clear="fetchTransfers"
+              style="width: 380px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
 
-        <el-input
-          v-model="queryParams.search"
-          placeholder="搜索运营商名称或申请ID"
-          clearable
-          @keyup.enter="fetchTransfers"
-          style="width: 300px"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+          <el-form-item label="运营商">
+            <el-select
+              v-model="queryParams.operator_id"
+              placeholder="全部运营商"
+              clearable
+              filterable
+              @change="fetchTransfers"
+              style="width: 220px"
+            >
+              <el-option
+                v-for="op in operators"
+                :key="op.id"
+                :label="`${op.full_name} (${op.username})`"
+                :value="op.id"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          style="width: 240px"
-          @change="handleDateChange"
-        />
+          <el-form-item label="状态">
+            <el-select
+              v-model="queryParams.status"
+              placeholder="全部状态"
+              clearable
+              @change="fetchTransfers"
+              style="width: 130px"
+            >
+              <el-option label="待审核" value="pending" />
+              <el-option label="已批准" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+              <el-option label="已取消" value="cancelled" />
+            </el-select>
+          </el-form-item>
 
-        <el-button type="primary" @click="fetchTransfers">查询</el-button>
+          <el-form-item label="申请时间">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleDateChange"
+              style="width: 280px"
+              value-format="YYYY-MM-DD"
+            />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" @click="fetchTransfers">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
       <!-- 银行转账申请列表 -->
@@ -195,13 +237,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Refresh, Search, Picture } from '@element-plus/icons-vue'
+import { Refresh, Search, RefreshLeft, Picture } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 import { formatDateTime } from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({
   status: '',
+  operator_id: '',
   search: '',
   page: 1,
   page_size: 20,
@@ -214,6 +257,7 @@ const dateRange = ref<[Date, Date] | null>(null)
 
 // 银行转账列表
 const transfers = ref<any[]>([])
+const operators = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
 
@@ -252,6 +296,30 @@ const reviewButtonType = computed(() => {
 const reviewButtonText = computed(() => {
   return reviewAction.value === 'approve' ? '确认批准' : '确认拒绝'
 })
+
+// 加载运营商列表
+const loadOperators = async () => {
+  try {
+    const response = await http.get('/finance/operators', {
+      params: { page: 1, page_size: 1000, status: 'active' }
+    })
+    operators.value = response.data.items || []
+  } catch (error: any) {
+    console.error('加载运营商列表失败:', error)
+  }
+}
+
+// 重置筛选条件
+const handleReset = () => {
+  queryParams.search = ''
+  queryParams.operator_id = ''
+  queryParams.status = ''
+  queryParams.start_date = ''
+  queryParams.end_date = ''
+  queryParams.page = 1
+  dateRange.value = null
+  fetchTransfers()
+}
 
 // 获取银行转账列表
 const fetchTransfers = async () => {
@@ -384,6 +452,7 @@ const getStatusLabel = (status: string) => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  loadOperators()
   fetchTransfers()
 })
 </script>

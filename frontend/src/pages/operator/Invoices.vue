@@ -16,6 +16,73 @@
 
     <!-- 发票申请列表 -->
     <el-card class="list-card" style="margin-top: 20px">
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-form :inline="true">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索发票号码、抬头、税号、拒绝原因..."
+              clearable
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+              style="width: 320px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item label="发票类型">
+            <el-select
+              v-model="filterInvoiceType"
+              placeholder="全部类型"
+              clearable
+              @change="handleSearch"
+              style="width: 140px"
+            >
+              <el-option label="普通发票" value="vat_normal" />
+              <el-option label="专用发票" value="vat_special" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select
+              v-model="filterStatus"
+              placeholder="全部状态"
+              clearable
+              @change="handleSearch"
+              style="width: 130px"
+            >
+              <el-option label="待审核" value="pending" />
+              <el-option label="已通过" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+              <el-option label="已开具" value="issued" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="申请时间">
+            <el-date-picker
+              v-model="filterDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleSearch"
+              style="width: 280px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
       <el-table
         v-copyable
         v-loading="loading"
@@ -23,9 +90,9 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="invoice_number" label="发票号码" width="180">
+        <el-table-column prop="invoice_number" label="发票号码" width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.invoice_number">{{ row.invoice_number }}</span>
+            <span v-if="row.invoice_number" class="invoice-number">{{ row.invoice_number }}</span>
             <span v-else class="empty-text">-</span>
           </template>
         </el-table-column>
@@ -176,6 +243,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Invoice } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -187,6 +255,10 @@ const invoices = ref<Invoice[]>([])
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const searchQuery = ref('')
+const filterInvoiceType = ref('')
+const filterStatus = ref('')
+const filterDateRange = ref<[Date, Date] | null>(null)
 
 const formData = ref({
   amount: '',
@@ -261,12 +333,40 @@ const getStatusLabel = (status: string) => {
 const loadInvoices = async () => {
   loading.value = true
   try {
-    const response = await operatorStore.getInvoices({
+    const params: any = {
       page: pagination.value.page,
       page_size: pagination.value.page_size,
-    })
-    invoices.value = response?.items || []
-    pagination.value.total = response?.total || 0
+    }
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
+    // 前端筛选（API不支持这些参数时使用）
+    let response = await operatorStore.getInvoices(params)
+    let items = response?.items || []
+
+    // 应用前端筛选
+    if (filterInvoiceType.value) {
+      items = items.filter(item => item.invoice_type === filterInvoiceType.value)
+    }
+
+    if (filterStatus.value) {
+      items = items.filter(item => item.status === filterStatus.value)
+    }
+
+    if (filterDateRange.value && filterDateRange.value.length === 2) {
+      const [start, end] = filterDateRange.value
+      const startTime = new Date(start).setHours(0, 0, 0, 0)
+      const endTime = new Date(end).setHours(23, 59, 59, 999)
+      items = items.filter(item => {
+        const itemTime = new Date(item.created_at).getTime()
+        return itemTime >= startTime && itemTime <= endTime
+      })
+    }
+
+    invoices.value = items
+    pagination.value.total = items.length
   } catch (error) {
     console.error('Load invoices error:', error)
     ElMessage.error('加载发票列表失败')
@@ -275,6 +375,22 @@ const loadInvoices = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  pagination.value.page = 1
+  loadInvoices()
+}
+
+// 重置搜索条件
+const handleReset = () => {
+  searchQuery.value = ''
+  filterInvoiceType.value = ''
+  filterStatus.value = ''
+  filterDateRange.value = null
+  pagination.value.page = 1
+  loadInvoices()
 }
 
 // 打开创建对话框
@@ -402,6 +518,14 @@ onMounted(() => {
 
 .empty-text {
   color: #909399;
+}
+
+.invoice-number {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-state {

@@ -41,6 +41,8 @@ class FinanceRefundService:
     async def get_refunds(
         self,
         status: Optional[str] = None,
+        operator_id: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> RefundListResponse:
@@ -48,6 +50,8 @@ class FinanceRefundService:
 
         Args:
             status: Filter by status (pending/approved/rejected/all)
+            operator_id: Filter by operator ID
+            search: Search by operator name, refund ID, refund reason, reject reason
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -61,6 +65,37 @@ class FinanceRefundService:
         if status and status != "all":
             query = query.where(RefundRecord.status == status)
 
+        # Add operator_id filter
+        if operator_id:
+            # Handle op_ prefix format
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                query = query.where(RefundRecord.operator_id == operator_uuid)
+            except ValueError:
+                # Invalid UUID format, return empty result
+                return RefundListResponse(
+                    page=page,
+                    page_size=page_size,
+                    total=0,
+                    items=[]
+                )
+
+        # Add search filter (search operator name, refund ID, refund reason, reject reason)
+        if search:
+            # Join with operator table to search by operator name
+            query = query.join(RefundRecord.operator)
+            # Search in operator full_name, refund ID, refund_reason, reject_reason
+            from sqlalchemy import or_, cast, String
+            query = query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    cast(RefundRecord.id, String).ilike(f"%{search}%"),
+                    RefundRecord.refund_reason.ilike(f"%{search}%"),
+                    RefundRecord.reject_reason.ilike(f"%{search}%")
+                )
+            )
+
         # Order by created_at desc (newest first)
         query = query.order_by(desc(RefundRecord.created_at))
 
@@ -68,6 +103,25 @@ class FinanceRefundService:
         count_query = select(func.count()).select_from(RefundRecord)
         if status and status != "all":
             count_query = count_query.where(RefundRecord.status == status)
+        if operator_id:
+            # Handle op_ prefix format (same as above)
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
+            try:
+                operator_uuid = PyUUID(actual_operator_id)
+                count_query = count_query.where(RefundRecord.operator_id == operator_uuid)
+            except ValueError:
+                pass  # Already returned empty result above
+        if search:
+            count_query = count_query.join(OperatorAccount)
+            from sqlalchemy import or_, cast, String
+            count_query = count_query.where(
+                or_(
+                    OperatorAccount.full_name.ilike(f"%{search}%"),
+                    cast(RefundRecord.id, String).ilike(f"%{search}%"),
+                    RefundRecord.refund_reason.ilike(f"%{search}%"),
+                    RefundRecord.reject_reason.ilike(f"%{search}%")
+                )
+            )
 
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()
@@ -88,13 +142,9 @@ class FinanceRefundService:
             operator = refund.operator
             current_balance = str(operator.balance) if operator else "0.00"
 
-            # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-            refund_created_time = refund.created_at
-            refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
             items.append(RefundItemFinance(
                 id=str(refund.id),
-                refund_id=refund_id,
+                refund_id=str(refund.id),
                 operator_id=str(refund.operator_id),
                 operator_name=operator.full_name if operator else "Unknown",
                 operator_category=operator.customer_tier if operator else None,
@@ -156,13 +206,9 @@ class FinanceRefundService:
         # Get operator finance details
         operator_finance = await self._get_operator_finance_details(refund.operator_id)
 
-        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-        refund_created_time = refund.created_at
-        refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
         # Build response
         return RefundDetailsResponse(
-            refund_id=refund_id,
+            refund_id=str(refund.id),
             operator_id=str(refund.operator_id),
             operator_name=operator.full_name if operator else "Unknown",
             operator_category=operator.customer_tier if operator else None,
@@ -287,13 +333,9 @@ class FinanceRefundService:
         await self.db.commit()
         await self.db.refresh(refund)
 
-        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-        refund_created_time = refund.created_at
-        refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
         # Return response
         return RefundApproveResponse(
-            refund_id=refund_id,
+            refund_id=str(refund.id),
             requested_amount=str(refund.requested_amount),
             actual_refund_amount=str(actual_refund_amount),
             balance_after=str(balance_after)

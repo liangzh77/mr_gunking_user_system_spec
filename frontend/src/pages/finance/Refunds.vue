@@ -13,26 +13,65 @@
 
       <!-- 筛选条件 -->
       <div class="filter-container">
-        <el-select v-model="queryParams.status" placeholder="状态" clearable @change="fetchRefunds" style="width: 150px">
-          <el-option label="全部" value="" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已批准" value="approved" />
-          <el-option label="已拒绝" value="rejected" />
-        </el-select>
+        <el-form :inline="true">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="queryParams.search"
+              placeholder="搜索运营商、退款ID、退款原因、拒绝原因..."
+              clearable
+              @keyup.enter="fetchRefunds"
+              @clear="fetchRefunds"
+              style="width: 350px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
 
-        <el-input
-          v-model="queryParams.search"
-          placeholder="搜索运营商名称或退款ID"
-          clearable
-          @keyup.enter="fetchRefunds"
-          style="width: 300px"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+          <el-form-item label="运营商">
+            <el-select
+              v-model="queryParams.operator_id"
+              placeholder="全部运营商"
+              clearable
+              filterable
+              @change="fetchRefunds"
+              style="width: 220px"
+            >
+              <el-option
+                v-for="op in operators"
+                :key="op.id"
+                :label="`${op.full_name} (${op.username})`"
+                :value="op.id"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-button type="primary" @click="fetchRefunds">查询</el-button>
+          <el-form-item label="状态">
+            <el-select
+              v-model="queryParams.status"
+              placeholder="全部状态"
+              clearable
+              @change="fetchRefunds"
+              style="width: 130px"
+            >
+              <el-option label="待审核" value="pending" />
+              <el-option label="已批准" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" @click="fetchRefunds">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
       <!-- 退款列表 -->
@@ -126,13 +165,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Refresh, Search, RefreshLeft } from '@element-plus/icons-vue'
 import http from '@/utils/http'
 import { formatDateTime } from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({
   status: '',
+  operator_id: '',
   search: '',
   page: 1,
   page_size: 20,
@@ -140,6 +180,7 @@ const queryParams = reactive({
 
 // 退款列表
 const refunds = ref<any[]>([])
+const operators = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
 
@@ -226,6 +267,31 @@ const confirmReject = async () => {
   }
 }
 
+// 加载运营商列表
+const loadOperators = async () => {
+  try {
+    const response = await http.get('/finance/operators', {
+      params: {
+        page: 1,
+        page_size: 1000,
+        status: 'active',
+      },
+    })
+    operators.value = response.data.items || []
+  } catch (error) {
+    console.error('Load operators error:', error)
+  }
+}
+
+// 重置搜索条件
+const handleReset = () => {
+  queryParams.search = ''
+  queryParams.operator_id = ''
+  queryParams.status = ''
+  queryParams.page = 1
+  fetchRefunds()
+}
+
 // 状态标签
 const getStatusType = (status: string) => {
   switch (status) {
@@ -247,6 +313,7 @@ const getStatusLabel = (status: string) => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  loadOperators()
   fetchRefunds()
 })
 </script>

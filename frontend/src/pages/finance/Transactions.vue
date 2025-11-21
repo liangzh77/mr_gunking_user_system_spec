@@ -13,6 +13,21 @@
     <!-- 筛选条件 -->
     <el-card class="filter-card" style="margin-top: 20px">
       <el-form :model="filterForm" label-width="80px" :inline="true">
+        <el-form-item label="搜索">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索交易ID或描述..."
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+            style="width: 300px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item label="运营商">
           <el-select
             v-model="filterForm.operator_id"
@@ -135,12 +150,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search, RefreshLeft, Coin } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
 
 const loading = ref(false)
 const transactions = ref<any[]>([])
 const operators = ref<any[]>([])
+const searchQuery = ref('')
 const dateRange = ref<[string, string] | null>(null)
 
 const filterForm = ref({
@@ -240,6 +257,10 @@ const loadTransactions = async () => {
       page_size: pagination.value.page_size,
     }
 
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
     if (filterForm.value.operator_id) {
       params.operator_id = filterForm.value.operator_id
     }
@@ -272,6 +293,7 @@ const handleSearch = () => {
 
 // 重置
 const handleReset = () => {
+  searchQuery.value = ''
   dateRange.value = null
   filterForm.value = {
     operator_id: '',

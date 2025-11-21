@@ -77,14 +77,10 @@ class BankTransferService:
         await self.db.commit()
         await self.db.refresh(application)
 
-        # Generate application ID (format: BTR_YYYYMMDD_XXXXX)
-        application_created_time = application.created_at
-        application_id = f"BTR_{application_created_time.strftime('%Y%m%d')}_{str(application.id)[:5].upper()}"
-
         # Return response
         return BankTransferResponse(
             id=str(application.id),
-            application_id=application_id,
+            application_id=str(application.id),
             operator_id=str(application.operator_id),
             amount=str(application.amount),
             voucher_image_url=application.voucher_image_url,
@@ -101,6 +97,7 @@ class BankTransferService:
         self,
         operator_id: PyUUID,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> BankTransferListResponse:
@@ -109,6 +106,7 @@ class BankTransferService:
         Args:
             operator_id: Operator ID
             status: Filter by status (pending/approved/rejected/all)
+            search: Search by application ID, remark, reject reason
             page: Page number (starts from 1)
             page_size: Items per page
 
@@ -124,6 +122,18 @@ class BankTransferService:
         if status and status != "all":
             query = query.where(BankTransferApplication.status == status)
 
+        # Add search filter
+        if search:
+            from sqlalchemy import cast, String, or_
+            search_pattern = f"%{search}%"
+            query = query.where(
+                or_(
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
+            )
+
         # Order by created_at desc (newest first)
         query = query.order_by(desc(BankTransferApplication.created_at))
 
@@ -133,6 +143,16 @@ class BankTransferService:
         )
         if status and status != "all":
             count_query = count_query.where(BankTransferApplication.status == status)
+        if search:
+            from sqlalchemy import cast, String, or_
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                or_(
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
+            )
 
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()
@@ -148,10 +168,6 @@ class BankTransferService:
         # Convert to response items
         items = []
         for app in applications:
-            # Generate application ID (format: BTR_YYYYMMDD_XXXXX)
-            app_created_time = app.created_at
-            application_id = f"BTR_{app_created_time.strftime('%Y%m%d')}_{str(app.id)[:5].upper()}"
-
             # Convert relative URL to absolute URL
             voucher_url = app.voucher_image_url
             if voucher_url and not voucher_url.startswith(('http://', 'https://', '/')):
@@ -159,7 +175,7 @@ class BankTransferService:
 
             items.append(BankTransferResponse(
                 id=str(app.id),
-                application_id=application_id,
+                application_id=str(app.id),
                 operator_id=str(app.operator_id),
                 amount=str(app.amount),
                 voucher_image_url=voucher_url,
@@ -257,8 +273,10 @@ class BankTransferService:
             query = query.where(BankTransferApplication.status == status)
 
         if operator_id:
+            # Handle op_ prefix format
+            actual_operator_id = operator_id.replace("op_", "") if operator_id.startswith("op_") else operator_id
             try:
-                operator_uuid = PyUUID(operator_id)
+                operator_uuid = PyUUID(actual_operator_id)
                 query = query.where(BankTransferApplication.operator_id == operator_uuid)
             except ValueError:
                 # Invalid UUID, return empty result
@@ -271,11 +289,16 @@ class BankTransferService:
                 )
 
         if search:
+            from sqlalchemy import cast, String, or_
             search_pattern = f"%{search}%"
             query = query.where(
-                (OperatorAccount.username.ilike(search_pattern)) |
-                (OperatorAccount.full_name.ilike(search_pattern)) |
-                (BankTransferApplication.id.ilike(search_pattern))
+                or_(
+                    OperatorAccount.username.ilike(search_pattern),
+                    OperatorAccount.full_name.ilike(search_pattern),
+                    cast(BankTransferApplication.id, String).ilike(search_pattern),
+                    BankTransferApplication.remark.ilike(search_pattern),
+                    BankTransferApplication.reject_reason.ilike(search_pattern)
+                )
             )
 
         if start_date:
@@ -314,13 +337,9 @@ class BankTransferService:
             operator_username = row.username
             operator_full_name = row.full_name
 
-            # Generate human-readable application ID (format: BTR_YYYYMMDD_XXXXX)
-            app_created_time = application.created_at
-            application_id = f"BTR_{app_created_time.strftime('%Y%m%d')}_{str(application.id)[:5].upper()}"
-
             items.append(BankTransferItem(
-                id=str(application.id),  # 原始UUID，用于API调用
-                application_id=application_id,  # 格式化显示
+                id=str(application.id),
+                application_id=str(application.id),
                 operator_id=str(application.operator_id),
                 operator_name=operator_full_name,
                 operator_username=operator_username,

@@ -560,7 +560,8 @@ async def get_transactions(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     type: str = Query("all", description="交易类型: all/recharge/consumption"),
     start_time: Optional[datetime] = Query(None, description="开始时间"),
-    end_time: Optional[datetime] = Query(None, description="结束时间")
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    search: Optional[str] = Query(None, description="搜索关键词(交易ID、描述)")
 ) -> TransactionListResponse:
     """查询运营商交易记录API (T073)
 
@@ -572,6 +573,7 @@ async def get_transactions(
         type: 交易类型过滤
         start_time: 开始时间
         end_time: 结束时间
+        search: 搜索关键词
 
     Returns:
         TransactionListResponse: 分页的交易记录列表
@@ -623,18 +625,15 @@ async def get_transactions(
             page_size=page_size,
             transaction_type=type if type != "all" else None,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
+            search=search
         )
 
         # 转换为响应格式
         items = []
         for trans in transactions:
-            # Generate human-readable transaction ID (format: TXN_YYYYMMDD_XXXXX)
-            trans_created_time = trans.created_at
-            transaction_id = f"TXN_{trans_created_time.strftime('%Y%m%d')}_{str(trans.id)[:5].upper()}"
-
             items.append(TransactionItem(
-                transaction_id=transaction_id,
+                transaction_id=str(trans.id),
                 transaction_type=trans.transaction_type,
                 amount=str(trans.amount),
                 balance_before=str(trans.balance_before),
@@ -786,15 +785,11 @@ async def apply_refund(
         )
 
         # 转换为响应格式
-        # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-        now = datetime.now()
-        refund_id = f"RFD_{now.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
         return {
             "success": True,
             "message": "退款申请已提交,待财务审核",
             "data": {
-                "refund_id": refund_id,
+                "refund_id": str(refund.id),
                 "requested_amount": str(refund.requested_amount),
                 "status": refund.status,
                 "reason": refund.refund_reason,
@@ -871,7 +866,8 @@ async def get_refunds(
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    search: Optional[str] = Query(None, description="搜索关键词(退款ID、退款金额、状态)")
 ) -> RefundListResponse:
     """查询运营商退款记录API (T075)
 
@@ -880,6 +876,7 @@ async def get_refunds(
         db: 数据库会话
         page: 页码
         page_size: 每页数量
+        search: 搜索关键词(退款ID、退款金额、状态)
 
     Returns:
         RefundListResponse: 分页的退款记录列表
@@ -918,18 +915,15 @@ async def get_refunds(
         refunds, total = await operator_service.get_refunds(
             operator_id=operator_id,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            search=search
         )
 
         # 转换为响应格式
         items = []
         for refund in refunds:
-            # Generate refund ID (format: RFD_YYYYMMDD_XXXXX)
-            refund_created_time = refund.created_at
-            refund_id = f"RFD_{refund_created_time.strftime('%Y%m%d')}_{str(refund.id)[:5].upper()}"
-
             items.append(RefundItem(
-                refund_id=refund_id,
+                refund_id=str(refund.id),
                 requested_amount=str(refund.requested_amount),
                 actual_refund_amount=str(refund.actual_amount) if refund.actual_amount else None,
                 status=refund.status,
@@ -1166,6 +1160,7 @@ async def create_bank_transfer(
     description="查询当前运营商的银行转账充值申请列表"
 )
 async def get_bank_transfers(
+    search: Optional[str] = Query(None, description="搜索申请ID、备注、拒绝原因"),
     status_filter: Optional[str] = Query(None, alias="status", description="申请状态筛选: pending/approved/rejected/all"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
@@ -1175,6 +1170,7 @@ async def get_bank_transfers(
     """查询银行转账充值申请列表API
 
     Args:
+        search: 搜索申请ID、备注、拒绝原因
         status_filter: 状态筛选
         page: 页码
         page_size: 每页条数
@@ -1203,7 +1199,7 @@ async def get_bank_transfers(
     # 调用服务层查询列表
     transfer_service = BankTransferService(db)
     try:
-        return await transfer_service.get_applications(operator_id, status_filter, page, page_size)
+        return await transfer_service.get_applications(operator_id, status_filter, search, page, page_size)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1661,7 +1657,8 @@ async def get_invoices(
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    search: Optional[str] = Query(None, description="搜索关键词(发票ID、发票抬头、税号、发票金额、状态)")
 ) -> dict:
     """查询运营商发票记录API (T077)
 
@@ -1670,6 +1667,7 @@ async def get_invoices(
         db: 数据库会话
         page: 页码
         page_size: 每页数量
+        search: 搜索关键词(发票ID、发票抬头、税号、发票金额、状态)
 
     Returns:
         dict: {
@@ -1716,7 +1714,8 @@ async def get_invoices(
         invoices, total = await operator_service.get_invoices(
             operator_id=operator_id,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            search=search
         )
 
         # 转换为响应格式
@@ -1827,7 +1826,8 @@ async def get_usage_records(
     site_id: Optional[str] = Query(None, description="运营点ID"),
     app_id: Optional[str] = Query(None, description="应用ID"),
     start_time: Optional[datetime] = Query(None, description="开始时间"),
-    end_time: Optional[datetime] = Query(None, description="结束时间")
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    search: Optional[str] = Query(None, description="搜索关键词(运营点名称、应用名称)")
 ) -> UsageListResponse:
     """查询运营商使用记录API (T102/T110)
 
@@ -1840,6 +1840,7 @@ async def get_usage_records(
         app_id: 应用ID筛选
         start_time: 开始时间
         end_time: 结束时间
+        search: 搜索关键词(运营点名称、应用名称)
 
     Returns:
         UsageListResponse: 分页的使用记录列表
@@ -1883,19 +1884,16 @@ async def get_usage_records(
             site_id=site_id,
             app_id=app_id,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
+            search=search
         )
 
         # 转换为响应格式
         items = []
         for usage in usage_records:
-            # Generate human-readable session ID (format: SES_YYYYMMDD_XXXXX)
-            session_created_time = usage.created_at
-            formatted_session_id = f"SES_{session_created_time.strftime('%Y%m%d')}_{str(usage.id)[:5].upper()}"
-
             items.append(UsageItem(
                 usage_id=f"usage_{usage.id}",
-                session_id=formatted_session_id,
+                session_id=str(usage.id),
                 site_id=f"site_{usage.site_id}",
                 site_name=usage.site.name,
                 app_id=f"app_{usage.application_id}",
@@ -2029,13 +2027,9 @@ async def get_usage_record(
             ))
 
         # 转换为响应格式
-        # Generate human-readable session ID (format: SES_YYYYMMDD_XXXXX)
-        session_created_time = usage_record.created_at
-        formatted_session_id = f"SES_{session_created_time.strftime('%Y%m%d')}_{str(usage_record.id)[:5].upper()}"
-
         usage_detail = UsageDetail(
             usage_id=f"usage_{usage_record.id}",
-            session_id=formatted_session_id,
+            session_id=str(usage_record.id),
             site_id=f"site_{usage_record.site_id}",
             site_name=usage_record.site.name,
             app_id=f"app_{usage_record.application_id}",
@@ -2173,6 +2167,7 @@ async def create_site(
 )
 async def get_sites(
     include_deleted: bool = Query(False, description="是否包含已删除的运营点"),
+    search: Optional[str] = Query(None, description="搜索关键词(运营点名称、地址)"),
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
@@ -2180,6 +2175,7 @@ async def get_sites(
 
     Args:
         include_deleted: 是否包含已删除的运营点
+        search: 搜索关键词(运营点名称、地址)
         token: JWT Token payload (包含sub=operator_id, user_type=operator)
         db: 数据库会话
 
@@ -2223,7 +2219,8 @@ async def get_sites(
     try:
         sites = await operator_service.get_sites(
             operator_id=operator_id,
-            include_deleted=include_deleted
+            include_deleted=include_deleted,
+            search=search
         )
 
         # 转换为响应格式
@@ -3167,12 +3164,14 @@ async def export_statistics(
     """
 )
 async def get_authorized_applications(
+    search: Optional[str] = Query(None, description="搜索关键词(应用名称、应用代码、描述)"),
     token: dict = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """查询运营商已授权应用列表API (T097)
 
     Args:
+        search: 搜索关键词(应用名称、应用代码、描述)
         token: JWT Token payload (包含sub=operator_id, user_type=operator)
         db: 数据库会话
 
@@ -3214,7 +3213,8 @@ async def get_authorized_applications(
     # 调用服务层获取已授权应用列表
     try:
         applications = await operator_service.get_authorized_applications(
-            operator_id=operator_id
+            operator_id=operator_id,
+            search=search
         )
 
         # 转换为响应格式

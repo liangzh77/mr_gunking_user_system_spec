@@ -10,6 +10,26 @@
 
     <!-- 应用列表 -->
     <el-card class="list-card" style="margin-top: 20px">
+      <!-- 搜索栏 -->
+      <div class="filter-container" style="margin-bottom: 16px">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索应用名称、描述..."
+          clearable
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+          style="width: 300px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleSearch" style="margin-left: 12px">
+          <el-icon><Search /></el-icon>
+          查询
+        </el-button>
+      </div>
+
       <el-table
         v-copyable
         v-loading="loading"
@@ -53,6 +73,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { AuthorizedApplication } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -61,18 +82,30 @@ const operatorStore = useOperatorStore()
 
 const loading = ref(false)
 const applications = ref<AuthorizedApplication[]>([])
+const searchQuery = ref('')
 
 // 加载已授权应用列表
 const loadApplications = async () => {
   loading.value = true
   try {
-    applications.value = await operatorStore.getAuthorizedApplications()
+    const params: any = {}
+
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+
+    applications.value = await operatorStore.getAuthorizedApplications(params)
   } catch (error) {
     console.error('Load applications error:', error)
     ElMessage.error('加载应用列表失败')
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  loadApplications()
 }
 
 onMounted(() => {
