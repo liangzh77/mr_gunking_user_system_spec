@@ -563,8 +563,6 @@ const formRules: FormRules = {
           callback(new Error('请输入有效的金额'))
         } else if (amount <= 0) {
           callback(new Error('充值金额必须大于0'))
-        } else if (amount > 100000) {
-          callback(new Error('单次充值金额不能超过100000元'))
         } else {
           callback()
         }
