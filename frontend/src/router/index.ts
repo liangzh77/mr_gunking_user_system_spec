@@ -150,6 +150,21 @@ const router = createRouter({
               name: 'AdminTransactions',
               component: () => import('@/pages/admin/Transactions.vue'),
             },
+            {
+              path: 'usage-stats',
+              name: 'AdminUsageStats',
+              component: () => import('@/pages/admin/UsageStats.vue'),
+            },
+            {
+              path: 'revenue-stats',
+              name: 'AdminRevenueStats',
+              component: () => import('@/pages/admin/RevenueStats.vue'),
+            },
+            {
+              path: 'settings',
+              name: 'AdminSettings',
+              component: () => import('@/pages/admin/Settings.vue'),
+            },
           ],
         },
       ],
