@@ -1280,4 +1280,16 @@ onMounted(() => {
   max-height: 70vh;
   overflow-y: auto;
 }
+
+/* 隐藏数字输入框的加减号 - Chrome, Safari, Edge, Opera */
+:deep(input[type="number"]::-webkit-outer-spin-button),
+:deep(input[type="number"]::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 隐藏数字输入框的加减号 - Firefox */
+:deep(input[type="number"]) {
+  -moz-appearance: textfield;
+}
 </style>

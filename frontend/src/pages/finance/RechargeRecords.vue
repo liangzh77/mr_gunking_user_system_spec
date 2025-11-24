@@ -477,7 +477,23 @@ const rechargeRules = {
   ],
   amount: [
     { required: true, message: '请输入充值金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '充值金额必须大于0', trigger: 'blur' }
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        if (!value) {
+          callback(new Error('请输入充值金额'))
+        } else {
+          const num = parseFloat(value)
+          if (isNaN(num)) {
+            callback(new Error('请输入有效的金额'))
+          } else if (num <= 0) {
+            callback(new Error('充值金额必须大于0'))
+          } else {
+            callback()
+          }
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -501,7 +517,23 @@ const deductRules = {
   ],
   amount: [
     { required: true, message: '请输入扣费金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '扣费金额必须大于0', trigger: 'blur' }
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        if (!value) {
+          callback(new Error('请输入扣费金额'))
+        } else {
+          const num = parseFloat(value)
+          if (isNaN(num)) {
+            callback(new Error('请输入有效的金额'))
+          } else if (num <= 0) {
+            callback(new Error('扣费金额必须大于0'))
+          } else {
+            callback()
+          }
+        }
+      },
+      trigger: 'blur'
+    }
   ],
   description: [
     { required: true, message: '请输入扣费原因', trigger: 'blur' },
@@ -702,5 +734,17 @@ onMounted(() => {
   color: #909399;
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* 隐藏数字输入框的加减号 - Chrome, Safari, Edge, Opera */
+:deep(input[type="number"]::-webkit-outer-spin-button),
+:deep(input[type="number"]::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 隐藏数字输入框的加减号 - Firefox */
+:deep(input[type="number"]) {
+  -moz-appearance: textfield;
 }
 </style>
