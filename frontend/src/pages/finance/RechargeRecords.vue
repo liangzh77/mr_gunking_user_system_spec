@@ -470,7 +470,7 @@ const paymentFiles = ref<UploadFile[]>([])
 // 充值表单数据
 const rechargeForm = reactive({
   operator_id: '',
-  amount: 0,
+  amount: '' as any,
   description: '',
 })
 
@@ -494,7 +494,7 @@ const deductOperatorBalance = ref('')
 // 扣费表单数据
 const deductForm = reactive({
   operator_id: '',
-  amount: 0,
+  amount: '' as any,
   description: '',
 })
 

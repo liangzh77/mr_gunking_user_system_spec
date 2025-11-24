@@ -214,7 +214,7 @@ const getAmountClass = (type: string) => {
 const getAmountDisplay = (type: string, amount: string) => {
   // 所有金额都是正数，不显示正负号
   const numAmount = parseFloat(amount)
-  return `¥${numAmount.toFixed(2)}`
+  return `¥${formatAmount(numAmount)}`
 }
 
 // 加载交易记录

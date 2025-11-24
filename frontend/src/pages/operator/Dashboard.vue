@@ -95,7 +95,11 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="balance_after" label="余额" width="150" />
+        <el-table-column prop="balance_after" label="余额" width="150">
+          <template #default="{ row }">
+            ¥{{ formatAmount(row.balance_after) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" />
       </el-table>
 
@@ -219,9 +223,9 @@ const getAmountClass = (type: string) => {
 const getAmountDisplay = (type: string, amount: string) => {
   // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
   const numAmount = parseFloat(amount)
-  const absAmount = Math.abs(numAmount).toFixed(2)
+  const absAmount = Math.abs(numAmount)
   const prefix = numAmount >= 0 ? '+' : '-'
-  return `${prefix}¥${absAmount}`
+  return `${prefix}¥${formatAmount(absAmount)}`
 }
 
 // 复制值到剪贴板
