@@ -63,3 +63,28 @@ export function formatDate(dateString: string | null | undefined): string {
     return dateString
   }
 }
+
+/**
+ * 格式化金额，整数不显示小数部分
+ * @param amount 金额数字或字符串
+ * @returns 格式化后的金额字符串 (如: 100 或 100.50)
+ */
+export function formatAmount(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === '') {
+    return '0'
+  }
+
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+
+  if (isNaN(num)) {
+    return '0'
+  }
+
+  // 如果是整数，不显示小数点
+  if (Number.isInteger(num)) {
+    return num.toString()
+  }
+
+  // 如果有小数，保留两位小数
+  return num.toFixed(2)
+}

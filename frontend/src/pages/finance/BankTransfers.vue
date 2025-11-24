@@ -106,7 +106,7 @@
         </el-table-column>
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
-            <span class="amount-text">¥{{ row.amount }}</span>
+            <span class="amount-text">¥{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="充值凭证" width="120" align="center">
@@ -211,7 +211,7 @@
           <el-alert title="确认批准此充值申请？" type="success" :closable="false" />
           <div class="review-summary">
             <p>运营商：{{ currentTransfer?.operator_name }}</p>
-            <p>充值金额：<span class="amount-highlight">¥{{ currentTransfer?.amount }}</span></p>
+            <p>充值金额：<span class="amount-highlight">¥{{ formatAmount(currentTransfer?.amount) }}</span></p>
             <p>申请时间：{{ formatDateTime(currentTransfer?.created_at) }}</p>
             <p>备注：{{ currentTransfer?.remark || '无' }}</p>
           </div>
@@ -246,7 +246,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Refresh, Search, RefreshLeft, Picture } from '@element-plus/icons-vue'
 import http from '@/utils/http'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({

@@ -112,13 +112,13 @@
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
             <span :style="{ color: row.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
-              ¥{{ row.amount }}
+              ¥{{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="余额" width="120" align="right">
           <template #default="{ row }">
-            ¥{{ row.balance_after }}
+            ¥{{ formatAmount(row.balance_after) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="备注" min-width="150" show-overflow-tooltip />
@@ -160,11 +160,11 @@
         </el-descriptions-item>
         <el-descriptions-item label="交易金额">
           <span :style="{ color: currentRecord.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
-            {{ currentRecord.recharge_method === '财务扣费' ? '-' : '+' }}¥{{ currentRecord.amount }}
+            {{ currentRecord.recharge_method === '财务扣费' ? '-' : '+' }}¥{{ formatAmount(currentRecord.amount) }}
           </span>
         </el-descriptions-item>
-        <el-descriptions-item label="交易前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
-        <el-descriptions-item label="交易后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
+        <el-descriptions-item label="交易前余额">¥{{ formatAmount(currentRecord.balance_before) }}</el-descriptions-item>
+        <el-descriptions-item label="交易后余额">¥{{ formatAmount(currentRecord.balance_after) }}</el-descriptions-item>
         <el-descriptions-item label="交易时间" :span="2">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ currentRecord.description || '-' }}</el-descriptions-item>
         <el-descriptions-item label="支付信息" :span="2" v-if="currentRecord.payment_info">
@@ -356,7 +356,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
 import { Refresh as RefreshIcon, RefreshLeft, Right, Money, Plus, Remove, Search } from '@element-plus/icons-vue'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
 const route = useRoute()

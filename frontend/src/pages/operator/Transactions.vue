@@ -93,12 +93,12 @@
         </el-table-column>
         <el-table-column prop="balance_before" label="交易前余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_before }}
+            ¥{{ formatAmount(row.balance_before) }}
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="交易后余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_after }}
+            ¥{{ formatAmount(row.balance_after) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
@@ -134,7 +134,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 

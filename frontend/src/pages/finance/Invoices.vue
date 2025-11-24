@@ -111,7 +111,7 @@
         <el-table-column prop="operator_name" label="运营商" width="120" show-overflow-tooltip />
         <el-table-column prop="amount" label="开票金额" width="110" align="right">
           <template #default="scope">
-            ¥{{ scope.row.amount }}
+            ¥{{ formatAmount(scope.row.amount) }}
           </template>
         </el-table-column>
         <el-table-column prop="invoice_title" label="发票抬头" min-width="150" show-overflow-tooltip />
@@ -194,7 +194,7 @@
         <el-descriptions-item label="发票类型">
           {{ currentInvoice.invoice_type === 'vat' ? '增值税专用发票' : '普通发票' }}
         </el-descriptions-item>
-        <el-descriptions-item label="开票金额">¥{{ currentInvoice.amount }}</el-descriptions-item>
+        <el-descriptions-item label="开票金额">¥{{ formatAmount(currentInvoice.amount) }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="getStatusType(currentInvoice.status)">
             {{ getStatusLabel(currentInvoice.status) }}
@@ -265,7 +265,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Refresh, Search, RefreshLeft } from '@element-plus/icons-vue'
 import http from '@/utils/http'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({

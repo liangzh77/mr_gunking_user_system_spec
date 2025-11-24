@@ -61,12 +61,12 @@
           <el-descriptions :column="1" border class="copyable-descriptions">
             <el-descriptions-item label="当前余额">
               <span class="amount-value copyable-value" @click="handleCopyValue(`¥${authStore.profile?.balance}`)">
-                ¥{{ authStore.profile?.balance }}
+                ¥{{ formatAmount(authStore.profile?.balance) }}
               </span>
             </el-descriptions-item>
             <el-descriptions-item label="累计消费">
               <span class="amount-value copyable-value" @click="handleCopyValue(`¥${authStore.profile?.total_spent}`)">
-                ¥{{ authStore.profile?.total_spent }}
+                ¥{{ formatAmount(authStore.profile?.total_spent) }}
               </span>
             </el-descriptions-item>
           </el-descriptions>
@@ -110,7 +110,7 @@
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 import { copyToClipboard } from '@/utils/clipboard'
 
 const authStore = useAuthStore()

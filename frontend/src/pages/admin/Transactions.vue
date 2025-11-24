@@ -323,6 +323,10 @@ const getTransactionTypeText = (row: any) => {
 
 const formatAmount = (amount: string) => {
   const num = parseFloat(amount)
+  // 如果是整数，不显示小数点
+  if (Number.isInteger(num)) {
+    return `¥${num}`
+  }
   return `¥${num.toFixed(2)}`
 }
 

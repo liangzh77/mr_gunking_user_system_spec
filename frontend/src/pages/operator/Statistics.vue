@@ -49,7 +49,7 @@
             <el-table-column prop="total_players" label="总玩家数" width="120" align="center" sortable />
             <el-table-column prop="total_cost" label="总费用" width="150" sortable>
               <template #default="{ row }">
-                <span class="total-cost">¥{{ row.total_cost }}</span>
+                <span class="total-cost">¥{{ formatAmount(row.total_cost) }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -73,7 +73,7 @@
             <el-table-column prop="total_players" label="总玩家数" width="120" align="center" sortable />
             <el-table-column prop="total_cost" label="总费用" width="150" sortable>
               <template #default="{ row }">
-                <span class="total-cost">¥{{ row.total_cost }}</span>
+                <span class="total-cost">¥{{ formatAmount(row.total_cost) }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -102,7 +102,7 @@
               </el-descriptions-item>
               <el-descriptions-item label="总费用">
                 <span class="copyable-value total-cost" @click="handleCopyValue(`¥${trendSummary.total_cost}`)">
-                  ¥{{ trendSummary.total_cost }}
+                  ¥{{ formatAmount(trendSummary.total_cost) }}
                 </span>
               </el-descriptions-item>
             </el-descriptions>
@@ -119,7 +119,7 @@
             <el-table-column prop="total_players" label="玩家数" width="120" align="center" />
             <el-table-column prop="total_cost" label="费用" width="150">
               <template #default="{ row }">
-                <span class="total-cost">¥{{ row.total_cost }}</span>
+                <span class="total-cost">¥{{ formatAmount(row.total_cost) }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -156,7 +156,7 @@
             </el-table-column>
             <el-table-column prop="total_cost" label="总费用" width="150">
               <template #default="{ row }">
-                <span class="total-cost">¥{{ row.total_cost }}</span>
+                <span class="total-cost">¥{{ formatAmount(row.total_cost) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="进度条" min-width="200">
@@ -177,6 +177,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { formatAmount } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { SiteStatistics, ApplicationStatistics, ChartDataPoint, PlayerDistributionItem } from '@/types'

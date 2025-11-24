@@ -104,12 +104,12 @@
         <el-table-column prop="player_count" label="玩家数" width="100" align="center" />
         <el-table-column prop="unit_price" label="单价" width="100">
           <template #default="{ row }">
-            ¥{{ row.unit_price }}
+            ¥{{ formatAmount(row.unit_price) }}
           </template>
         </el-table-column>
         <el-table-column prop="total_cost" label="总费用" width="120">
           <template #default="{ row }">
-            <span class="total-cost">¥{{ row.total_cost }}</span>
+            <span class="total-cost">¥{{ formatAmount(row.total_cost) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="使用时间" width="180">
@@ -157,7 +157,7 @@
         </div>
         <div class="stat-item">
           <div class="stat-label">当前页总费用</div>
-          <div class="stat-value page-total">¥{{ pageTotal }}</div>
+          <div class="stat-value page-total">¥{{ formatAmount(pageTotal) }}</div>
         </div>
       </div>
     </el-card>
@@ -176,8 +176,8 @@
             <el-descriptions-item label="运营点">{{ detailData.site_name }}</el-descriptions-item>
             <el-descriptions-item label="应用">{{ detailData.app_name }}</el-descriptions-item>
             <el-descriptions-item label="玩家数">{{ detailData.player_count }}</el-descriptions-item>
-            <el-descriptions-item label="单价">¥{{ detailData.unit_price }}</el-descriptions-item>
-            <el-descriptions-item label="总费用">¥{{ detailData.total_cost }}</el-descriptions-item>
+            <el-descriptions-item label="单价">¥{{ formatAmount(detailData.unit_price) }}</el-descriptions-item>
+            <el-descriptions-item label="总费用">¥{{ formatAmount(detailData.total_cost) }}</el-descriptions-item>
             <el-descriptions-item label="使用时间" :span="2">
               {{ formatDateTime(detailData.created_at) }}
             </el-descriptions-item>
@@ -241,7 +241,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { UsageRecord, OperationSite, AuthorizedApplication } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 

@@ -36,7 +36,7 @@
               class="preset-tag"
               @click="selectPreset(preset)"
             >
-              ¥{{ preset }}
+              ¥{{ formatAmount(preset) }}
             </el-tag>
           </div>
         </el-form-item>
@@ -297,7 +297,7 @@
       <div class="payment-container">
         <div class="payment-header">
           <h3>请使用{{ paymentMethodLabel }}扫码支付</h3>
-          <div class="payment-amount">¥{{ paymentInfo.amount }}</div>
+          <div class="payment-amount">¥{{ formatAmount(paymentInfo.amount) }}</div>
         </div>
 
         <div v-if="paymentInfo.qr_code" class="qr-code-container">
@@ -328,7 +328,7 @@
               {{ paymentInfo.order_id }}
             </el-descriptions-item>
             <el-descriptions-item label="充值金额">
-              ¥{{ paymentInfo.amount }}
+              ¥{{ formatAmount(paymentInfo.amount) }}
             </el-descriptions-item>
             <el-descriptions-item label="支付方式">
               {{ paymentMethodLabel }}
@@ -439,7 +439,7 @@
         </el-table-column>
         <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
-            <span class="amount-text">¥{{ row.amount }}</span>
+            <span class="amount-text">¥{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="充值凭证" width="100" align="center">
@@ -534,6 +534,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type Upload
 import { Search, Refresh, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { RechargeResponse } from '@/types'
+import { formatAmount } from '@/utils/format'
 import dayjs from 'dayjs'
 import http from '@/utils/http'
 
