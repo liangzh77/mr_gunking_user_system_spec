@@ -5,7 +5,7 @@
       <div class="header-content">
         <div class="title-section">
           <el-icon :size="24"><CreditCard /></el-icon>
-          <h2>在线转账</h2>
+          <h2>在线充值</h2>
         </div>
       </div>
     </el-card>
@@ -46,13 +46,13 @@
             <el-radio value="bank_transfer">
               <div class="payment-method">
                 <el-icon :size="20" color="#F56C6C"><Money /></el-icon>
-                <span>银行转账</span>
+                <span>银行充值</span>
               </div>
             </el-radio>
             <el-radio value="wechat">
               <div class="payment-method">
                 <el-icon :size="20" color="#07C160"><ChatDotRound /></el-icon>
-                <span>微信转账</span>
+                <span>微信充值</span>
               </div>
             </el-radio>
             <el-radio value="alipay" disabled>
@@ -64,18 +64,18 @@
           </el-radio-group>
         </el-form-item>
 
-        <!-- 银行转账信息 -->
+        <!-- 银行充值信息 -->
         <template v-if="formData.payment_method === 'bank_transfer'">
           <el-alert
-            title="银行转账充值说明"
+            title="银行充值说明"
             type="info"
             :closable="false"
             style="margin-bottom: 20px"
           >
             <template #default>
               <div class="bank-transfer-notice">
-                <p>1. 请将款项转账至以下公司银行账户</p>
-                <p>2. 转账完成后,上传转账凭证截图</p>
+                <p>1. 请将款项充值至以下公司银行账户</p>
+                <p>2. 充值完成后,上传充值凭证截图</p>
                 <p>3. 提交申请后,财务人员将在1-2个工作日内审核</p>
                 <p>4. 审核通过后,款项将自动充值到您的账户</p>
               </div>
@@ -135,7 +135,7 @@
             </el-descriptions>
           </el-card>
 
-          <el-form-item label="转账凭证" prop="voucher_image" style="margin-top: 20px">
+          <el-form-item label="充值凭证" prop="voucher_image" style="margin-top: 20px">
             <!-- 隐藏的上传组件 -->
             <el-upload
               ref="voucherUploadRef"
@@ -166,7 +166,7 @@
             </div>
             <div v-else class="upload-trigger" @click="triggerUpload">
               <el-icon class="upload-icon"><Plus /></el-icon>
-              <div class="upload-text">点击上传转账凭证</div>
+              <div class="upload-text">点击上传充值凭证</div>
               <div class="upload-hint">支持 JPG、PNG 格式,不超过 5MB</div>
             </div>
           </el-form-item>
@@ -176,7 +176,7 @@
               v-model="formData.remark"
               type="textarea"
               :rows="3"
-              placeholder="选填,可注明转账时间等信息"
+              placeholder="选填,可注明充值时间等信息"
               maxlength="500"
               show-word-limit
             />
@@ -360,11 +360,11 @@
       </div>
     </el-card>
 
-    <!-- 银行转账申请列表 -->
+    <!-- 充值申请列表 -->
     <el-card class="applications-card" style="margin-top: 20px">
       <template #header>
         <div class="card-header">
-          <span>转账申请记录</span>
+          <span>充值申请记录</span>
         </div>
       </template>
 
@@ -430,7 +430,7 @@
         style="width: 100%"
       >
         <el-table-column prop="application_id" label="申请ID" width="200" show-overflow-tooltip />
-        <el-table-column label="转账类型" width="110" align="center">
+        <el-table-column label="充值类型" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="getPaymentMethodType(row.payment_method)" size="small">
               {{ getPaymentMethodLabel(row.payment_method) }}
@@ -442,7 +442,7 @@
             <span class="amount-text">¥{{ row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="转账凭证" width="100" align="center">
+        <el-table-column label="充值凭证" width="100" align="center">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewVoucher(row)">
               查看
@@ -490,7 +490,7 @@
       </el-table>
 
       <div v-if="!loadingTransfers && bankTransfers.length === 0" class="empty-state">
-        <el-empty description="暂无转账申请记录" />
+        <el-empty description="暂无充值申请记录" />
       </div>
 
       <div v-if="transferPagination.total > 0" class="pagination-container">
@@ -507,7 +507,7 @@
     </el-card>
 
     <!-- 凭证查看对话框 -->
-    <el-dialog v-model="voucherDialogVisible" title="转账凭证" width="600px">
+    <el-dialog v-model="voucherDialogVisible" title="充值凭证" width="600px">
       <div class="voucher-view">
         <el-image
           :src="currentVoucher"
@@ -602,15 +602,15 @@ const formRules: FormRules = {
     { required: true, message: '请选择支付方式', trigger: 'change' },
   ],
   voucher_image: [
-    { required: true, message: '请上传转账凭证', trigger: 'change' },
+    { required: true, message: '请上传充值凭证', trigger: 'change' },
   ],
 }
 
 const paymentMethodLabel = computed(() => {
   const labels = {
-    wechat: '微信转账',
+    wechat: '微信充值',
     alipay: '支付宝',
-    bank_transfer: '银行转账'
+    bank_transfer: '银行充值'
   }
   return labels[formData.value.payment_method] || ''
 })
@@ -737,10 +737,10 @@ const handleSubmit = async () => {
     return
   }
 
-  // 银行转账或微信支付提交
+  // 银行充值或微信充值提交
   if (formData.value.payment_method === 'bank_transfer' || formData.value.payment_method === 'wechat') {
     if (!voucherFile.value) {
-      ElMessage.error(formData.value.payment_method === 'wechat' ? '请上传支付凭证' : '请上传转账凭证')
+      ElMessage.error(formData.value.payment_method === 'wechat' ? '请上传支付凭证' : '请上传充值凭证')
       return
     }
 
@@ -767,8 +767,8 @@ const handleSubmit = async () => {
       })
 
       const successMessage = formData.value.payment_method === 'wechat'
-        ? '微信转账充值申请已提交,请等待财务审核'
-        : '银行转账充值申请已提交,请等待财务审核'
+        ? '微信充值申请已提交,请等待财务审核'
+        : '银行充值申请已提交,请等待财务审核'
       ElMessage.success(successMessage)
       resetForm()
       await loadBankTransfers()
@@ -847,7 +847,7 @@ const resetForm = () => {
   formRef.value?.resetFields()
 }
 
-// 加载银行转账申请列表
+// 加载充值申请列表
 const loadBankTransfers = async () => {
   loadingTransfers.value = true
   try {
@@ -978,10 +978,10 @@ const getPaymentMethodType = (method: string) => {
 
 const getPaymentMethodLabel = (method: string) => {
   const labels: Record<string, string> = {
-    wechat: '微信转账',
-    bank_transfer: '银行转账',
+    wechat: '微信充值',
+    bank_transfer: '银行充值',
   }
-  return labels[method] || method || '银行转账'
+  return labels[method] || method || '银行充值'
 }
 
 onMounted(() => {

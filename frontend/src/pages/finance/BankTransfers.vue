@@ -88,7 +88,7 @@
         </el-form>
       </div>
 
-      <!-- 转账申请列表 -->
+      <!-- 充值申请列表 -->
       <el-table v-copyable :data="transfers" v-loading="loading" stripe>
         <el-table-column label="申请ID" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -109,7 +109,7 @@
             <span class="amount-text">¥{{ row.amount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="转账凭证" width="120" align="center">
+        <el-table-column label="充值凭证" width="120" align="center">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewVoucher(row)">
               查看凭证
@@ -184,8 +184,8 @@
       </div>
     </el-card>
 
-    <!-- 转账凭证查看对话框 -->
-    <el-dialog v-model="voucherDialogVisible" title="转账凭证" width="600px">
+    <!-- 充值凭证查看对话框 -->
+    <el-dialog v-model="voucherDialogVisible" title="充值凭证" width="600px">
       <div class="voucher-view">
         <el-image
           :src="currentVoucher"
@@ -208,7 +208,7 @@
       <el-form :model="reviewForm" :rules="reviewRules" ref="reviewFormRef">
         <!-- 批准时显示 -->
         <template v-if="reviewAction === 'approve'">
-          <el-alert title="确认批准此转账申请？" type="success" :closable="false" />
+          <el-alert title="确认批准此充值申请？" type="success" :closable="false" />
           <div class="review-summary">
             <p>运营商：{{ currentTransfer?.operator_name }}</p>
             <p>充值金额：<span class="amount-highlight">¥{{ currentTransfer?.amount }}</span></p>
@@ -293,7 +293,7 @@ const reviewRules: FormRules = {
 
 // 计算属性
 const reviewDialogTitle = computed(() => {
-  return reviewAction.value === 'approve' ? '批准转账申请' : '拒绝转账申请'
+  return reviewAction.value === 'approve' ? '批准充值申请' : '拒绝充值申请'
 })
 
 const reviewButtonType = computed(() => {
@@ -328,7 +328,7 @@ const handleReset = () => {
   fetchTransfers()
 }
 
-// 获取转账申请列表
+// 获取充值申请列表
 const fetchTransfers = async () => {
   loading.value = true
   try {
@@ -338,7 +338,7 @@ const fetchTransfers = async () => {
     transfers.value = response.data.items || []
     total.value = response.data.total || 0
   } catch (error: any) {
-    ElMessage.error('获取转账申请列表失败')
+    ElMessage.error('获取充值申请列表失败')
   } finally {
     loading.value = false
   }
@@ -363,7 +363,7 @@ const viewVoucher = (transfer: any) => {
   voucherDialogVisible.value = true
 }
 
-// 批准转账
+// 批准充值
 const handleApprove = (transfer: any) => {
   currentTransfer.value = transfer
   reviewAction.value = 'approve'
@@ -371,7 +371,7 @@ const handleApprove = (transfer: any) => {
   reviewDialogVisible.value = true
 }
 
-// 拒绝转账
+// 拒绝充值
 const handleReject = (transfer: any) => {
   currentTransfer.value = transfer
   reviewAction.value = 'reject'
@@ -401,7 +401,7 @@ const confirmReview = async () => {
 
     await http.post(url, payload)
 
-    ElMessage.success(reviewAction.value === 'approve' ? '转账申请已批准' : '已拒绝转账申请')
+    ElMessage.success(reviewAction.value === 'approve' ? '充值申请已批准' : '已拒绝充值申请')
     reviewDialogVisible.value = false
     fetchTransfers()
   } catch (error: any) {
@@ -429,7 +429,7 @@ const viewDetails = (transfer: any) => {
       <p><strong>审核时间：</strong>${reviewedAt}</p>
       ${transfer.reject_reason ? `<p><strong>拒绝原因：</strong>${transfer.reject_reason}</p>` : ''}
     </div>`,
-    '转账申请详情',
+    '充值申请详情',
     {
       dangerouslyUseHTMLString: true,
     }
@@ -468,9 +468,9 @@ const getPaymentMethodType = (method: string) => {
 
 const getPaymentMethodLabel = (method: string) => {
   switch (method) {
-    case 'wechat': return '微信转账'
-    case 'bank_transfer': return '银行转账'
-    default: return method || '银行转账'
+    case 'wechat': return '微信充值'
+    case 'bank_transfer': return '银行充值'
+    default: return method || '银行充值'
   }
 }
 

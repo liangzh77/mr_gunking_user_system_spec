@@ -169,7 +169,7 @@
                 {{ scope.row.start_date }} 至 {{ scope.row.end_date }}
               </template>
             </el-table-column>
-            <el-table-column prop="total_recharge" label="总转账" width="120" align="right">
+            <el-table-column prop="total_recharge" label="总充值" width="120" align="right">
               <template #default="scope">
                 ¥{{ scope.row.total_recharge }}
               </template>

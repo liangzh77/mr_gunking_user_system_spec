@@ -155,7 +155,7 @@
             </div>
             <div class="pending-item" @click="$router.push('/finance/bank-transfers')">
               <el-icon :size="20" color="#67c23a"><Money /></el-icon>
-              <span>待审核转账</span>
+              <span>待审核充值</span>
               <el-badge :value="pendingBankTransfers" class="badge" />
             </div>
           </div>
@@ -180,7 +180,7 @@
             </el-button>
             <el-button type="success" @click="$router.push('/finance/bank-transfers')">
               <el-icon><Money /></el-icon>
-              转账审核
+              充值审核
             </el-button>
             <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>
@@ -372,7 +372,7 @@ const getTierLabel = (tier: string) => {
   }
 }
 
-// 获取待处理银行转账数量
+// 获取待处理充值数量
 const fetchPendingBankTransfers = async () => {
   try {
     const response = await http.get('/finance/bank-transfers', {
@@ -380,7 +380,7 @@ const fetchPendingBankTransfers = async () => {
     })
     pendingBankTransfers.value = response.data.total || 0
   } catch (error: any) {
-    ElMessage.error('获取待处理银行转账数量失败')
+    ElMessage.error('获取待处理充值数量失败')
   }
 }
 
