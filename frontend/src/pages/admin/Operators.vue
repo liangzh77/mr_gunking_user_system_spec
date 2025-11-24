@@ -54,7 +54,7 @@
         <el-table-column prop="balance" label="账户余额" width="120" align="right">
           <template #default="{ row }">
             <span :class="{ 'negative-balance': row.balance < 0 }">
-              ¥{{ row.balance.toFixed(2) }}
+              ¥{{ formatAmount(row.balance) }}
             </span>
           </template>
         </el-table-column>
