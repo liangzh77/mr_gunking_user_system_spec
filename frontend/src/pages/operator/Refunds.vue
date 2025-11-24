@@ -85,7 +85,7 @@
         </el-table-column>
         <el-table-column prop="requested_amount" label="退款金额" width="120">
           <template #default="{ row }">
-            <span class="refund-amount">¥{{ row.requested_amount }}</span>
+            <span class="refund-amount">¥{{ formatAmount(row.requested_amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="reason" label="退款原因" min-width="200" show-overflow-tooltip />
@@ -168,7 +168,7 @@
           style="margin-bottom: 20px"
         >
           <template #default>
-            <div>当前账户余额: ¥{{ balance }}</div>
+            <div>当前账户余额: ¥{{ formatAmount(balance) }}</div>
             <div>您可以申请退还部分或全部余额，已消费金额不可退还</div>
           </template>
         </el-alert>
@@ -183,7 +183,7 @@
           >
             <template #prepend>¥</template>
           </el-input>
-          <div class="form-tip">最大可退款金额: ¥{{ balance }}</div>
+          <div class="form-tip">最大可退款金额: ¥{{ formatAmount(balance) }}</div>
         </el-form-item>
 
         <el-form-item label="退款原因" prop="reason">
@@ -214,7 +214,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Refund } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 

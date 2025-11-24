@@ -169,24 +169,24 @@
                 {{ scope.row.start_date }} 至 {{ scope.row.end_date }}
               </template>
             </el-table-column>
-            <el-table-column prop="total_recharge" label="总转账" width="120" align="right">
+            <el-table-column prop="total_recharge" label="总充值" width="120" align="right">
               <template #default="scope">
-                ¥{{ scope.row.total_recharge }}
+                ¥{{ formatAmount(scope.row.total_recharge) }}
               </template>
             </el-table-column>
             <el-table-column prop="total_consumption" label="总消费" width="120" align="right">
               <template #default="scope">
-                ¥{{ scope.row.total_consumption }}
+                ¥{{ formatAmount(scope.row.total_consumption) }}
               </template>
             </el-table-column>
             <el-table-column prop="total_refund" label="总退款" width="120" align="right">
               <template #default="scope">
-                ¥{{ scope.row.total_refund }}
+                ¥{{ formatAmount(scope.row.total_refund) }}
               </template>
             </el-table-column>
             <el-table-column prop="net_income" label="净收入" width="120" align="right">
               <template #default="scope">
-                ¥{{ scope.row.net_income }}
+                ¥{{ formatAmount(scope.row.net_income) }}
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100" align="center">
@@ -239,7 +239,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentAdd, Calendar, Refresh, Download, Search } from '@element-plus/icons-vue'
 import http from '@/utils/http'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 // 报表表单
 const reportForm = reactive({

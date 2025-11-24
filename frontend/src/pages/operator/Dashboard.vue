@@ -10,8 +10,8 @@
               <span>账户余额</span>
             </div>
           </template>
-          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${balance}`)">
-            ¥{{ balance }}
+          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${formatAmount(balance)}`)">
+            ¥{{ formatAmount(balance) }}
           </div>
           <div class="stat-footer">
             <el-button type="primary" size="small" @click="goToRecharge">立即充值</el-button>
@@ -28,8 +28,8 @@
               <span>累计消费</span>
             </div>
           </template>
-          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${totalSpent}`)">
-            ¥{{ totalSpent }}
+          <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${formatAmount(totalSpent)}`)">
+            ¥{{ formatAmount(totalSpent) }}
           </div>
           <div class="stat-footer">
             <span class="stat-label">客户等级:</span>
@@ -95,7 +95,11 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="balance_after" label="余额" width="150" />
+        <el-table-column prop="balance_after" label="余额" width="150">
+          <template #default="{ row }">
+            ¥{{ formatAmount(row.balance_after) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" />
       </el-table>
 
@@ -149,7 +153,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount } from '@/utils/format'
 import { copyToClipboard } from '@/utils/clipboard'
 
 const router = useRouter()
@@ -219,9 +223,9 @@ const getAmountClass = (type: string) => {
 const getAmountDisplay = (type: string, amount: string) => {
   // 后端返回的amount已经带有正负号（充值为正数，消费和退款为负数）
   const numAmount = parseFloat(amount)
-  const absAmount = Math.abs(numAmount).toFixed(2)
+  const absAmount = Math.abs(numAmount)
   const prefix = numAmount >= 0 ? '+' : '-'
-  return `${prefix}¥${absAmount}`
+  return `${prefix}¥${formatAmount(absAmount)}`
 }
 
 // 复制值到剪贴板

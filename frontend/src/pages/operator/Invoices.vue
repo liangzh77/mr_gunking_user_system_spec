@@ -98,7 +98,7 @@
         </el-table-column>
         <el-table-column prop="amount" label="开票金额" width="110" align="right">
           <template #default="{ row }">
-            <span class="invoice-amount">¥{{ row.amount }}</span>
+            <span class="invoice-amount">¥{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="invoice_title" label="发票抬头" min-width="150" show-overflow-tooltip />
@@ -246,7 +246,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { Invoice } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 

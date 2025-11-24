@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>转账记录</span>
+          <span>充值记录</span>
           <div class="header-actions">
             <el-button type="success" size="small" @click="showRechargeDialog = true">
               <el-icon><Money /></el-icon>
@@ -68,7 +68,7 @@
               <el-option label="财务充值" value="manual" />
               <el-option label="财务扣费" value="deduct" />
               <el-option label="在线充值" value="online" />
-              <el-option label="银行转账" value="bank_transfer" />
+              <el-option label="银行充值" value="bank_transfer" />
             </el-select>
           </el-form-item>
 
@@ -102,23 +102,23 @@
       <el-table v-copyable :data="records" v-loading="loading" stripe>
         <el-table-column prop="transaction_id" label="交易ID" width="220" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="运营商" width="150" show-overflow-tooltip />
-        <el-table-column prop="recharge_method" label="转账类型" width="100" align="center">
+        <el-table-column prop="recharge_method" label="充值类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getRechargeMethodTagType(row.recharge_method)" size="small">
               {{ row.recharge_method }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="转账金额" width="120" align="right">
+        <el-table-column prop="amount" label="充值金额" width="120" align="right">
           <template #default="{ row }">
             <span :style="{ color: row.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
-              ¥{{ row.amount }}
+              ¥{{ formatAmount(row.amount) }}
             </span>
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="余额" width="120" align="right">
           <template #default="{ row }">
-            ¥{{ row.balance_after }}
+            ¥{{ formatAmount(row.balance_after) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="备注" min-width="150" show-overflow-tooltip />
@@ -149,7 +149,7 @@
     </el-card>
 
     <!-- 充值详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="转账记录详情" width="700px">
+    <el-dialog v-model="detailDialogVisible" title="充值记录详情" width="700px">
       <el-descriptions :column="2" border v-if="currentRecord">
         <el-descriptions-item label="交易ID">{{ currentRecord.transaction_id }}</el-descriptions-item>
         <el-descriptions-item label="运营商">{{ currentRecord.operator_name }}</el-descriptions-item>
@@ -160,16 +160,16 @@
         </el-descriptions-item>
         <el-descriptions-item label="交易金额">
           <span :style="{ color: currentRecord.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
-            {{ currentRecord.recharge_method === '财务扣费' ? '-' : '+' }}¥{{ currentRecord.amount }}
+            {{ currentRecord.recharge_method === '财务扣费' ? '-' : '+' }}¥{{ formatAmount(currentRecord.amount) }}
           </span>
         </el-descriptions-item>
-        <el-descriptions-item label="交易前余额">¥{{ currentRecord.balance_before }}</el-descriptions-item>
-        <el-descriptions-item label="交易后余额">¥{{ currentRecord.balance_after }}</el-descriptions-item>
+        <el-descriptions-item label="交易前余额">¥{{ formatAmount(currentRecord.balance_before) }}</el-descriptions-item>
+        <el-descriptions-item label="交易后余额">¥{{ formatAmount(currentRecord.balance_after) }}</el-descriptions-item>
         <el-descriptions-item label="交易时间" :span="2">{{ formatDateTime(currentRecord.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ currentRecord.description || '-' }}</el-descriptions-item>
         <el-descriptions-item label="支付信息" :span="2" v-if="currentRecord.payment_info">
           <div>
-            <div>支付渠道: {{ currentRecord.payment_info.channel === 'wechat' ? '微信转账' : '支付宝' }}</div>
+            <div>支付渠道: {{ currentRecord.payment_info.channel === 'wechat' ? '微信充值' : '支付宝' }}</div>
             <div>订单号: {{ currentRecord.payment_info.order_no }}</div>
             <div>状态: {{ currentRecord.payment_info.status }}</div>
           </div>
@@ -218,16 +218,14 @@
         </el-form-item>
 
         <el-form-item label="充值金额" prop="amount">
-          <el-input-number
+          <el-input
             v-model="rechargeForm.amount"
-            :min="0.01"
-            :max="999999.99"
-            :precision="2"
-            :step="100"
-            controls-position="right"
+            type="number"
             placeholder="请输入充值金额"
             style="width: 100%"
-          />
+          >
+            <template #prefix>¥</template>
+          </el-input>
           <div class="form-tip">充值金额必须大于0</div>
         </el-form-item>
 
@@ -312,16 +310,14 @@
         </el-form-item>
 
         <el-form-item label="扣费金额" prop="amount">
-          <el-input-number
+          <el-input
             v-model="deductForm.amount"
-            :min="0.01"
-            :max="999999.99"
-            :precision="2"
-            :step="100"
-            controls-position="right"
+            type="number"
             placeholder="请输入扣费金额"
             style="width: 100%"
-          />
+          >
+            <template #prefix>¥</template>
+          </el-input>
           <div class="form-tip">扣费金额必须大于0且不能超过运营商当前余额</div>
         </el-form-item>
 
@@ -356,7 +352,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type UploadFile } from 'element-plus'
 import { Refresh as RefreshIcon, RefreshLeft, Right, Money, Plus, Remove, Search } from '@element-plus/icons-vue'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
 const route = useRoute()
@@ -365,7 +361,7 @@ const route = useRoute()
 const queryForm = reactive({
   operator_id: '',
   date_range: [] as string[],
-  recharge_method: '', // 充值方式: manual(手动), online(在线), bank_transfer(银行转账)
+  recharge_method: '', // 充值方式: manual(手动), online(在线), bank_transfer(银行充值)
 })
 
 // 分页信息
@@ -470,7 +466,7 @@ const paymentFiles = ref<UploadFile[]>([])
 // 充值表单数据
 const rechargeForm = reactive({
   operator_id: '',
-  amount: 0,
+  amount: '' as any,
   description: '',
 })
 
@@ -481,7 +477,23 @@ const rechargeRules = {
   ],
   amount: [
     { required: true, message: '请输入充值金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '充值金额必须大于0', trigger: 'blur' }
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        if (!value) {
+          callback(new Error('请输入充值金额'))
+        } else {
+          const num = parseFloat(value)
+          if (isNaN(num)) {
+            callback(new Error('请输入有效的金额'))
+          } else if (num <= 0) {
+            callback(new Error('充值金额必须大于0'))
+          } else {
+            callback()
+          }
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -494,7 +506,7 @@ const deductOperatorBalance = ref('')
 // 扣费表单数据
 const deductForm = reactive({
   operator_id: '',
-  amount: 0,
+  amount: '' as any,
   description: '',
 })
 
@@ -505,7 +517,23 @@ const deductRules = {
   ],
   amount: [
     { required: true, message: '请输入扣费金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '扣费金额必须大于0', trigger: 'blur' }
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        if (!value) {
+          callback(new Error('请输入扣费金额'))
+        } else {
+          const num = parseFloat(value)
+          if (isNaN(num)) {
+            callback(new Error('请输入有效的金额'))
+          } else if (num <= 0) {
+            callback(new Error('扣费金额必须大于0'))
+          } else {
+            callback()
+          }
+        }
+      },
+      trigger: 'blur'
+    }
   ],
   description: [
     { required: true, message: '请输入扣费原因', trigger: 'blur' },
@@ -656,8 +684,8 @@ const handleDeductSubmit = async () => {
 const getRechargeMethodTagType = (method: string) => {
   if (method === '财务扣费') return 'danger'
   if (method === '财务充值') return 'warning'
-  if (method === '银行转账') return 'primary'
-  if (method === '微信转账') return 'success'
+  if (method === '银行充值') return 'primary'
+  if (method === '微信充值') return 'success'
   return 'success'
 }
 
@@ -706,5 +734,17 @@ onMounted(() => {
   color: #909399;
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* 隐藏数字输入框的加减号 - Chrome, Safari, Edge, Opera */
+:deep(input[type="number"]::-webkit-outer-spin-button),
+:deep(input[type="number"]::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 隐藏数字输入框的加减号 - Firefox */
+:deep(input[type="number"]) {
+  -moz-appearance: textfield;
 }
 </style>

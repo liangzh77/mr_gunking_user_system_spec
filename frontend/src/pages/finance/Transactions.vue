@@ -52,7 +52,7 @@
             clearable
             style="width: 150px"
           >
-            <el-option label="转账" value="recharge" />
+            <el-option label="充值" value="recharge" />
             <el-option label="消费" value="consumption" />
             <el-option label="退款" value="refund" />
             <el-option label="财务扣费" value="deduct" />
@@ -111,12 +111,12 @@
         </el-table-column>
         <el-table-column prop="balance_before" label="交易前余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_before }}
+            ¥{{ formatAmount(row.balance_before) }}
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="交易后余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_after }}
+            ¥{{ formatAmount(row.balance_after) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
@@ -151,7 +151,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Coin } from '@element-plus/icons-vue'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
 const loading = ref(false)
@@ -178,9 +178,9 @@ const getTransactionTypeTag = (row: any) => {
   // 如果是充值类型，根据payment_channel区分
   if (type === 'recharge') {
     if (row.payment_channel === 'bank_transfer') {
-      return 'primary'  // 银行转账 - 蓝色
+      return 'primary'  // 银行充值 - 蓝色
     } else if (row.payment_channel === 'wechat') {
-      return 'success'  // 微信转账 - 绿色
+      return 'success'  // 微信充值 - 绿色
     } else if (row.payment_channel) {
       return 'success'  // 在线充值 - 绿色
     }
@@ -203,9 +203,9 @@ const getTransactionTypeLabel = (row: any) => {
   // 如果是充值类型，根据payment_channel区分
   if (type === 'recharge') {
     if (row.payment_channel === 'wechat') {
-      return '微信转账'
+      return '微信充值'
     } else if (row.payment_channel === 'bank_transfer') {
-      return '银行转账'
+      return '银行充值'
     } else if (row.payment_channel) {
       return '在线充值'
     }
@@ -235,7 +235,7 @@ const getAmountClass = (type: string) => {
 const getAmountDisplay = (type: string, amount: string) => {
   // 所有金额都是正数，不显示正负号
   const numAmount = parseFloat(amount)
-  return `¥${numAmount.toFixed(2)}`
+  return `¥${formatAmount(numAmount)}`
 }
 
 // 加载运营商列表

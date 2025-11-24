@@ -93,12 +93,12 @@
         </el-table-column>
         <el-table-column prop="balance_before" label="交易前余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_before }}
+            ¥{{ formatAmount(row.balance_before) }}
           </template>
         </el-table-column>
         <el-table-column prop="balance_after" label="交易后余额" width="120">
           <template #default="{ row }">
-            ¥{{ row.balance_after }}
+            ¥{{ formatAmount(row.balance_after) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
@@ -134,7 +134,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useOperatorStore } from '@/stores/operator'
 import type { Transaction } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount } from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 
@@ -160,9 +160,9 @@ const getTransactionTypeTag = (type: string, row?: any) => {
     if (!row.payment_method || row.payment_method === null) {
       return 'warning'  // 财务充值 - 橙色
     } else if (row.payment_method === 'bank_transfer') {
-      return 'primary'  // 银行转账 - 蓝色
+      return 'primary'  // 银行充值 - 蓝色
     } else if (row.payment_method === 'wechat') {
-      return 'success'  // 微信转账 - 绿色
+      return 'success'  // 微信充值 - 绿色
     } else {
       return 'success'  // 在线充值 - 绿色
     }
@@ -183,9 +183,9 @@ const getTransactionTypeLabel = (type: string, row?: any) => {
     if (!row.payment_method || row.payment_method === null) {
       return '财务充值'
     } else if (row.payment_method === 'bank_transfer') {
-      return '银行转账'
+      return '银行充值'
     } else if (row.payment_method === 'wechat') {
-      return '微信转账'
+      return '微信充值'
     } else {
       return '在线充值'
     }
@@ -214,7 +214,7 @@ const getAmountClass = (type: string) => {
 const getAmountDisplay = (type: string, amount: string) => {
   // 所有金额都是正数，不显示正负号
   const numAmount = parseFloat(amount)
-  return `¥${numAmount.toFixed(2)}`
+  return `¥${formatAmount(numAmount)}`
 }
 
 // 加载交易记录

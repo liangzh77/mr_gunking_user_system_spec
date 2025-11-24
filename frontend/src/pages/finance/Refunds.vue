@@ -84,7 +84,7 @@
         <el-table-column prop="operator_name" label="运营商" />
         <el-table-column prop="requested_amount" label="退款金额" align="right">
           <template #default="scope">
-            ¥{{ scope.row.requested_amount }}
+            ¥{{ formatAmount(scope.row.requested_amount) }}
           </template>
         </el-table-column>
         <el-table-column prop="reason" label="退款原因" />
@@ -167,7 +167,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Refresh, Search, RefreshLeft } from '@element-plus/icons-vue'
 import http from '@/utils/http'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 // 查询参数
 const queryParams = reactive({

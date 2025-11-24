@@ -130,7 +130,7 @@
                 </div>
                 <div class="app-code">代码: {{ app.app_code }}</div>
                 <div v-if="app.description" class="app-description">{{ app.description }}</div>
-                <div class="app-price">¥{{ app.price_per_player }}/人</div>
+                <div class="app-price">¥{{ formatAmount(app.price_per_player) }}/人</div>
                 <div v-if="isEditing && selectedOperator" class="app-checkbox">
                   <el-checkbox
                     :model-value="editingAuthorizations.has(app.id)"
@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { formatAmount } from '@/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Key,

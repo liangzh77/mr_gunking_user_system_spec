@@ -44,7 +44,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">今日消费</div>
-            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(`¥${stats.todayConsumption}`)">¥{{ stats.todayConsumption }}</div>
+            <div class="stat-value copyable-stat" @click.stop="handleCopyValue(`¥${stats.todayConsumption}`)">¥{{ formatAmount(stats.todayConsumption) }}</div>
           </div>
         </el-card>
       </el-col>
@@ -151,6 +151,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, onMounted, ref } from 'vue'
+import { formatAmount } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAdminStore } from '@/stores/admin'

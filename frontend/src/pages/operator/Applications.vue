@@ -39,9 +39,9 @@
       >
         <el-table-column prop="app_name" label="应用名称" min-width="150" />
         <el-table-column prop="description" label="应用描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="unit_price" label="单价" width="120">
+        <el-table-column prop="price_per_player" label="单价" width="120">
           <template #default="{ row }">
-            <span class="price">¥{{ row.unit_price }}</span>
+            <span class="price">¥{{ formatAmount(row.price_per_player) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="玩家限制" width="150">
@@ -76,7 +76,7 @@ import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { AuthorizedApplication } from '@/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 
 const operatorStore = useOperatorStore()
 

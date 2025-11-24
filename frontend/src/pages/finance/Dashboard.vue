@@ -10,7 +10,7 @@
           <div class="stat-content">
             <div class="stat-label">今日充值</div>
             <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_recharge || '0.00'}`)">
-              ¥{{ dashboard.today_recharge || '0.00' }}
+              ¥{{ formatAmount(dashboard.today_recharge || '0.00') }}
             </div>
           </div>
         </el-card>
@@ -24,7 +24,7 @@
           <div class="stat-content">
             <div class="stat-label">今日消费</div>
             <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_consumption || '0.00'}`)">
-              ¥{{ dashboard.today_consumption || '0.00' }}
+              ¥{{ formatAmount(dashboard.today_consumption || '0.00') }}
             </div>
           </div>
         </el-card>
@@ -38,7 +38,7 @@
           <div class="stat-content">
             <div class="stat-label">今日退款</div>
             <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_refund || '0.00'}`)">
-              ¥{{ dashboard.today_refund || '0.00' }}
+              ¥{{ formatAmount(dashboard.today_refund || '0.00') }}
             </div>
           </div>
         </el-card>
@@ -52,7 +52,7 @@
           <div class="stat-content">
             <div class="stat-label">今日净收入</div>
             <div class="stat-value copyable-stat" @click="handleCopyValue(`¥${dashboard.today_net_income || '0.00'}`)">
-              ¥{{ dashboard.today_net_income || '0.00' }}
+              ¥{{ formatAmount(dashboard.today_net_income || '0.00') }}
             </div>
           </div>
         </el-card>
@@ -108,17 +108,17 @@
             <el-table-column prop="operator_name" label="运营商名称" />
             <el-table-column prop="total_consumption" label="累计消费" align="right">
               <template #default="scope">
-                ¥{{ scope.row.total_consumption }}
+                ¥{{ formatAmount(scope.row.total_consumption) }}
               </template>
             </el-table-column>
             <el-table-column prop="total_recharge" label="累计充值" align="right">
               <template #default="scope">
-                ¥{{ scope.row.total_recharge }}
+                ¥{{ formatAmount(scope.row.total_recharge) }}
               </template>
             </el-table-column>
             <el-table-column prop="current_balance" label="当前余额" align="right">
               <template #default="scope">
-                ¥{{ scope.row.current_balance }}
+                ¥{{ formatAmount(scope.row.current_balance) }}
               </template>
             </el-table-column>
             <el-table-column prop="customer_tier" label="客户分类" width="100" align="center">
@@ -155,7 +155,7 @@
             </div>
             <div class="pending-item" @click="$router.push('/finance/bank-transfers')">
               <el-icon :size="20" color="#67c23a"><Money /></el-icon>
-              <span>待审核转账</span>
+              <span>待审核充值</span>
               <el-badge :value="pendingBankTransfers" class="badge" />
             </div>
           </div>
@@ -180,7 +180,7 @@
             </el-button>
             <el-button type="success" @click="$router.push('/finance/bank-transfers')">
               <el-icon><Money /></el-icon>
-              转账审核
+              充值审核
             </el-button>
             <el-button type="warning" @click="$router.push('/finance/recharge-records?action=recharge')">
               <el-icon><Money /></el-icon>
@@ -246,6 +246,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { formatAmount } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import {
   Money,
@@ -372,7 +373,7 @@ const getTierLabel = (tier: string) => {
   }
 }
 
-// 获取待处理银行转账数量
+// 获取待处理充值数量
 const fetchPendingBankTransfers = async () => {
   try {
     const response = await http.get('/finance/bank-transfers', {
@@ -380,7 +381,7 @@ const fetchPendingBankTransfers = async () => {
     })
     pendingBankTransfers.value = response.data.total || 0
   } catch (error: any) {
-    ElMessage.error('获取待处理银行转账数量失败')
+    ElMessage.error('获取待处理充值数量失败')
   }
 }
 

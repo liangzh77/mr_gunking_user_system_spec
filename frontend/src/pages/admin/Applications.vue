@@ -41,7 +41,7 @@
         <el-table-column prop="description" label="描述" min-width="250" />
         <el-table-column prop="price_per_player" label="单价(元/人)" width="130" align="right">
           <template #default="{ row }">
-            ¥{{ Number(row.price_per_player || 0).toFixed(2) }}
+            ¥{{ formatAmount(Number(row.price_per_player || 0)) }}
           </template>
         </el-table-column>
         <el-table-column prop="is_active" label="状态" width="100" align="center">
@@ -179,7 +179,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
 const router = useRouter()
@@ -211,7 +211,7 @@ const editFormData = reactive({
   app_code: '',
   app_name: '',
   description: '',
-  price_per_player: 0,
+  price_per_player: '' as any,
   min_players: 1,
   max_players: 1,
   is_active: true,
