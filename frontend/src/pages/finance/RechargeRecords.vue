@@ -218,16 +218,14 @@
         </el-form-item>
 
         <el-form-item label="充值金额" prop="amount">
-          <el-input-number
+          <el-input
             v-model="rechargeForm.amount"
-            :min="0.01"
-            :max="999999.99"
-            :precision="2"
-            :step="100"
-            controls-position="right"
+            type="number"
             placeholder="请输入充值金额"
             style="width: 100%"
-          />
+          >
+            <template #prefix>¥</template>
+          </el-input>
           <div class="form-tip">充值金额必须大于0</div>
         </el-form-item>
 
@@ -312,16 +310,14 @@
         </el-form-item>
 
         <el-form-item label="扣费金额" prop="amount">
-          <el-input-number
+          <el-input
             v-model="deductForm.amount"
-            :min="0.01"
-            :max="999999.99"
-            :precision="2"
-            :step="100"
-            controls-position="right"
+            type="number"
             placeholder="请输入扣费金额"
             style="width: 100%"
-          />
+          >
+            <template #prefix>¥</template>
+          </el-input>
           <div class="form-tip">扣费金额必须大于0且不能超过运营商当前余额</div>
         </el-form-item>
 
