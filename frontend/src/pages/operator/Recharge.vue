@@ -91,45 +91,18 @@
             </template>
             <el-descriptions :column="1" border v-loading="loadingBankInfo">
               <el-descriptions-item label="户名">
-                <div class="account-number">
+                <div class="account-number clickable-text" @click="copyAccountName">
                   <span>{{ bankAccountInfo.account_name }}</span>
-                  <el-button
-                    link
-                    type="primary"
-                    @click="copyAccountName"
-                    style="margin-left: 10px"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
-                    复制
-                  </el-button>
                 </div>
               </el-descriptions-item>
               <el-descriptions-item label="账号">
-                <div class="account-number">
+                <div class="account-number clickable-text" @click="copyAccountNumber">
                   <span>{{ bankAccountInfo.account_number }}</span>
-                  <el-button
-                    link
-                    type="primary"
-                    @click="copyAccountNumber"
-                    style="margin-left: 10px"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
-                    复制
-                  </el-button>
                 </div>
               </el-descriptions-item>
               <el-descriptions-item label="开户行">
-                <div class="account-number">
+                <div class="account-number clickable-text" @click="copyBankName">
                   <span>{{ bankAccountInfo.bank_name }}</span>
-                  <el-button
-                    link
-                    type="primary"
-                    @click="copyBankName"
-                    style="margin-left: 10px"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
-                    复制
-                  </el-button>
                 </div>
               </el-descriptions-item>
             </el-descriptions>
@@ -644,7 +617,11 @@ const loadBankAccountInfo = async () => {
 const copyAccountNumber = async () => {
   try {
     await navigator.clipboard.writeText(bankAccountInfo.value.account_number)
-    ElMessage.success('账号已复制到剪贴板')
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
   } catch (error) {
     ElMessage.error('复制失败')
   }
@@ -654,7 +631,11 @@ const copyAccountNumber = async () => {
 const copyAccountName = async () => {
   try {
     await navigator.clipboard.writeText(bankAccountInfo.value.account_name)
-    ElMessage.success('户名已复制到剪贴板')
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
   } catch (error) {
     ElMessage.error('复制失败')
   }
@@ -664,7 +645,11 @@ const copyAccountName = async () => {
 const copyBankName = async () => {
   try {
     await navigator.clipboard.writeText(bankAccountInfo.value.bank_name)
-    ElMessage.success('开户行已复制到剪贴板')
+    ElMessage.success({
+      message: '已复制',
+      duration: 1000,
+      showClose: false,
+    })
   } catch (error) {
     ElMessage.error('复制失败')
   }
@@ -1130,6 +1115,23 @@ onMounted(() => {
 .account-number {
   display: flex;
   align-items: center;
+}
+
+.clickable-text {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.clickable-text:hover {
+  color: #409eff;
+  background-color: #f0f9ff;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.clickable-text:active {
+  transform: scale(0.98);
 }
 
 .voucher-uploader-hidden {
