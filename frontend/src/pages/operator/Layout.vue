@@ -6,6 +6,8 @@
       </div>
       <el-menu
         :default-active="activeMenu"
+        :default-openeds="['finance', 'sites', 'data']"
+        :unique-opened="false"
         router
         background-color="#304156"
         text-color="#bfcbd9"
@@ -23,7 +25,7 @@
           </template>
           <el-menu-item index="/operator/recharge">
             <el-icon><CreditCard /></el-icon>
-            <span>在线充值</span>
+            <span>在线转账</span>
           </el-menu-item>
           <el-menu-item index="/operator/transactions">
             <el-icon><List /></el-icon>
@@ -135,7 +137,7 @@ const activeMenu = computed(() => route.path)
 const breadcrumbMap: Record<string, string> = {
   '/operator/dashboard': '仪表盘',
   '/operator/profile': '个人中心',
-  '/operator/recharge': '在线充值',
+  '/operator/recharge': '在线转账',
   '/operator/transactions': '交易记录',
   '/operator/refunds': '退款管理',
   '/operator/invoices': '发票管理',

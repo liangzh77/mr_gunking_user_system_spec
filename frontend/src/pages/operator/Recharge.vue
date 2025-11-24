@@ -364,7 +364,7 @@
     <el-card class="applications-card" style="margin-top: 20px">
       <template #header>
         <div class="card-header">
-          <span>充值申请记录</span>
+          <span>转账申请记录</span>
         </div>
       </template>
 
@@ -430,7 +430,7 @@
         style="width: 100%"
       >
         <el-table-column prop="application_id" label="申请ID" width="200" show-overflow-tooltip />
-        <el-table-column label="付款类型" width="110" align="center">
+        <el-table-column label="转账类型" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="getPaymentMethodType(row.payment_method)" size="small">
               {{ getPaymentMethodLabel(row.payment_method) }}
@@ -490,7 +490,7 @@
       </el-table>
 
       <div v-if="!loadingTransfers && bankTransfers.length === 0" class="empty-state">
-        <el-empty description="暂无充值申请记录" />
+        <el-empty description="暂无转账申请记录" />
       </div>
 
       <div v-if="transferPagination.total > 0" class="pagination-container">

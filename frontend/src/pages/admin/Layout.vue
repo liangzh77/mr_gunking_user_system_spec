@@ -7,6 +7,7 @@
       <el-menu
         :default-active="activeMenu"
         :default-openeds="openedMenus"
+        :unique-opened="false"
         router
         background-color="#304156"
         text-color="#bfcbd9"

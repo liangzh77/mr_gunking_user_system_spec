@@ -102,7 +102,14 @@
       <el-table v-copyable :data="records" v-loading="loading" stripe>
         <el-table-column prop="transaction_id" label="交易ID" width="220" show-overflow-tooltip />
         <el-table-column prop="operator_name" label="运营商" width="150" show-overflow-tooltip />
-        <el-table-column prop="amount" label="交易金额" width="120" align="right">
+        <el-table-column prop="recharge_method" label="转账类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getRechargeMethodTagType(row.recharge_method)" size="small">
+              {{ row.recharge_method }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="转账金额" width="120" align="right">
           <template #default="{ row }">
             <span :style="{ color: row.recharge_method === '财务扣费' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
               ¥{{ row.amount }}
@@ -112,13 +119,6 @@
         <el-table-column prop="balance_after" label="余额" width="120" align="right">
           <template #default="{ row }">
             ¥{{ row.balance_after }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="recharge_method" label="充值方式" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getRechargeMethodTagType(row.recharge_method)" size="small">
-              {{ row.recharge_method }}
-            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="description" label="备注" min-width="150" show-overflow-tooltip />
