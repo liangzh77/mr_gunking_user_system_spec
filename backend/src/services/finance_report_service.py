@@ -129,6 +129,7 @@ class FinanceReportService:
                 func.sum(
                     case(
                         (TransactionRecord.transaction_type == "recharge", TransactionRecord.amount),
+                        (TransactionRecord.transaction_type == "deduct", -TransactionRecord.amount),
                         else_=0,
                     )
                 ),
@@ -216,6 +217,7 @@ class FinanceReportService:
                     func.sum(
                         case(
                             (TransactionRecord.transaction_type == "recharge", TransactionRecord.amount),
+                            (TransactionRecord.transaction_type == "deduct", -TransactionRecord.amount),
                             else_=0,
                         )
                     ),

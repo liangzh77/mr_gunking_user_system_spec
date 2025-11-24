@@ -6,6 +6,8 @@
       </div>
       <el-menu
         :default-active="activeMenu"
+        :default-openeds="['审核']"
+        :unique-opened="false"
         router
         background-color="#304156"
         text-color="#bfcbd9"
