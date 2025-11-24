@@ -365,7 +365,7 @@ const route = useRoute()
 const queryForm = reactive({
   operator_id: '',
   date_range: [] as string[],
-  recharge_method: '', // 充值方式: manual(手动), online(在线), bank_transfer(银行转账)
+  recharge_method: '', // 充值方式: manual(手动), online(在线), bank_transfer(银行充值)
 })
 
 // 分页信息

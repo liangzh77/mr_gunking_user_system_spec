@@ -2470,14 +2470,14 @@ async def get_recharge_records(
                 recharge_method = "财务扣费"
                 payment_info = None
             elif record.payment_channel == 'wechat':
-                recharge_method = "微信转账"
+                recharge_method = "微信充值"
                 payment_info = {
                     "channel": record.payment_channel,
                     "order_no": record.payment_order_no,
                     "status": record.payment_status,
                 }
             elif record.payment_channel == 'bank_transfer':
-                recharge_method = "银行转账"
+                recharge_method = "银行充值"
                 payment_info = {
                     "channel": record.payment_channel,
                     "order_no": record.payment_order_no,
