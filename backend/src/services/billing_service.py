@@ -139,6 +139,9 @@ class BillingService:
         operator_id: UUID,
         site_id: UUID,
         application: Application,
+        application_mode_id: UUID,
+        mode_name: str,
+        mode_price: Decimal,
         player_count: int,
         client_ip: Optional[str] = None,
         headset_ids: Optional[list[str]] = None
@@ -152,7 +155,7 @@ class BillingService:
         2. 计算总费用
         3. 验证余额充足
         4. 扣减余额
-        5. 创建使用记录
+        5. 创建使用记录（包括模式快照）
         6. 创建交易记录
 
         Args:
@@ -160,6 +163,9 @@ class BillingService:
             operator_id: 运营商ID
             site_id: 运营点ID
             application: 应用对象
+            application_mode_id: 应用模式ID
+            mode_name: 模式名称（快照）
+            mode_price: 模式价格（快照）
             player_count: 玩家数量
             client_ip: 客户端IP(可选)
             headset_ids: 头显设备ID列表(可选)
@@ -172,8 +178,8 @@ class BillingService:
             HTTPException 409: 会话ID重复(幂等性冲突)
             HTTPException 500: 数据库并发冲突
         """
-        # 计算费用
-        total_cost = application.price_per_player * player_count
+        # 计算费用 - 使用模式价格
+        total_cost = mode_price * player_count
 
         try:
             # STEP 1: 使用SELECT FOR UPDATE锁定运营商账户行
@@ -214,14 +220,17 @@ class BillingService:
             operator.balance = balance_before - total_cost
             balance_after = operator.balance
 
-            # STEP 4: 创建使用记录
+            # STEP 4: 创建使用记录（包括模式快照）
             usage_record = UsageRecord(
                 session_id=session_id,
                 operator_id=operator_id,
                 site_id=site_id,
                 application_id=application.id,
+                application_mode_id=application_mode_id,
+                mode_name_snapshot=mode_name,
+                price_snapshot=mode_price,
                 player_count=player_count,
-                price_per_player=application.price_per_player,
+                price_per_player=application.price_per_player,  # 保留用于向后兼容
                 total_cost=total_cost,
                 game_started_at=datetime.utcnow(),
                 client_ip=client_ip,

@@ -1188,6 +1188,7 @@ class ApplicationRequestCreate(BaseModel):
 
     字段要求:
     - app_id: 应用ID(格式: app_<uuid>)
+    - mode_ids: 申请的模式ID列表
     - reason: 10-500字符,申请理由
     """
     app_id: str = Field(
@@ -1195,6 +1196,12 @@ class ApplicationRequestCreate(BaseModel):
         min_length=4,
         description="应用ID(格式: app_<uuid> 或纯UUID)",
         examples=["app_space_adventure_001"]
+    )
+
+    mode_ids: list[UUID] = Field(
+        ...,
+        min_length=1,
+        description="申请的模式ID列表（至少选择一个）"
     )
 
     reason: str = Field(
@@ -1210,6 +1217,7 @@ class ApplicationRequestCreate(BaseModel):
             "examples": [
                 {
                     "app_id": "app_space_adventure_001",
+                    "mode_ids": ["323e4567-e89b-12d3-a456-426614174000", "423e4567-e89b-12d3-a456-426614174000"],
                     "reason": "我们门店新增了VR设备，希望为用户提供太空探险游戏体验"
                 }
             ]

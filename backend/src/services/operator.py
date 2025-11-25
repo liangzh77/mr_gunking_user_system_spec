@@ -1929,6 +1929,7 @@ class OperatorService:
         self,
         operator_id: UUID,
         application_id: UUID,
+        mode_ids: list[UUID],
         reason: str
     ):
         """申请应用授权 (T098)
@@ -1939,22 +1940,26 @@ class OperatorService:
         - 不能重复申请(同一应用只能有一条pending申请)
         - 不能申请已授权的应用
         - 应用必须存在且is_active=true
+        - 必须至少选择一个模式
 
         Args:
             operator_id: 运营商ID
             application_id: 要申请的应用ID
+            mode_ids: 申请的模式ID列表
             reason: 申请理由
 
         Returns:
             ApplicationRequest: 新创建的授权申请记录
 
         Raises:
-            HTTPException 400: 不能重复申请或已授权
+            HTTPException 400: 不能重复申请或已授权或模式无效
             HTTPException 404: 运营商或应用不存在
         """
         from ..models.app_request import ApplicationRequest
         from ..models.application import Application
         from ..models.authorization import OperatorAppAuthorization
+        from ..models.application_mode import ApplicationMode
+        from ..models.application_request_mode import ApplicationRequestMode
 
         # 1. 验证运营商存在
         operator_stmt = select(OperatorAccount).where(
@@ -1995,6 +2000,33 @@ class OperatorService:
                 detail={
                     "error_code": "APPLICATION_INACTIVE",
                     "message": "该应用已下架,无法申请授权"
+                }
+            )
+
+        # 2.5 验证模式ID
+        if not mode_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_MODE_IDS",
+                    "message": "必须至少选择一个模式"
+                }
+            )
+
+        # 验证所有模式都属于该应用
+        modes_stmt = select(ApplicationMode).where(
+            ApplicationMode.id.in_(mode_ids),
+            ApplicationMode.application_id == application_id
+        )
+        modes_result = await self.db.execute(modes_stmt)
+        modes = modes_result.scalars().all()
+
+        if len(modes) != len(mode_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "INVALID_MODE_IDS",
+                    "message": "部分模式ID无效或不属于该应用"
                 }
             )
 
@@ -2043,6 +2075,16 @@ class OperatorService:
         )
 
         self.db.add(app_request)
+        await self.db.flush()  # Flush to get app_request.id
+
+        # 6. 创建申请-模式关联
+        for mode_id in mode_ids:
+            request_mode = ApplicationRequestMode(
+                request_id=app_request.id,
+                application_mode_id=mode_id,
+            )
+            self.db.add(request_mode)
+
         await self.db.commit()
         await self.db.refresh(app_request)
 

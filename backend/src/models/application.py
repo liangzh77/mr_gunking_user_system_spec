@@ -155,6 +155,15 @@ class Application(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个应用有多个游戏模式
+    modes: Mapped[list["ApplicationMode"]] = relationship(
+        "ApplicationMode",
+        back_populates="application",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="ApplicationMode.sort_order"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 价格必须为正数

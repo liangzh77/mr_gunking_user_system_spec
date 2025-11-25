@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from .application_mode import ApplicationModeResponse
 from .common import TimestampMixin, UUIDMixin
 
 
@@ -98,6 +99,7 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
     is_active: bool = Field(description="Application active status")
     launch_exe_path: str | None = Field(default=None, description="自定义协议名(如 notepad)")
     created_by: UUID | None = Field(default=None, description="Creator admin ID")
+    modes: list[ApplicationModeResponse] = Field(default_factory=list, description="游戏模式列表")
 
     class Config:
         """Pydantic config."""
@@ -112,6 +114,7 @@ class AuthorizeApplicationRequest(BaseModel):
 
     operator_id: UUID = Field(..., description="Operator ID")
     application_id: UUID = Field(..., description="Application ID")
+    mode_ids: list[UUID] = Field(..., min_length=1, description="授权的模式ID列表（至少选择一个）")
     expires_at: datetime | None = Field(None, description="Authorization expiration time (null for permanent)")
     application_request_id: UUID | None = Field(None, description="Related application request ID (if from request)")
 
@@ -122,11 +125,13 @@ class AuthorizeApplicationRequest(BaseModel):
                 {
                     "operator_id": "123e4567-e89b-12d3-a456-426614174000",
                     "application_id": "223e4567-e89b-12d3-a456-426614174000",
+                    "mode_ids": ["323e4567-e89b-12d3-a456-426614174000", "423e4567-e89b-12d3-a456-426614174000"],
                     "expires_at": "2025-12-31T23:59:59Z"
                 },
                 {
                     "operator_id": "123e4567-e89b-12d3-a456-426614174000",
                     "application_id": "223e4567-e89b-12d3-a456-426614174000",
+                    "mode_ids": ["323e4567-e89b-12d3-a456-426614174000"],
                     "expires_at": None
                 }
             ]
@@ -145,6 +150,7 @@ class AuthorizationResponse(UUIDMixin, TimestampMixin):
     authorized_by: UUID = Field(description="Authorizer admin ID")
     application_request_id: UUID | None = Field(default=None, description="Related application request ID")
     is_active: bool = Field(description="Authorization active status")
+    authorized_modes: list[ApplicationModeResponse] = Field(default_factory=list, description="已授权的模式列表")
 
     class Config:
         """Pydantic config."""

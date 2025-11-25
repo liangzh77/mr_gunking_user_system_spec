@@ -159,6 +159,8 @@ class AdminService:
 
         # If approved, create authorization
         if action == "approve":
+            from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
+
             # Check if authorization already exists
             auth_result = await self.db.execute(
                 select(OperatorAppAuthorization).where(
@@ -183,6 +185,15 @@ class AdminService:
                     expires_at=None  # Permanent authorization
                 )
                 self.db.add(authorization)
+                await self.db.flush()  # Flush to get authorization.id
+
+                # Create mode associations from request's requested_modes
+                for requested_mode in request.requested_modes:
+                    auth_mode = OperatorAppAuthorizationMode(
+                        authorization_id=authorization.id,
+                        application_mode_id=requested_mode.application_mode_id,
+                    )
+                    self.db.add(auth_mode)
 
         # Commit changes
         await self.db.commit()
@@ -670,6 +681,7 @@ class AdminService:
         operator_id: PyUUID,
         application_id: PyUUID,
         admin_id: PyUUID,
+        mode_ids: list[PyUUID],
         expires_at: Optional[datetime] = None,
         application_request_id: Optional[PyUUID] = None,
     ) -> OperatorAppAuthorization:
@@ -679,6 +691,7 @@ class AdminService:
             operator_id: Operator ID (UUID)
             application_id: Application ID (UUID)
             admin_id: Admin ID performing the authorization (UUID)
+            mode_ids: List of mode IDs to authorize
             expires_at: Optional expiration datetime
             application_request_id: Optional related application request ID
 
@@ -687,8 +700,11 @@ class AdminService:
 
         Raises:
             NotFoundException: If operator or application not found
-            BadRequestException: If authorization already exists
+            BadRequestException: If authorization already exists or modes invalid
         """
+        from ...models.application_mode import ApplicationMode
+        from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
+
         # Check operator exists
         op_result = await self.db.execute(
             select(OperatorAccount).where(OperatorAccount.id == operator_id)
@@ -704,6 +720,23 @@ class AdminService:
         application = app_result.scalar_one_or_none()
         if not application:
             raise NotFoundException("Application not found")
+
+        # Validate mode_ids belong to this application
+        if not mode_ids:
+            raise BadRequestException("At least one mode must be selected")
+
+        modes_result = await self.db.execute(
+            select(ApplicationMode).where(
+                and_(
+                    ApplicationMode.id.in_(mode_ids),
+                    ApplicationMode.application_id == application_id
+                )
+            )
+        )
+        modes = modes_result.scalars().all()
+
+        if len(modes) != len(mode_ids):
+            raise BadRequestException("Some mode IDs are invalid or don't belong to this application")
 
         # Check if authorization already exists
         auth_result = await self.db.execute(
@@ -731,6 +764,16 @@ class AdminService:
             application_request_id=application_request_id,
         )
         self.db.add(authorization)
+        await self.db.flush()  # Flush to get authorization.id
+
+        # Create authorization-mode associations
+        for mode_id in mode_ids:
+            auth_mode = OperatorAppAuthorizationMode(
+                authorization_id=authorization.id,
+                application_mode_id=mode_id,
+            )
+            self.db.add(auth_mode)
+
         await self.db.commit()
 
         # Refresh with relationships loaded

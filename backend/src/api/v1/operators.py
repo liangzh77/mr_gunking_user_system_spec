@@ -3604,6 +3604,7 @@ async def create_application_request(
         app_request = await operator_service.create_application_request(
             operator_id=operator_id,
             application_id=app_uuid,
+            mode_ids=request.mode_ids,
             reason=request.reason
         )
 

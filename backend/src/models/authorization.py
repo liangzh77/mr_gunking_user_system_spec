@@ -136,6 +136,14 @@ class OperatorAppAuthorization(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个授权包含多个模式
+    authorized_modes: Mapped[list["OperatorAppAuthorizationMode"]] = relationship(
+        "OperatorAppAuthorizationMode",
+        back_populates="authorization",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 到期时间必须晚于授权时间

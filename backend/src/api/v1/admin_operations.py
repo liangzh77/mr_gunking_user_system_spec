@@ -24,6 +24,11 @@ from ...schemas.admin_application import (
     AuthorizeApplicationRequest,
     AuthorizationResponse,
 )
+from ...schemas.application_mode import (
+    ApplicationModeCreate,
+    ApplicationModeUpdate,
+    ApplicationModeResponse,
+)
 from ...schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
 from ...schemas.common import MessageResponse
 from ...schemas.site import SiteCreateRequest, SiteUpdateRequest, SiteListResponse, SiteItem
@@ -568,6 +573,226 @@ async def update_player_range(
     )
 
 
+# ==================== Application Mode Management APIs ====================
+
+
+@router.post(
+    "/applications/{app_id}/modes",
+    response_model=ApplicationModeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Application Mode",
+    description="Create a new mode for an application",
+)
+async def create_application_mode(
+    app_id: str,
+    mode_data: ApplicationModeCreate,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> ApplicationModeResponse:
+    """Create a new mode for an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        mode_data: Mode creation data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        ApplicationModeResponse: Created mode data
+    """
+    from uuid import UUID
+    from ...models.application_mode import ApplicationMode
+    from ...models.application import Application
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Verify application exists
+    app_stmt = select(Application).where(Application.id == app_uuid)
+    app_result = await db.execute(app_stmt)
+    app = app_result.scalar_one_or_none()
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Create mode
+    mode = ApplicationMode(
+        application_id=app_uuid,
+        mode_name=mode_data.mode_name,
+        price=mode_data.price,
+        description=mode_data.description,
+        sort_order=mode_data.sort_order,
+        is_active=mode_data.is_active,
+    )
+
+    db.add(mode)
+    await db.commit()
+    await db.refresh(mode)
+
+    return ApplicationModeResponse.model_validate(mode)
+
+
+@router.get(
+    "/applications/{app_id}/modes",
+    response_model=list[ApplicationModeResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get Application Modes",
+    description="Get all modes for an application",
+)
+async def get_application_modes(
+    app_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> list[ApplicationModeResponse]:
+    """Get all modes for an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        list[ApplicationModeResponse]: List of modes
+    """
+    from uuid import UUID
+    from ...models.application_mode import ApplicationMode
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Query modes
+    stmt = select(ApplicationMode).where(
+        ApplicationMode.application_id == app_uuid
+    ).order_by(ApplicationMode.sort_order)
+
+    result = await db.execute(stmt)
+    modes = result.scalars().all()
+
+    return [ApplicationModeResponse.model_validate(mode) for mode in modes]
+
+
+@router.put(
+    "/applications/{app_id}/modes/{mode_id}",
+    response_model=ApplicationModeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Application Mode",
+    description="Update a mode for an application",
+)
+async def update_application_mode(
+    app_id: str,
+    mode_id: str,
+    mode_data: ApplicationModeUpdate,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> ApplicationModeResponse:
+    """Update a mode for an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        mode_id: Mode ID (UUID string)
+        mode_data: Mode update data
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        ApplicationModeResponse: Updated mode data
+    """
+    from uuid import UUID
+    from ...models.application_mode import ApplicationMode
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+        mode_uuid = UUID(mode_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid ID format")
+
+    # Query mode
+    stmt = select(ApplicationMode).where(
+        ApplicationMode.id == mode_uuid,
+        ApplicationMode.application_id == app_uuid
+    )
+    result = await db.execute(stmt)
+    mode = result.scalar_one_or_none()
+
+    if not mode:
+        from ...core import NotFoundException
+        raise NotFoundException("Mode not found")
+
+    # Update fields
+    update_data = mode_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(mode, field, value)
+
+    await db.commit()
+    await db.refresh(mode)
+
+    return ApplicationModeResponse.model_validate(mode)
+
+
+@router.delete(
+    "/applications/{app_id}/modes/{mode_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Delete Application Mode",
+    description="Delete a mode for an application",
+)
+async def delete_application_mode(
+    app_id: str,
+    mode_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> MessageResponse:
+    """Delete a mode for an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        mode_id: Mode ID (UUID string)
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        MessageResponse: Success message
+    """
+    from uuid import UUID
+    from ...models.application_mode import ApplicationMode
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+        mode_uuid = UUID(mode_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid ID format")
+
+    # Query mode
+    stmt = select(ApplicationMode).where(
+        ApplicationMode.id == mode_uuid,
+        ApplicationMode.application_id == app_uuid
+    )
+    result = await db.execute(stmt)
+    mode = result.scalar_one_or_none()
+
+    if not mode:
+        from ...core import NotFoundException
+        raise NotFoundException("Mode not found")
+
+    # Delete mode (cascade will handle related records)
+    await db.delete(mode)
+    await db.commit()
+
+    return MessageResponse(message="Mode deleted successfully")
+
+
 # ==================== Authorization Management APIs (T145, T146) ====================
 
 @router.post(
@@ -609,6 +834,7 @@ async def authorize_application(
         operator_id=operator_uuid,
         application_id=auth_data.application_id,
         admin_id=admin_id,
+        mode_ids=auth_data.mode_ids,
         expires_at=auth_data.expires_at,
         application_request_id=auth_data.application_request_id,
     )
@@ -623,6 +849,12 @@ async def authorize_application(
     )
 
     # Build response with operator and app names from relationships
+    # Build authorized modes list
+    authorized_modes = [
+        ApplicationModeResponse.model_validate(auth_mode.application_mode)
+        for auth_mode in authorization.authorized_modes
+    ]
+
     return AuthorizationResponse(
         id=authorization.id,
         operator_id=authorization.operator_id,
@@ -634,6 +866,7 @@ async def authorize_application(
         authorized_by=authorization.authorized_by,
         application_request_id=authorization.application_request_id,
         is_active=authorization.is_active,
+        authorized_modes=authorized_modes,
         created_at=authorization.created_at,
         updated_at=authorization.updated_at,
     )
@@ -688,6 +921,12 @@ async def revoke_authorization(
     )
 
     # Build response with operator and app names from relationships
+    # Build authorized modes list
+    authorized_modes = [
+        ApplicationModeResponse.model_validate(auth_mode.application_mode)
+        for auth_mode in authorization.authorized_modes
+    ]
+
     return AuthorizationResponse(
         id=authorization.id,
         operator_id=authorization.operator_id,
@@ -699,6 +938,7 @@ async def revoke_authorization(
         authorized_by=authorization.authorized_by,
         application_request_id=authorization.application_request_id,
         is_active=authorization.is_active,
+        authorized_modes=authorized_modes,
         created_at=authorization.created_at,
         updated_at=authorization.updated_at,
     )
