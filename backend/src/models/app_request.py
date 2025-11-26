@@ -139,6 +139,14 @@ class ApplicationRequest(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个申请包含多个请求的模式
+    requested_modes: Mapped[list["ApplicationRequestMode"]] = relationship(
+        "ApplicationRequestMode",
+        back_populates="request",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
         # CHECK约束: 状态枚举

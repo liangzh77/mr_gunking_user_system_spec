@@ -130,7 +130,14 @@
                 </div>
                 <div class="app-code">代码: {{ app.app_code }}</div>
                 <div v-if="app.description" class="app-description">{{ app.description }}</div>
-                <div class="app-price">¥{{ formatAmount(app.price_per_player) }}/人</div>
+                <div class="app-price">
+                  <span v-if="app.modes && app.modes.length > 0">
+                    <span v-for="(mode, index) in getSortedModes(app.modes)" :key="mode.id">
+                      ¥{{ formatAmount(Number(mode.price || 0)) }}<template v-if="index < app.modes.length - 1">、</template>
+                    </span>
+                  </span>
+                  <span v-else style="color: #909399">暂无模式</span>
+                </div>
                 <div v-if="isEditing && selectedOperator" class="app-checkbox">
                   <el-checkbox
                     :model-value="editingAuthorizations.has(app.id)"
@@ -180,12 +187,20 @@ interface Operator {
   balance: string
 }
 
+interface ApplicationMode {
+  id: string
+  mode_name: string
+  price: string
+  description?: string
+  is_active: boolean
+}
+
 interface Application {
   id: string
   app_name: string
   app_code: string
   description?: string
-  price_per_player: string
+  modes?: ApplicationMode[]
 }
 
 interface Authorization {
@@ -230,6 +245,12 @@ const filteredApplications = computed(() => {
       (app.description && app.description.toLowerCase().includes(keyword))
   )
 })
+
+// 获取按价格排序的模式列表
+const getSortedModes = (modes: ApplicationMode[]) => {
+  if (!modes || modes.length === 0) return []
+  return [...modes].sort((a, b) => Number(a.price) - Number(b.price))
+}
 
 // 加载运营商列表
 const loadOperators = async () => {
@@ -318,13 +339,13 @@ const getCategoryLabel = (category: string): string => {
 }
 
 // 获取客户分类标签类型
-const getCategoryType = (category: string): string => {
-  const types: Record<string, string> = {
+const getCategoryType = (category: string): string | undefined => {
+  const types: Record<string, string | undefined> = {
     trial: 'info',
-    normal: '',
+    normal: undefined,
     vip: 'warning'
   }
-  return types[category] || ''
+  return types[category]
 }
 
 // 选择运营商
@@ -367,16 +388,27 @@ const handleOperatorSearch = () => {
 }
 
 // 进入编辑模式
-const handleEdit = () => {
+const handleEdit = async () => {
   if (!selectedOperator.value) return
 
-  isEditing.value = true
-  // 初始化编辑状态：将当前已授权的应用加入编辑集合
-  editingAuthorizations.value = new Set(
-    authorizations.value
-      .filter((auth) => auth.operator_id === selectedOperator.value!.id)
-      .map((auth) => auth.application_id)
-  )
+  try {
+    loading.value = true
+    // 先重新加载最新的授权状态，确保数据同步
+    await loadOperatorAuthorizations(selectedOperator.value.id)
+
+    isEditing.value = true
+    // 初始化编辑状态：将当前已授权的应用加入编辑集合
+    editingAuthorizations.value = new Set(
+      authorizations.value
+        .filter((auth) => auth.operator_id === selectedOperator.value!.id)
+        .map((auth) => auth.application_id)
+    )
+  } catch (error: any) {
+    console.error('Failed to load authorizations:', error)
+    ElMessage.error('加载授权数据失败，请重试')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 应用点击事件
@@ -418,40 +450,59 @@ const handleSaveEdit = async () => {
       (id) => !editingAuthorizations.value.has(id)
     )
 
-    // 执行新增授权
+    let hasError = false
+    const errors: string[] = []
+
+    // 执行新增授权（自动授权所有活跃模式）
     for (const appId of toAdd) {
-      await http.post(`/admins/operators/${selectedOperator.value.id}/applications`, {
-        operator_id: selectedOperator.value.id,
-        application_id: appId
-      })
+      try {
+        await http.post(`/admins/operators/${selectedOperator.value.id}/applications`, {
+          operator_id: selectedOperator.value.id,
+          application_id: appId
+        })
+      } catch (error: any) {
+        hasError = true
+        const appName = applications.value.find(a => a.id === appId)?.app_name || appId
+        const errorMsg = `授权应用 "${appName}" 失败: ${error.response?.data?.detail || '未知错误'}`
+        console.error(`Failed to authorize app ${appId}:`, error)
+        errors.push(errorMsg)
+      }
     }
 
     // 执行撤销授权
     for (const appId of toRemove) {
-      await http.delete(`/admins/operators/${selectedOperator.value.id}/applications/${appId}`)
+      try {
+        await http.delete(`/admins/operators/${selectedOperator.value.id}/applications/${appId}`)
+      } catch (error: any) {
+        hasError = true
+        const appName = applications.value.find(a => a.id === appId)?.app_name || appId
+        const errorMsg = `撤销应用 "${appName}" 授权失败: ${error.response?.data?.detail || '未知错误'}`
+        console.error(`Failed to revoke app ${appId}:`, error)
+        errors.push(errorMsg)
+      }
     }
 
-    ElMessage.success('授权更新成功')
+    // 重新从服务器加载授权数据，确保状态同步
+    await loadOperatorAuthorizations(selectedOperator.value.id)
 
-    // 更新本地授权状态
-    // 添加新授权
-    for (const appId of toAdd) {
-      authorizations.value.push({
-        operator_id: selectedOperator.value.id,
-        application_id: appId
-      })
+    // 显示结果消息
+    if (hasError) {
+      if (errors.length > 0) {
+        ElMessage.warning({
+          message: `部分操作失败:\n${errors.join('\n')}`,
+          duration: 5000,
+          showClose: true
+        })
+      }
+    } else {
+      ElMessage.success('授权更新成功')
     }
-    // 移除撤销的授权
-    authorizations.value = authorizations.value.filter(
-      (auth) =>
-        !(auth.operator_id === selectedOperator.value!.id && toRemove.includes(auth.application_id))
-    )
 
     // 退出编辑模式
     isEditing.value = false
   } catch (error: any) {
     console.error('Failed to save authorizations:', error)
-    ElMessage.error(error.response?.data?.detail || '授权更新失败')
+    ElMessage.error('操作失败，请重试')
   } finally {
     loading.value = false
   }

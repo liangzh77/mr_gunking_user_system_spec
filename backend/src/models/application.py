@@ -76,13 +76,7 @@ class Application(Base):
         comment="自定义协议名(如 notepad)，头显Server安装时会自动注册 mrgun-{协议名}:// 协议"
     )
 
-    # ==================== 定价规则 ====================
-    price_per_player: Mapped[Decimal] = mapped_column(
-        DECIMAL(10, 2),
-        nullable=False,
-        comment="单人价格(单位:元)"
-    )
-
+    # ==================== 玩家数限制 ====================
     min_players: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -155,13 +149,17 @@ class Application(Base):
         lazy="selectin"
     )
 
+    # 1:N - 一个应用有多个游戏模式
+    modes: Mapped[list["ApplicationMode"]] = relationship(
+        "ApplicationMode",
+        back_populates="application",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="ApplicationMode.sort_order"
+    )
+
     # ==================== 表级约束 ====================
     __table_args__ = (
-        # CHECK约束: 价格必须为正数
-        CheckConstraint(
-            "price_per_player > 0",
-            name="chk_price_positive"
-        ),
         # CHECK约束: 玩家数范围合理性
         # - 最小玩家数 >= 1
         # - 最大玩家数 >= 最小玩家数
@@ -176,14 +174,11 @@ class Application(Base):
         Index("idx_app_name", "app_name"),
         # 普通索引: 查询活跃应用
         Index("idx_app_active", "is_active"),
-        # 普通索引: 价格统计
-        Index("idx_app_price", "price_per_player"),
     )
 
     def __repr__(self) -> str:
         return (
             f"<Application(id={self.id}, "
             f"code={self.app_code}, "
-            f"name={self.app_name}, "
-            f"price={self.price_per_player})>"
+            f"name={self.app_name})>"
         )

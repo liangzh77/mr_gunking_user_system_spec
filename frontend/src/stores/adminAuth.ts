@@ -73,8 +73,18 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     try {
       const response = await http.get<AdminProfile>('/admins/auth/me')
       profile.value = response.data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch profile error:', error)
+      // 如果是401错误，清除本地状态（http拦截器会处理跳转）
+      if (error?.response?.status === 401) {
+        accessToken.value = null
+        adminId.value = null
+        profile.value = null
+        localStorage.removeItem('admin_access_token')
+        localStorage.removeItem('admin_id')
+      }
+      // 继续抛出错误，让http拦截器处理
+      throw error
     }
   }
 

@@ -256,6 +256,13 @@ class GameAuthorizeRequest(BaseModel):
         examples=[5]
     )
 
+    application_mode_id: str = Field(
+        ...,
+        description="应用模式ID",
+        min_length=1,
+        examples=["550e8400-e29b-41d4-a716-446655440000"]
+    )
+
     headset_ids: Optional[list[str]] = Field(
         default=None,
         description="头显设备ID列表(可选)",
@@ -268,6 +275,7 @@ class GameAuthorizeRequest(BaseModel):
                 "app_code": "APP_20251030_001",
                 "site_id": "site_beijing_001",
                 "player_count": 5,
+                "application_mode_id": "550e8400-e29b-41d4-a716-446655440000",
                 "headset_ids": ["headset_001", "headset_002"]
             }
         }

@@ -15,17 +15,20 @@
 - 运营商登出: JWT Token认证 (Authorization: Bearer {token})
 """
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator, require_headset_token, require_finance
 from ...core import get_redis
 from ...db.session import get_db
+from ...models.authorization import OperatorAppAuthorization
+from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
 from ...schemas.auth import (
     ErrorResponse,
     GameAuthorizeData,
@@ -188,7 +191,6 @@ async def authorize_game(
     if cached_app and cached_auth and cached_site:
         # 🎯 缓存全命中 - 直接使用缓存数据
         from ...models.application import Application
-        from ...models.authorization import OperatorAppAuthorization
         from ...models.site import OperationSite
         from decimal import Decimal
         from datetime import datetime
@@ -198,7 +200,6 @@ async def authorize_game(
             id=UUID(cached_app["id"]),
             app_code=cached_app["app_code"],
             app_name=cached_app["app_name"],
-            price_per_player=Decimal(cached_app["price_per_player"]),
             min_players=cached_app["min_players"],
             max_players=cached_app["max_players"],
             is_active=cached_app["is_active"]
@@ -258,7 +259,6 @@ async def authorize_game(
                 "id": str(application.id),
                 "app_code": application.app_code,
                 "app_name": application.app_name,
-                "price_per_player": str(application.price_per_player),
                 "min_players": application.min_players,
                 "max_players": application.max_players,
                 "is_active": application.is_active
@@ -287,17 +287,75 @@ async def authorize_game(
             ttl=1800  # 30分钟
         ))
 
-    # ========== STEP 5: 验证玩家数量 ==========
+    # ========== STEP 5: 验证应用模式 ==========
+    from ...models.application_mode import ApplicationMode
+    from sqlalchemy import and_
+
+    # 解析 application_mode_id
+    try:
+        mode_uuid = UUID(request_body.application_mode_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_MODE_ID",
+                "message": "无效的模式ID格式"
+            }
+        )
+
+    # 查询模式信息
+    mode_stmt = select(ApplicationMode).where(
+        ApplicationMode.id == mode_uuid,
+        ApplicationMode.application_id == application.id,
+        ApplicationMode.is_active == True
+    )
+    mode_result = await db.execute(mode_stmt)
+    mode = mode_result.scalar_one_or_none()
+
+    if not mode:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "MODE_NOT_FOUND",
+                "message": "模式不存在或已停用"
+            }
+        )
+
+    # 验证运营商是否被授权使用该模式
+    auth_mode_stmt = select(OperatorAppAuthorizationMode).join(
+        OperatorAppAuthorization,
+        OperatorAppAuthorizationMode.authorization_id == OperatorAppAuthorization.id
+    ).where(
+        and_(
+            OperatorAppAuthorization.operator_id == operator_id,
+            OperatorAppAuthorization.application_id == application.id,
+            OperatorAppAuthorization.is_active == True,
+            OperatorAppAuthorizationMode.application_mode_id == mode_uuid
+        )
+    )
+    auth_mode_result = await db.execute(auth_mode_stmt)
+    auth_mode = auth_mode_result.scalar_one_or_none()
+
+    if not auth_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "MODE_NOT_AUTHORIZED",
+                "message": f"您未被授权使用该模式：{mode.mode_name}"
+            }
+        )
+
+    # ========== STEP 6: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
 
-    # ========== STEP 6: 计算费用并检查余额 ==========
+    # ========== STEP 7: 计算费用并检查余额（使用模式价格）==========
     total_cost = billing_service.calculate_total_cost(
-        application.price_per_player,
+        mode.price,
         request_body.player_count
     )
     await billing_service.check_balance_sufficiency(operator, total_cost)
 
-    # ========== STEP 7: 检查业务键幂等性 (30秒窗口) ==========
+    # ========== STEP 8: 检查业务键幂等性 (30秒窗口) ==========
     from datetime import datetime, timedelta
     import hashlib
 
@@ -330,7 +388,7 @@ async def authorize_game(
             )
         )
 
-    # ========== STEP 8: 生成唯一的session_id ==========
+    # ========== STEP 9: 生成唯一的session_id ==========
     import random
     import string
     import time as time_module
@@ -339,7 +397,7 @@ async def authorize_game(
     random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
     session_id = f"{operator_id}_{timestamp_ms}_{random_str}"
 
-    # ========== STEP 9: 执行扣费事务 ==========
+    # ========== STEP 10: 执行扣费事务（包含模式快照）==========
     client_ip = request.client.host if request.client else None
 
     usage_record, transaction_record, balance_after = await billing_service.create_authorization_transaction(
@@ -347,12 +405,15 @@ async def authorize_game(
         operator_id=operator_id,
         site_id=site_id,
         application=application,
+        application_mode_id=mode.id,
+        mode_name=mode.mode_name,
+        mode_price=mode.price,
         player_count=request_body.player_count,
         client_ip=client_ip,
         headset_ids=request_body.headset_ids
     )
 
-    # ========== STEP 10: 构造响应 ==========
+    # ========== STEP 11: 构造响应 ==========
     response_data = GameAuthorizeData(
         session_id=usage_record.session_id,
         app_name=application.app_name,
@@ -491,7 +552,6 @@ async def pre_authorize_game(
     if cached_app and cached_auth and cached_site:
         # 🎯 缓存全命中 - 直接使用缓存数据,无需查询数据库!
         from ...models.application import Application
-        from ...models.authorization import OperatorAppAuthorization
         from ...models.site import OperationSite
         from decimal import Decimal
         from datetime import datetime
@@ -501,7 +561,6 @@ async def pre_authorize_game(
             id=UUID(cached_app["id"]),
             app_code=cached_app["app_code"],
             app_name=cached_app["app_name"],
-            price_per_player=Decimal(cached_app["price_per_player"]),
             min_players=cached_app["min_players"],
             max_players=cached_app["max_players"],
             is_active=cached_app["is_active"]
@@ -574,7 +633,6 @@ async def pre_authorize_game(
                 "id": str(application.id),
                 "app_code": application.app_code,
                 "app_name": application.app_name,
-                "price_per_player": str(application.price_per_player),
                 "min_players": application.min_players,
                 "max_players": application.max_players,
                 "is_active": application.is_active
@@ -603,30 +661,87 @@ async def pre_authorize_game(
             ttl=1800  # 30分钟
         ))
 
-    # ========== STEP 5: 验证玩家数量 ==========
+    # ========== STEP 5: 验证应用模式 ==========
+    from ...models.application_mode import ApplicationMode
+
+    # 解析 application_mode_id
+    try:
+        mode_uuid = UUID(request_body.application_mode_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "INVALID_MODE_ID",
+                "message": "无效的模式ID格式"
+            }
+        )
+
+    # 查询模式信息
+    mode_stmt = select(ApplicationMode).where(
+        ApplicationMode.id == mode_uuid,
+        ApplicationMode.application_id == application.id,
+        ApplicationMode.is_active == True
+    )
+    mode_result = await db.execute(mode_stmt)
+    mode = mode_result.scalar_one_or_none()
+
+    if not mode:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "MODE_NOT_FOUND",
+                "message": "模式不存在或已停用"
+            }
+        )
+
+    # 验证运营商是否被授权使用该模式
+    auth_mode_stmt = select(OperatorAppAuthorizationMode).join(
+        OperatorAppAuthorization,
+        OperatorAppAuthorizationMode.authorization_id == OperatorAppAuthorization.id
+    ).where(
+        and_(
+            OperatorAppAuthorization.operator_id == operator_id,
+            OperatorAppAuthorization.application_id == application.id,
+            OperatorAppAuthorization.is_active == True,
+            OperatorAppAuthorizationMode.application_mode_id == mode_uuid
+        )
+    )
+    auth_mode_result = await db.execute(auth_mode_stmt)
+    auth_mode = auth_mode_result.scalar_one_or_none()
+
+    if not auth_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "MODE_NOT_AUTHORIZED",
+                "message": f"您未被授权使用该模式：{mode.mode_name}"
+            }
+        )
+
+    # ========== STEP 6: 验证玩家数量 ==========
     await auth_service.verify_player_count(request_body.player_count, application)
 
-    # ========== STEP 6: 计算费用 ==========
+    # ========== STEP 7: 计算费用（使用模式价格）==========
     total_cost = billing_service.calculate_total_cost(
-        application.price_per_player,
+        mode.price,
         request_body.player_count
     )
 
-    # ========== STEP 7: 检查余额 (不扣费) ==========
+    # ========== STEP 8: 检查余额 (不扣费) ==========
     can_authorize = True
     try:
         await billing_service.check_balance_sufficiency(operator, total_cost)
     except HTTPException:
         can_authorize = False
 
-    # ========== STEP 8: 构造响应 ==========
+    # ========== STEP 9: 构造响应 ==========
     # 注意：数据库中所有金额字段都是以元为单位存储的，无需转换
     response_data = GamePreAuthorizeData(
         can_authorize=can_authorize,
         app_code=application.app_code,
         app_name=application.app_name,
         player_count=request_body.player_count,
-        unit_price=str(application.price_per_player),
+        unit_price=str(mode.price),
         total_cost=str(total_cost),
         current_balance=str(operator.balance)
     )

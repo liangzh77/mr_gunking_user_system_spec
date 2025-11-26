@@ -25,7 +25,10 @@ User Story 5 - 管理员权限与应用配置:
 from .admin import AdminAccount
 from .app_request import ApplicationRequest
 from .application import Application
+from .application_mode import ApplicationMode
+from .application_request_mode import ApplicationRequestMode
 from .authorization import OperatorAppAuthorization
+from .operator_app_authorization_mode import OperatorAppAuthorizationMode
 from .bank_transfer import BankTransferApplication
 from .finance import FinanceAccount, FinanceOperationLog
 from .game_session import GameSession
@@ -43,10 +46,13 @@ __all__ = [
     "AdminAccount",
     "OperatorAccount",
     "Application",
+    "ApplicationMode",
+    "ApplicationRequestMode",
     "OperationSite",
     "UsageRecord",
     "TransactionRecord",
     "OperatorAppAuthorization",
+    "OperatorAppAuthorizationMode",
     "RefundRecord",
     "InvoiceRecord",
     "BankTransferApplication",

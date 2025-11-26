@@ -78,6 +78,25 @@ class UsageRecord(Base):
         comment="应用ID"
     )
 
+    # ==================== 模式信息(快照) ====================
+    application_mode_id: Mapped[Optional[PyUUID]] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        comment="使用的模式ID（允许为空，模式删除不影响历史）"
+    )
+
+    mode_name_snapshot: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="模式名称快照（如：5分钟）"
+    )
+
+    price_snapshot: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 2),
+        nullable=True,
+        comment="模式价格快照"
+    )
+
     # ==================== 计费信息(历史快照) ====================
     player_count: Mapped[int] = mapped_column(
         Integer,

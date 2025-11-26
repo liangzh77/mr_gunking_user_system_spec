@@ -186,3 +186,8 @@ frontend/tests/e2e/direct-login-test.spec.ts
 frontend/tests/e2e/sites-launch-button.spec.ts
 frontend/tests/e2e/verify-launch.spec.ts
 frontend/tests/e2e/launch-application.spec.ts
+
+# SSL certificates (self-signed for local development)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt

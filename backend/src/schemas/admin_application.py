@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from .application_mode import ApplicationModeResponse
 from .common import TimestampMixin, UUIDMixin
 
 
@@ -16,18 +17,9 @@ class CreateApplicationRequest(BaseModel):
     """Create application request schema."""
 
     app_name: str = Field(..., min_length=2, max_length=50, description="Application name")
-    unit_price: Decimal = Field(..., gt=0, description="Price per player (in CNY)")
     min_players: int = Field(..., ge=1, description="Minimum number of players")
     max_players: int = Field(..., ge=1, description="Maximum number of players")
     description: str | None = Field(None, max_length=500, description="Application description")
-
-    @field_validator("unit_price", mode="before")
-    @classmethod
-    def validate_price(cls, v):
-        """Validate price format."""
-        if isinstance(v, str):
-            return Decimal(v)
-        return v
 
     @field_validator("max_players")
     @classmethod
@@ -44,7 +36,6 @@ class CreateApplicationRequest(BaseModel):
             "examples": [
                 {
                     "app_name": "星际战争",
-                    "unit_price": "12.00",
                     "min_players": 2,
                     "max_players": 6,
                     "description": "多人太空射击游戏，支持2-6人同时游玩"
@@ -54,7 +45,7 @@ class CreateApplicationRequest(BaseModel):
 
 
 class UpdateApplicationRequest(BaseModel):
-    """Update application request schema (excludes unit_price)."""
+    """Update application request schema."""
 
     app_name: str | None = Field(None, min_length=2, max_length=50, description="Application name")
     min_players: int | None = Field(None, ge=1, description="Minimum number of players")
@@ -91,13 +82,13 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
 
     app_code: str = Field(description="Application code (unique identifier)")
     app_name: str = Field(description="Application name")
-    price_per_player: Decimal = Field(description="Price per player (in CNY)")
     min_players: int = Field(description="Minimum number of players")
     max_players: int = Field(description="Maximum number of players")
     description: str | None = Field(default=None, description="Application description")
     is_active: bool = Field(description="Application active status")
     launch_exe_path: str | None = Field(default=None, description="自定义协议名(如 notepad)")
     created_by: UUID | None = Field(default=None, description="Creator admin ID")
+    modes: list[ApplicationModeResponse] = Field(default_factory=list, description="游戏模式列表")
 
     class Config:
         """Pydantic config."""
@@ -108,7 +99,7 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
 
 
 class AuthorizeApplicationRequest(BaseModel):
-    """Authorize application to operator request schema."""
+    """Authorize application to operator request schema (authorizes all active modes)."""
 
     operator_id: UUID = Field(..., description="Operator ID")
     application_id: UUID = Field(..., description="Application ID")
@@ -145,6 +136,7 @@ class AuthorizationResponse(UUIDMixin, TimestampMixin):
     authorized_by: UUID = Field(description="Authorizer admin ID")
     application_request_id: UUID | None = Field(default=None, description="Related application request ID")
     is_active: bool = Field(description="Authorization active status")
+    authorized_modes: list[ApplicationModeResponse] = Field(default_factory=list, description="已授权的模式列表")
 
     class Config:
         """Pydantic config."""

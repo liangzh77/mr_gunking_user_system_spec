@@ -16,7 +16,9 @@ from ..core import BadRequestException, NotFoundException, get_logger
 from ..models.app_request import ApplicationRequest
 from ..models.authorization import OperatorAppAuthorization
 from ..models.application import Application
+from ..models.application_mode import ApplicationMode
 from ..models.operator import OperatorAccount
+from ..models.operator_app_authorization_mode import OperatorAppAuthorizationMode
 from ..schemas.operator import ApplicationRequestItem, ApplicationRequestListResponse
 from ..services.notification import NotificationService
 
@@ -159,6 +161,8 @@ class AdminService:
 
         # If approved, create authorization
         if action == "approve":
+            from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
+
             # Check if authorization already exists
             auth_result = await self.db.execute(
                 select(OperatorAppAuthorization).where(
@@ -183,6 +187,15 @@ class AdminService:
                     expires_at=None  # Permanent authorization
                 )
                 self.db.add(authorization)
+                await self.db.flush()  # Flush to get authorization.id
+
+                # Create mode associations from request's requested_modes
+                for requested_mode in request.requested_modes:
+                    auth_mode = OperatorAppAuthorizationMode(
+                        authorization_id=authorization.id,
+                        application_mode_id=requested_mode.application_mode_id,
+                    )
+                    self.db.add(auth_mode)
 
         # Commit changes
         await self.db.commit()
@@ -378,7 +391,6 @@ class AdminService:
         self,
         admin_id: PyUUID,
         app_name: str,
-        unit_price: Decimal,
         min_players: int,
         max_players: int,
         description: Optional[str] = None,
@@ -388,7 +400,6 @@ class AdminService:
         Args:
             admin_id: Admin ID creating the application
             app_name: Application name
-            unit_price: Price per player (Decimal)
             min_players: Minimum players
             max_players: Maximum players
             description: Application description (optional)
@@ -431,7 +442,6 @@ class AdminService:
             app_code=app_code,
             app_name=app_name,
             description=description,
-            price_per_player=D(str(unit_price)),
             min_players=min_players,
             max_players=max_players,
             is_active=True,
@@ -673,7 +683,7 @@ class AdminService:
         expires_at: Optional[datetime] = None,
         application_request_id: Optional[PyUUID] = None,
     ) -> OperatorAppAuthorization:
-        """Authorize an application for an operator.
+        """Authorize an application for an operator (authorizes all active modes).
 
         Args:
             operator_id: Operator ID (UUID)
@@ -687,7 +697,7 @@ class AdminService:
 
         Raises:
             NotFoundException: If operator or application not found
-            BadRequestException: If authorization already exists
+            BadRequestException: If authorization already exists or no active modes
         """
         # Check operator exists
         op_result = await self.db.execute(
@@ -704,6 +714,20 @@ class AdminService:
         application = app_result.scalar_one_or_none()
         if not application:
             raise NotFoundException("Application not found")
+
+        # Get all active modes for this application
+        modes_result = await self.db.execute(
+            select(ApplicationMode).where(
+                and_(
+                    ApplicationMode.application_id == application_id,
+                    ApplicationMode.is_active == True
+                )
+            )
+        )
+        modes = modes_result.scalars().all()
+
+        if not modes:
+            raise BadRequestException("Application has no active modes to authorize")
 
         # Check if authorization already exists
         auth_result = await self.db.execute(
@@ -731,10 +755,32 @@ class AdminService:
             application_request_id=application_request_id,
         )
         self.db.add(authorization)
+        await self.db.flush()  # Flush to get authorization.id
+
+        # Create authorization-mode associations for all active modes
+        for mode in modes:
+            auth_mode = OperatorAppAuthorizationMode(
+                authorization_id=authorization.id,
+                application_mode_id=mode.id,
+            )
+            self.db.add(auth_mode)
+
         await self.db.commit()
 
-        # Refresh with relationships loaded
-        await self.db.refresh(authorization)
+        # Reload with all relationships
+        from sqlalchemy.orm import selectinload
+        auth_result = await self.db.execute(
+            select(OperatorAppAuthorization)
+            .options(
+                selectinload(OperatorAppAuthorization.operator),
+                selectinload(OperatorAppAuthorization.application),
+                selectinload(OperatorAppAuthorization.authorized_modes).selectinload(
+                    OperatorAppAuthorizationMode.mode
+                ),
+            )
+            .where(OperatorAppAuthorization.id == authorization.id)
+        )
+        authorization = auth_result.scalar_one()
 
         return authorization
 
@@ -775,7 +821,21 @@ class AdminService:
         authorization.updated_at = datetime.now(timezone.utc)
 
         await self.db.commit()
-        await self.db.refresh(authorization)
+
+        # Reload with all relationships
+        from sqlalchemy.orm import selectinload
+        auth_result = await self.db.execute(
+            select(OperatorAppAuthorization)
+            .options(
+                selectinload(OperatorAppAuthorization.operator),
+                selectinload(OperatorAppAuthorization.application),
+                selectinload(OperatorAppAuthorization.authorized_modes).selectinload(
+                    OperatorAppAuthorizationMode.mode
+                ),
+            )
+            .where(OperatorAppAuthorization.id == authorization.id)
+        )
+        authorization = auth_result.scalar_one()
 
         return authorization
 
