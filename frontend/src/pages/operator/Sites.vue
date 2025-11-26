@@ -161,36 +161,6 @@
           </div>
         </el-form-item>
 
-        <el-form-item v-if="selectedAppId && availableModes.length > 0" label="选择模式">
-          <el-radio-group v-model="selectedModeId">
-            <div
-              v-for="mode in availableModes"
-              :key="mode.id"
-              style="margin-bottom: 10px; padding: 10px; border: 1px solid #ebeef5; border-radius: 4px"
-              :style="{ backgroundColor: selectedModeId === mode.id ? '#ecf5ff' : '#fff' }"
-            >
-              <el-radio :value="mode.id">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%">
-                  <div>
-                    <span style="font-weight: 500">{{ mode.mode_name }}</span>
-                    <span v-if="mode.description" style="color: #909399; margin-left: 8px; font-size: 13px">
-                      ({{ mode.description }})
-                    </span>
-                  </div>
-                  <span style="color: #f56c6c; font-weight: 500; margin-left: 12px">¥{{ mode.price }}</span>
-                </div>
-              </el-radio>
-            </div>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-alert
-          v-if="selectedAppId && availableModes.length === 0"
-          title="该应用暂无可用游戏模式"
-          type="warning"
-          :closable="false"
-          style="margin-top: 12px"
-        />
       </el-form>
 
       <template #footer>
@@ -198,7 +168,7 @@
         <el-button
           type="primary"
           :loading="launching"
-          :disabled="!selectedAppId || !selectedModeId"
+          :disabled="!selectedAppId"
           @click="handleConfirmLaunch"
         >
           启动
@@ -386,33 +356,21 @@ const currentSite = ref<OperationSite | null>(null)
 const availableApps = ref<Application[]>([])
 const loadingApps = ref(false)
 const selectedAppId = ref('')
-const selectedModeId = ref('')
 const launching = ref(false)
 
 const selectedApp = computed(() => {
   return availableApps.value.find(app => app.id === selectedAppId.value)
 })
 
-const availableModes = computed(() => {
-  return selectedApp.value?.authorized_modes?.filter(m => m.is_active) || []
-})
-
-// 应用选择变化处理
+// 应用选择变化处理（不再需要模式选择）
 const handleAppChange = () => {
-  // 切换应用时重置模式选择
-  selectedModeId.value = ''
-
-  // 如果只有一个模式，自动选中
-  if (availableModes.value.length === 1) {
-    selectedModeId.value = availableModes.value[0].id
-  }
+  // 应用切换时不需要额外处理
 }
 
 // 打开启动应用对话框
 const handleLaunchApp = async (site: OperationSite) => {
   currentSite.value = site
   selectedAppId.value = ''
-  selectedModeId.value = ''
   launchDialogVisible.value = true
 
   // 加载授权应用列表
@@ -445,25 +403,18 @@ const loadAuthorizedApps = async () => {
 const handleConfirmLaunch = async () => {
   if (!currentSite.value || !selectedApp.value) return
 
-  // 验证是否选择了模式
-  if (!selectedModeId.value) {
-    ElMessage.warning('请选择游戏模式')
-    return
-  }
-
   launching.value = true
   try {
     // 1. 生成TOKEN
     const tokenResponse = await http.post('/operators/generate-headset-token')
     const token = tokenResponse.data.data.token
 
-    // 2. 构建启动URL（添加 mode_id 参数）
+    // 2. 构建启动URL（不再传递mode_id）
     const protocol = `mrgun-${selectedApp.value.launch_exe_path}`
     const appCode = selectedApp.value.app_code
     const siteId = currentSite.value.site_id
-    const modeId = selectedModeId.value
 
-    const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}&mode_id=${encodeURIComponent(modeId)}`
+    const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}`
 
     console.log('Launch URL:', launchUrl)
 
