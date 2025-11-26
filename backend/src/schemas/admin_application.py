@@ -17,18 +17,9 @@ class CreateApplicationRequest(BaseModel):
     """Create application request schema."""
 
     app_name: str = Field(..., min_length=2, max_length=50, description="Application name")
-    unit_price: Decimal = Field(..., gt=0, description="Price per player (in CNY)")
     min_players: int = Field(..., ge=1, description="Minimum number of players")
     max_players: int = Field(..., ge=1, description="Maximum number of players")
     description: str | None = Field(None, max_length=500, description="Application description")
-
-    @field_validator("unit_price", mode="before")
-    @classmethod
-    def validate_price(cls, v):
-        """Validate price format."""
-        if isinstance(v, str):
-            return Decimal(v)
-        return v
 
     @field_validator("max_players")
     @classmethod
@@ -45,7 +36,6 @@ class CreateApplicationRequest(BaseModel):
             "examples": [
                 {
                     "app_name": "星际战争",
-                    "unit_price": "12.00",
                     "min_players": 2,
                     "max_players": 6,
                     "description": "多人太空射击游戏，支持2-6人同时游玩"
@@ -55,7 +45,7 @@ class CreateApplicationRequest(BaseModel):
 
 
 class UpdateApplicationRequest(BaseModel):
-    """Update application request schema (excludes unit_price)."""
+    """Update application request schema."""
 
     app_name: str | None = Field(None, min_length=2, max_length=50, description="Application name")
     min_players: int | None = Field(None, ge=1, description="Minimum number of players")
@@ -92,7 +82,6 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
 
     app_code: str = Field(description="Application code (unique identifier)")
     app_name: str = Field(description="Application name")
-    price_per_player: Decimal = Field(description="Price per player (in CNY)")
     min_players: int = Field(description="Minimum number of players")
     max_players: int = Field(description="Maximum number of players")
     description: str | None = Field(default=None, description="Application description")
@@ -110,11 +99,10 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
 
 
 class AuthorizeApplicationRequest(BaseModel):
-    """Authorize application to operator request schema."""
+    """Authorize application to operator request schema (authorizes all active modes)."""
 
     operator_id: UUID = Field(..., description="Operator ID")
     application_id: UUID = Field(..., description="Application ID")
-    mode_ids: list[UUID] = Field(..., min_length=1, description="授权的模式ID列表（至少选择一个）")
     expires_at: datetime | None = Field(None, description="Authorization expiration time (null for permanent)")
     application_request_id: UUID | None = Field(None, description="Related application request ID (if from request)")
 
@@ -125,13 +113,11 @@ class AuthorizeApplicationRequest(BaseModel):
                 {
                     "operator_id": "123e4567-e89b-12d3-a456-426614174000",
                     "application_id": "223e4567-e89b-12d3-a456-426614174000",
-                    "mode_ids": ["323e4567-e89b-12d3-a456-426614174000", "423e4567-e89b-12d3-a456-426614174000"],
                     "expires_at": "2025-12-31T23:59:59Z"
                 },
                 {
                     "operator_id": "123e4567-e89b-12d3-a456-426614174000",
                     "application_id": "223e4567-e89b-12d3-a456-426614174000",
-                    "mode_ids": ["323e4567-e89b-12d3-a456-426614174000"],
                     "expires_at": None
                 }
             ]

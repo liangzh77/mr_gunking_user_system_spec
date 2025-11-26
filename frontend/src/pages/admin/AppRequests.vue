@@ -128,6 +128,58 @@
         <el-button @click="detailsVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 模式选择对话框 -->
+    <el-dialog v-model="modeSelectionVisible" title="选择授权模式" width="500px">
+      <el-alert
+        title="请选择要授权的游戏模式"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
+      <el-checkbox-group v-model="selectedModeIds">
+        <div
+          v-for="mode in applicationModes"
+          :key="mode.id"
+          style="margin-bottom: 12px; padding: 12px; border: 1px solid #ebeef5; border-radius: 4px"
+        >
+          <el-checkbox :value="mode.id" :disabled="!mode.is_active">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%">
+              <div>
+                <span style="font-weight: 500">{{ mode.mode_name }}</span>
+                <span v-if="mode.description" style="color: #909399; margin-left: 8px; font-size: 12px">
+                  ({{ mode.description }})
+                </span>
+              </div>
+              <div style="margin-left: auto; padding-left: 12px">
+                <span style="color: #f56c6c; font-weight: 500">¥{{ mode.price }}</span>
+                <el-tag v-if="!mode.is_active" type="info" size="small" style="margin-left: 8px">
+                  已停用
+                </el-tag>
+              </div>
+            </div>
+          </el-checkbox>
+        </div>
+      </el-checkbox-group>
+      <el-alert
+        v-if="applicationModes.filter(m => m.is_active).length === 0"
+        title="该应用暂无可用模式"
+        type="warning"
+        :closable="false"
+        style="margin-top: 12px"
+      />
+
+      <template #footer>
+        <el-button @click="modeSelectionVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="selectedModeIds.length === 0"
+          @click="handleConfirmModeSelection"
+        >
+          确认授权
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -136,6 +188,14 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDateTime } from '@/utils/format'
 import http from '@/utils/http'
+
+interface ApplicationMode {
+  id: string
+  mode_name: string
+  price: string
+  description?: string
+  is_active: boolean
+}
 
 interface AppRequest {
   request_id: string
@@ -148,6 +208,7 @@ interface AppRequest {
   reviewed_by?: string
   reviewed_at?: string
   created_at: string
+  requested_modes?: ApplicationMode[]
 }
 
 const loading = ref(false)
@@ -155,6 +216,12 @@ const requests = ref<AppRequest[]>([])
 const detailsVisible = ref(false)
 const currentRequest = ref<AppRequest | null>(null)
 const statusFilter = ref('')
+
+// 模式选择对话框
+const modeSelectionVisible = ref(false)
+const selectedModeIds = ref<string[]>([])
+const currentReviewRequest = ref<AppRequest | null>(null)
+const applicationModes = ref<ApplicationMode[]>([])
 
 const pagination = reactive({
   page: 1,
@@ -205,8 +272,6 @@ const viewDetails = (row: AppRequest) => {
 // 审核
 const handleReview = async (row: AppRequest, action: 'approve' | 'reject') => {
   try {
-    let rejectReason = ''
-
     if (action === 'reject') {
       const { value } = await ElMessageBox.prompt('请输入拒绝原因', '拒绝申请', {
         confirmButtonText: '确定',
@@ -216,36 +281,82 @@ const handleReview = async (row: AppRequest, action: 'approve' | 'reject') => {
       })
 
       if (!value) return
-      rejectReason = value
+
+      loading.value = true
+
+      const payload = {
+        action,
+        reject_reason: value,
+      }
+
+      await http.post(`/admins/applications/requests/${row.request_id}/review`, payload)
+      ElMessage.success('申请已拒绝')
+      await fetchRequests()
     } else {
-      await ElMessageBox.confirm(
-        `确定要通过此申请吗？通过后运营商将获得 "${row.app_name}" 的使用权限。`,
-        '通过申请',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'success',
+      // 通过申请 - 需要选择授权的模式
+      // 首先加载该应用的所有模式
+      try {
+        const modesResponse = await http.get(`/admins/applications/${row.app_id}/modes`)
+        applicationModes.value = modesResponse.data
+
+        if (applicationModes.value.length === 0) {
+          ElMessage.error('该应用暂无可用模式，无法授权')
+          return
         }
-      )
+
+        // 如果申请中包含了请求的模式，默认选中这些模式
+        if (row.requested_modes && row.requested_modes.length > 0) {
+          selectedModeIds.value = row.requested_modes
+            .filter(m => m.is_active)
+            .map(m => m.id)
+        } else {
+          // 否则默认选中所有激活的模式
+          selectedModeIds.value = applicationModes.value
+            .filter(m => m.is_active)
+            .map(m => m.id)
+        }
+
+        currentReviewRequest.value = row
+        modeSelectionVisible.value = true
+      } catch (error: any) {
+        console.error('Failed to load modes:', error)
+        ElMessage.error('加载应用模式失败')
+      }
     }
-
-    loading.value = true
-
-    const payload = {
-      action,
-      reject_reason: rejectReason || undefined,
-    }
-
-    await http.post(`/admins/applications/requests/${row.request_id}/review`, payload)
-
-    ElMessage.success(action === 'approve' ? '申请已通过' : '申请已拒绝')
-
-    // 刷新列表
-    await fetchRequests()
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('Review failed:', error)
     }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 确认授权模式选择
+const handleConfirmModeSelection = async () => {
+  if (selectedModeIds.value.length === 0) {
+    ElMessage.warning('请至少选择一个模式')
+    return
+  }
+
+  if (!currentReviewRequest.value) return
+
+  try {
+    loading.value = true
+
+    const payload = {
+      action: 'approve',
+      mode_ids: selectedModeIds.value,
+    }
+
+    await http.post(`/admins/applications/requests/${currentReviewRequest.value.request_id}/review`, payload)
+    ElMessage.success('申请已通过')
+
+    modeSelectionVisible.value = false
+    await fetchRequests()
+  } catch (error: any) {
+    console.error('Approve failed:', error)
+    ElMessage.error('审批失败')
   } finally {
     loading.value = false
   }

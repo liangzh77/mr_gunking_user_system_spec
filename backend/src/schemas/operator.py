@@ -1053,6 +1053,37 @@ class SiteListResponse(BaseModel):
 
 # ========== 应用授权相关 Schema (T088-T089/T097-T099) ==========
 
+class AuthorizedModeItem(BaseModel):
+    """已授权模式项
+
+    运营商已获得授权的应用模式信息
+    """
+    id: str = Field(
+        ...,
+        description="模式ID(UUID)"
+    )
+
+    mode_name: str = Field(
+        ...,
+        description="模式名称"
+    )
+
+    price: str = Field(
+        ...,
+        description="模式价格(字符串格式)"
+    )
+
+    description: Optional[str] = Field(
+        None,
+        description="模式描述"
+    )
+
+    is_active: bool = Field(
+        ...,
+        description="是否启用"
+    )
+
+
 class AuthorizedApplicationItem(BaseModel):
     """已授权应用项 (T089/T097)
 
@@ -1076,11 +1107,6 @@ class AuthorizedApplicationItem(BaseModel):
     description: Optional[str] = Field(
         None,
         description="应用描述"
-    )
-
-    price_per_player: str = Field(
-        ...,
-        description="当前单人价格(字符串格式)"
     )
 
     min_players: int = Field(
@@ -1113,6 +1139,11 @@ class AuthorizedApplicationItem(BaseModel):
         description="自定义协议名称，用于启动头显Server应用，如 mrgun"
     )
 
+    authorized_modes: list[AuthorizedModeItem] = Field(
+        default_factory=list,
+        description="已授权的应用模式列表"
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -1121,7 +1152,6 @@ class AuthorizedApplicationItem(BaseModel):
                     "app_code": "space_adventure_v1",
                     "app_name": "太空探险",
                     "description": "VR太空探险游戏,支持2-8人协作",
-                    "price_per_player": "10.00",
                     "min_players": 2,
                     "max_players": 8,
                     "authorized_at": "2025-01-01T10:00:00.000Z",
@@ -1155,7 +1185,6 @@ class AuthorizedApplicationListResponse(BaseModel):
                             "app_code": "space_adventure_v1",
                             "app_name": "太空探险",
                             "description": "VR太空探险游戏,支持2-8人协作",
-                            "price_per_player": "10.00",
                             "min_players": 2,
                             "max_players": 8,
                             "authorized_at": "2025-01-01T10:00:00.000Z",
@@ -1167,7 +1196,6 @@ class AuthorizedApplicationListResponse(BaseModel):
                             "app_code": "star_war_v2",
                             "app_name": "星际战争",
                             "description": "多人对战VR射击游戏",
-                            "price_per_player": "12.00",
                             "min_players": 4,
                             "max_players": 10,
                             "authorized_at": "2025-01-05T14:00:00.000Z",

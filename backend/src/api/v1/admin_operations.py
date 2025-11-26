@@ -410,7 +410,7 @@ async def review_application_request(
     response_model=ApplicationResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Application",
-    description="Create a new application (admin only)",
+    description="Create a new application. After creation, add game modes to define pricing for different play modes.",
 )
 async def create_application(
     app_data: CreateApplicationRequest,
@@ -419,13 +419,23 @@ async def create_application(
 ) -> ApplicationResponse:
     """Create a new application.
 
+    Applications don't have a base price. Instead, pricing is defined through game modes
+    that you add after creating the application. Each mode can have its own price.
+
     Args:
-        app_data: Application creation data
-        token: Current admin token
+        app_data: Application creation data (app_name, min/max_players, optional description)
+        token: Current admin token (for authentication)
         db: Database session
 
     Returns:
         ApplicationResponse: Created application data
+
+    Raises:
+        BadRequestException: If validation fails or app_name already exists
+        UnauthorizedException: If token is invalid or expired
+
+    Next Steps:
+        After creating an application, use POST /applications/{app_id}/modes to add game modes with pricing.
     """
     admin_id = get_token_subject(token)
     service = AdminService(db)
@@ -433,7 +443,6 @@ async def create_application(
     app = await service.create_application(
         admin_id=admin_id,
         app_name=app_data.app_name,
-        unit_price=app_data.unit_price,
         min_players=app_data.min_players,
         max_players=app_data.max_players,
         description=app_data.description,
@@ -799,8 +808,8 @@ async def delete_application_mode(
     "/operators/{operator_id}/applications",
     response_model=AuthorizationResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Authorize Application",
-    description="Authorize an application for an operator",
+    summary="Authorize Application for Operator",
+    description="Authorize an application for an operator. This will automatically authorize ALL active game modes for this application. No need to select individual modes.",
 )
 async def authorize_application(
     operator_id: str,
@@ -810,14 +819,22 @@ async def authorize_application(
 ) -> AuthorizationResponse:
     """Authorize an application for an operator.
 
+    **Important**: Authorizing an application will automatically grant access to ALL active game modes
+    for that application. Individual mode selection is not required or supported.
+
     Args:
         operator_id: Operator ID (UUID string)
-        auth_data: Authorization request data
-        token: Current admin token
+        auth_data: Authorization request data (operator_id, application_id, optional expires_at)
+        token: Current admin token (for authentication)
         db: Database session
 
     Returns:
-        AuthorizationResponse: Authorization data with operator and app names
+        AuthorizationResponse: Authorization data with operator info, application info, and all authorized modes
+
+    Raises:
+        BadRequestException: If operator_id format is invalid or application has no active modes
+        NotFoundException: If operator or application not found
+        ConflictException: If authorization already exists
     """
     from uuid import UUID
 
@@ -834,7 +851,6 @@ async def authorize_application(
         operator_id=operator_uuid,
         application_id=auth_data.application_id,
         admin_id=admin_id,
-        mode_ids=auth_data.mode_ids,
         expires_at=auth_data.expires_at,
         application_request_id=auth_data.application_request_id,
     )
@@ -851,7 +867,7 @@ async def authorize_application(
     # Build response with operator and app names from relationships
     # Build authorized modes list
     authorized_modes = [
-        ApplicationModeResponse.model_validate(auth_mode.application_mode)
+        ApplicationModeResponse.model_validate(auth_mode.mode)
         for auth_mode in authorization.authorized_modes
     ]
 
@@ -923,7 +939,7 @@ async def revoke_authorization(
     # Build response with operator and app names from relationships
     # Build authorized modes list
     authorized_modes = [
-        ApplicationModeResponse.model_validate(auth_mode.application_mode)
+        ApplicationModeResponse.model_validate(auth_mode.mode)
         for auth_mode in authorization.authorized_modes
     ]
 

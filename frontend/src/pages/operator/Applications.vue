@@ -37,14 +37,56 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="app_name" label="应用名称" min-width="150" />
-        <el-table-column prop="description" label="应用描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="price_per_player" label="单价" width="120">
+        <el-table-column type="expand">
           <template #default="{ row }">
-            <span class="price">¥{{ formatAmount(row.price_per_player) }}</span>
+            <div style="padding: 0 20px 20px 60px">
+              <div style="font-weight: 600; margin-bottom: 12px; color: #303133">
+                已授权游戏模式：
+              </div>
+              <div v-if="row.authorized_modes && row.authorized_modes.length > 0" class="modes-grid">
+                <div
+                  v-for="mode in row.authorized_modes"
+                  :key="mode.id"
+                  class="mode-card"
+                >
+                  <div class="mode-header">
+                    <span class="mode-name">{{ mode.mode_name }}</span>
+                    <span class="mode-price">¥{{ mode.price }}</span>
+                  </div>
+                  <div v-if="mode.description" class="mode-description">
+                    {{ mode.description }}
+                  </div>
+                  <el-tag v-if="!mode.is_active" type="info" size="small" style="margin-top: 8px">
+                    已停用
+                  </el-tag>
+                </div>
+              </div>
+              <el-empty
+                v-else
+                description="暂无授权模式"
+                :image-size="60"
+              />
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="玩家限制" width="150">
+        <el-table-column prop="app_name" label="应用名称" width="160" />
+        <el-table-column prop="description" label="应用描述" min-width="180" show-overflow-tooltip />
+        <el-table-column label="模式单价" width="200">
+          <template #default="{ row }">
+            <div
+              v-if="row.authorized_modes && row.authorized_modes.length > 0"
+              class="mode-prices clickable"
+              @click="showModeDetails(row)"
+            >
+              <span v-for="(mode, index) in getSortedModes(row.authorized_modes)" :key="mode.id" class="price-item">
+                ¥{{ formatAmount(Number(mode.price || 0)) }}<template v-if="index < row.authorized_modes.length - 1">、</template>
+              </span>
+              <el-icon class="expand-icon" style="margin-left: 4px"><View /></el-icon>
+            </div>
+            <span v-else class="text-muted">暂无</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="玩家限制" width="130">
           <template #default="{ row }">
             <span>{{ row.min_players }} - {{ row.max_players }} 人</span>
           </template>
@@ -67,13 +109,62 @@
         </el-empty>
       </div>
     </el-card>
+
+    <!-- 模式详情对话框 -->
+    <el-dialog
+      v-model="modeDialogVisible"
+      :title="`${selectedApp?.app_name} - 游戏模式详情`"
+      width="700px"
+    >
+      <div v-if="selectedApp && selectedApp.authorized_modes" class="modes-detail-grid">
+        <div
+          v-for="mode in getSortedModes(selectedApp.authorized_modes)"
+          :key="mode.id"
+          class="mode-detail-card"
+        >
+          <div class="mode-detail-header">
+            <div class="mode-detail-name">
+              <el-icon :size="18" style="color: #409eff"><Medal /></el-icon>
+              <span>{{ mode.mode_name }}</span>
+            </div>
+            <div class="mode-detail-price">¥{{ formatAmount(Number(mode.price || 0)) }}</div>
+          </div>
+          <div v-if="mode.description" class="mode-detail-description">
+            <el-icon :size="14" style="color: #909399"><Document /></el-icon>
+            <span>{{ mode.description }}</span>
+          </div>
+          <div class="mode-detail-footer">
+            <el-tag v-if="mode.is_active" type="success" size="small">
+              <el-icon><CircleCheckFilled /></el-icon>
+              可用
+            </el-tag>
+            <el-tag v-else type="info" size="small">
+              <el-icon><CircleCloseFilled /></el-icon>
+              已停用
+            </el-tag>
+          </div>
+        </div>
+      </div>
+      <el-empty v-else description="暂无模式" :image-size="80" />
+
+      <template #footer>
+        <el-button @click="modeDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import {
+  Search,
+  View,
+  Medal,
+  Document,
+  CircleCheckFilled,
+  CircleCloseFilled
+} from '@element-plus/icons-vue'
 import { useOperatorStore } from '@/stores/operator'
 import type { AuthorizedApplication } from '@/types'
 import { formatDateTime, formatAmount} from '@/utils/format'
@@ -83,6 +174,8 @@ const operatorStore = useOperatorStore()
 const loading = ref(false)
 const applications = ref<AuthorizedApplication[]>([])
 const searchQuery = ref('')
+const modeDialogVisible = ref(false)
+const selectedApp = ref<AuthorizedApplication | null>(null)
 
 // 加载已授权应用列表
 const loadApplications = async () => {
@@ -106,6 +199,18 @@ const loadApplications = async () => {
 // 搜索处理
 const handleSearch = () => {
   loadApplications()
+}
+
+// 获取按价格排序的模式列表
+const getSortedModes = (modes: any[]) => {
+  if (!modes || modes.length === 0) return []
+  return [...modes].sort((a, b) => Number(a.price) - Number(b.price))
+}
+
+// 显示模式详情
+const showModeDetails = (app: AuthorizedApplication) => {
+  selectedApp.value = app
+  modeDialogVisible.value = true
 }
 
 onMounted(() => {
@@ -141,6 +246,24 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.mode-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  line-height: 1.6;
+}
+
+.price-item {
+  color: #409EFF;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.text-muted {
+  color: #909399;
+  font-size: 13px;
+}
+
 .empty-state {
   padding: 40px 0;
   text-align: center;
@@ -148,5 +271,148 @@ onMounted(() => {
 
 .list-card :deep(.el-card__body) {
   padding: 20px;
+}
+
+.modes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.mode-card {
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background-color: #fafafa;
+  transition: all 0.3s;
+}
+
+.mode-card:hover {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.mode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mode-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: #303133;
+}
+
+.mode-price {
+  color: #f56c6c;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.mode-description {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+/* 可点击的模式价格 */
+.clickable {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.clickable:hover {
+  background-color: #ecf5ff;
+}
+
+.clickable:hover .price-item {
+  color: #409eff;
+}
+
+.expand-icon {
+  color: #909399;
+  transition: color 0.3s;
+}
+
+.clickable:hover .expand-icon {
+  color: #409eff;
+}
+
+/* 模式详情对话框样式 */
+.modes-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.mode-detail-card {
+  padding: 20px;
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  background-color: #fafafa;
+  transition: all 0.3s;
+}
+
+.mode-detail-card:hover {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.mode-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.mode-detail-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  color: #303133;
+}
+
+.mode-detail-price {
+  color: #f56c6c;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.mode-detail-description {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background-color: #f5f7fa;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.6;
+}
+
+.mode-detail-description span {
+  flex: 1;
+}
+
+.mode-detail-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

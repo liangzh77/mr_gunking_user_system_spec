@@ -230,7 +230,7 @@ class BillingService:
                 mode_name_snapshot=mode_name,
                 price_snapshot=mode_price,
                 player_count=player_count,
-                price_per_player=application.price_per_player,  # 保留用于向后兼容
+                price_per_player=mode_price,  # 使用模式价格
                 total_cost=total_cost,
                 game_started_at=datetime.utcnow(),
                 client_ip=client_ip,
@@ -245,7 +245,7 @@ class BillingService:
             transaction_record = TransactionRecord(
                 operator_id=operator_id,
                 transaction_type="consumption",
-                amount=-total_cost,  # 消费为负数
+                amount=total_cost,  # 消费金额为正数，数据库约束会根据类型计算余额
                 balance_before=balance_before,
                 balance_after=balance_after,
                 related_usage_id=usage_record.id,

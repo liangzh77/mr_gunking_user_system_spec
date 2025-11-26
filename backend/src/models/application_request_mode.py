@@ -43,7 +43,7 @@ class ApplicationRequestMode(Base):
     # ==================== 关联字段 ====================
     request_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("application_requests.id", ondelete="CASCADE"),
+        ForeignKey("application_authorization_requests.id", ondelete="CASCADE"),
         nullable=False,
         comment="申请ID"
     )

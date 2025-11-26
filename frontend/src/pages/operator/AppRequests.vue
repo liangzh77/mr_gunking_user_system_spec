@@ -95,6 +95,7 @@
             placeholder="请选择要申请的应用"
             style="width: 100%"
             filterable
+            @change="handleApplicationChange"
           >
             <el-option
               v-for="app in availableApplications"
@@ -108,6 +109,34 @@
               </div>
             </el-option>
           </el-select>
+        </el-form-item>
+
+        <el-form-item
+          v-if="createForm.application_id && selectedApplicationModes.length > 0"
+          label="选择模式"
+          prop="mode_ids"
+        >
+          <el-checkbox-group v-model="createForm.mode_ids">
+            <div
+              v-for="mode in selectedApplicationModes"
+              :key="mode.id"
+              style="margin-bottom: 8px"
+            >
+              <el-checkbox :value="mode.id" :disabled="!mode.is_active">
+                <span style="font-weight: 500">{{ mode.mode_name }}</span>
+                <span style="color: #f56c6c; margin-left: 8px">¥{{ mode.price }}</span>
+                <span v-if="mode.description" style="color: #909399; margin-left: 8px; font-size: 12px">
+                  ({{ mode.description }})
+                </span>
+                <el-tag v-if="!mode.is_active" type="info" size="small" style="margin-left: 8px">
+                  已停用
+                </el-tag>
+              </el-checkbox>
+            </div>
+          </el-checkbox-group>
+          <div v-if="selectedApplicationModes.filter(m => m.is_active).length === 0" style="color: #909399; font-size: 13px">
+            该应用暂无可用模式
+          </div>
         </el-form-item>
 
         <el-form-item label="申请理由" prop="request_reason">
@@ -191,11 +220,20 @@ interface AppRequest {
   created_at: string
 }
 
+interface ApplicationMode {
+  id: string
+  mode_name: string
+  price: string
+  description?: string
+  is_active: boolean
+}
+
 interface Application {
   id: string
   app_code: string
   app_name: string
   description?: string
+  modes: ApplicationMode[]
 }
 
 const loading = ref(false)
@@ -215,15 +253,26 @@ const createDialogVisible = ref(false)
 const createFormRef = ref<FormInstance>()
 const submitting = ref(false)
 const availableApplications = ref<Application[]>([])
+const selectedApplicationModes = ref<ApplicationMode[]>([])
 
 const createForm = reactive({
   application_id: '',
+  mode_ids: [] as string[],
   request_reason: '',
 })
 
 const createRules: FormRules = {
   application_id: [
     { required: true, message: '请选择要申请的应用', trigger: 'change' },
+  ],
+  mode_ids: [
+    {
+      required: true,
+      type: 'array',
+      min: 1,
+      message: '请至少选择一个游戏模式',
+      trigger: 'change'
+    },
   ],
   request_reason: [
     { required: true, message: '请输入申请理由', trigger: 'blur' },
@@ -271,6 +320,20 @@ const viewDetails = (row: AppRequest) => {
   detailsVisible.value = true
 }
 
+// 应用选择变化处理
+const handleApplicationChange = (appId: string) => {
+  // 清空之前选择的模式
+  createForm.mode_ids = []
+
+  // 找到选中的应用并设置模式列表
+  const selectedApp = availableApplications.value.find(app => app.id === appId)
+  if (selectedApp && selectedApp.modes) {
+    selectedApplicationModes.value = selectedApp.modes
+  } else {
+    selectedApplicationModes.value = []
+  }
+}
+
 // 显示创建对话框
 const showCreateDialog = async () => {
   try {
@@ -302,6 +365,7 @@ const handleCreate = async () => {
 
       await http.post('/operators/me/applications/requests', {
         application_id: createForm.application_id,
+        mode_ids: createForm.mode_ids,
         request_reason: createForm.request_reason,
       })
 
@@ -310,6 +374,8 @@ const handleCreate = async () => {
 
       // 重置表单并刷新列表
       createFormRef.value?.resetFields()
+      createForm.mode_ids = []
+      selectedApplicationModes.value = []
       await fetchRequests()
     } catch (error: any) {
       console.error('Create request failed:', error)

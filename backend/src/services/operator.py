@@ -1909,18 +1909,30 @@ class OperatorService:
         # 4. 格式化返回数据
         applications = []
         for auth, app in rows:
+            # 提取已授权的模式列表
+            authorized_modes = []
+            for auth_mode in auth.authorized_modes:
+                mode = auth_mode.mode
+                authorized_modes.append({
+                    "id": str(mode.id),
+                    "mode_name": mode.mode_name,
+                    "price": str(mode.price),
+                    "description": mode.description,
+                    "is_active": mode.is_active
+                })
+
             applications.append({
                 "app_id": f"app_{app.id}",
                 "app_code": app.app_code,
                 "app_name": app.app_name,
                 "description": app.description,
-                "price_per_player": str(app.price_per_player),
                 "min_players": app.min_players,
                 "max_players": app.max_players,
                 "authorized_at": auth.authorized_at.isoformat(),
                 "expires_at": auth.expires_at.isoformat() if auth.expires_at else None,
                 "is_active": auth.is_active,
-                "launch_exe_path": app.launch_exe_path
+                "launch_exe_path": app.launch_exe_path,
+                "authorized_modes": authorized_modes
             })
 
         return applications

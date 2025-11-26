@@ -19,20 +19,37 @@ onMounted(() => {
   // 根据当前路由判断应该获取哪个用户的信息
   const currentPath = router.currentRoute.value.path
 
+  // 登录页面不需要获取用户信息
+  const isLoginPage = currentPath === '/admin/login' ||
+                      currentPath === '/finance/login' ||
+                      currentPath === '/operator/login' ||
+                      currentPath === '/operator/register' ||
+                      currentPath === '/'
+
+  if (isLoginPage) {
+    return
+  }
+
   if (currentPath.startsWith('/admin')) {
     // 管理员路由
     if (adminAuthStore.isAuthenticated) {
-      adminAuthStore.fetchProfile()
+      adminAuthStore.fetchProfile().catch(error => {
+        console.error('Failed to fetch admin profile:', error)
+      })
     }
   } else if (currentPath.startsWith('/finance')) {
     // 财务路由
     if (financeAuthStore.isAuthenticated) {
-      financeAuthStore.fetchProfile()
+      financeAuthStore.fetchProfile().catch(error => {
+        console.error('Failed to fetch finance profile:', error)
+      })
     }
   } else {
     // 运营商路由
     if (authStore.isAuthenticated) {
-      authStore.fetchProfile()
+      authStore.fetchProfile().catch(error => {
+        console.error('Failed to fetch operator profile:', error)
+      })
     }
   }
 })

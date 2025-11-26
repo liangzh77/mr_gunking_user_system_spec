@@ -15,17 +15,20 @@
 - 运营商登出: JWT Token认证 (Authorization: Bearer {token})
 """
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import require_operator, require_headset_token, require_finance
 from ...core import get_redis
 from ...db.session import get_db
+from ...models.authorization import OperatorAppAuthorization
+from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
 from ...schemas.auth import (
     ErrorResponse,
     GameAuthorizeData,
@@ -188,7 +191,6 @@ async def authorize_game(
     if cached_app and cached_auth and cached_site:
         # 🎯 缓存全命中 - 直接使用缓存数据
         from ...models.application import Application
-        from ...models.authorization import OperatorAppAuthorization
         from ...models.site import OperationSite
         from decimal import Decimal
         from datetime import datetime
@@ -198,7 +200,6 @@ async def authorize_game(
             id=UUID(cached_app["id"]),
             app_code=cached_app["app_code"],
             app_name=cached_app["app_name"],
-            price_per_player=Decimal(cached_app["price_per_player"]),
             min_players=cached_app["min_players"],
             max_players=cached_app["max_players"],
             is_active=cached_app["is_active"]
@@ -258,7 +259,6 @@ async def authorize_game(
                 "id": str(application.id),
                 "app_code": application.app_code,
                 "app_name": application.app_name,
-                "price_per_player": str(application.price_per_player),
                 "min_players": application.min_players,
                 "max_players": application.max_players,
                 "is_active": application.is_active
@@ -289,8 +289,7 @@ async def authorize_game(
 
     # ========== STEP 5: 验证应用模式 ==========
     from ...models.application_mode import ApplicationMode
-    from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
-    from sqlalchemy import select, and_
+    from sqlalchemy import and_
 
     # 解析 application_mode_id
     try:
@@ -553,7 +552,6 @@ async def pre_authorize_game(
     if cached_app and cached_auth and cached_site:
         # 🎯 缓存全命中 - 直接使用缓存数据,无需查询数据库!
         from ...models.application import Application
-        from ...models.authorization import OperatorAppAuthorization
         from ...models.site import OperationSite
         from decimal import Decimal
         from datetime import datetime
@@ -563,7 +561,6 @@ async def pre_authorize_game(
             id=UUID(cached_app["id"]),
             app_code=cached_app["app_code"],
             app_name=cached_app["app_name"],
-            price_per_player=Decimal(cached_app["price_per_player"]),
             min_players=cached_app["min_players"],
             max_players=cached_app["max_players"],
             is_active=cached_app["is_active"]
@@ -636,7 +633,6 @@ async def pre_authorize_game(
                 "id": str(application.id),
                 "app_code": application.app_code,
                 "app_name": application.app_name,
-                "price_per_player": str(application.price_per_player),
                 "min_players": application.min_players,
                 "max_players": application.max_players,
                 "is_active": application.is_active
@@ -667,7 +663,6 @@ async def pre_authorize_game(
 
     # ========== STEP 5: 验证应用模式 ==========
     from ...models.application_mode import ApplicationMode
-    from ...models.operator_app_authorization_mode import OperatorAppAuthorizationMode
 
     # 解析 application_mode_id
     try:

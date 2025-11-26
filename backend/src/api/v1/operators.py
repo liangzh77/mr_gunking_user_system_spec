@@ -3361,7 +3361,7 @@ async def export_statistics(
     },
     summary="查询已授权应用",
     description="""
-    查询当前登录运营商已授权的应用列表。
+    查询当前登录运营商已授权的应用列表，包含所有已授权的游戏模式。
 
     **认证要求**:
     - Authorization: Bearer {JWT_TOKEN}
@@ -3373,14 +3373,20 @@ async def export_statistics(
       - app_code: 应用唯一标识符
       - app_name: 应用名称
       - description: 应用描述
-      - price_per_player: 单人价格
       - min_players: 最小玩家数
       - max_players: 最大玩家数
+      - authorized_modes: 已授权的游戏模式列表
+        - id: 模式ID
+        - mode_name: 模式名称
+        - price: 模式单价
+        - description: 模式描述
+        - is_active: 是否激活
       - authorized_at: 授权时间
       - expires_at: 授权到期时间(null表示永久授权)
 
     **注意事项**:
     - 只返回活跃且未过期的授权
+    - 每个应用包含所有已授权的游戏模式（授权应用时自动授权所有激活的模式）
     - 按授权时间降序排列(最新的在前)
     """
 )
@@ -3441,18 +3447,31 @@ async def get_authorized_applications(
         # 转换为响应格式
         app_items = []
         for app in applications:
+            # 转换授权模式数据
+            from ...schemas.operator import AuthorizedModeItem
+            mode_items = [
+                AuthorizedModeItem(
+                    id=mode["id"],
+                    mode_name=mode["mode_name"],
+                    price=mode["price"],
+                    description=mode["description"],
+                    is_active=mode["is_active"]
+                )
+                for mode in app.get("authorized_modes", [])
+            ]
+
             app_items.append(AuthorizedApplicationItem(
                 app_id=app["app_id"],
                 app_code=app["app_code"],
                 app_name=app["app_name"],
                 description=app["description"],
-                price_per_player=app["price_per_player"],
                 min_players=app["min_players"],
                 max_players=app["max_players"],
                 authorized_at=app["authorized_at"],
                 expires_at=app["expires_at"],
                 is_active=True,  # 服务层已筛选,均为活跃授权
-                launch_exe_path=app.get("launch_exe_path")
+                launch_exe_path=app.get("launch_exe_path"),
+                authorized_modes=mode_items
             ))
 
         return {
