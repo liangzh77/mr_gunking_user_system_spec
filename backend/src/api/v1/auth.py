@@ -321,6 +321,16 @@ async def authorize_game(
             }
         )
 
+    # 验证模式ID和模式名称是否匹配
+    if mode.mode_name != request_body.mode_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "MODE_NAME_MISMATCH",
+                "message": f"模式名称不匹配：期望'{mode.mode_name}'，实际收到'{request_body.mode_name}'"
+            }
+        )
+
     # 验证运营商是否被授权使用该模式
     auth_mode_stmt = select(OperatorAppAuthorizationMode).join(
         OperatorAppAuthorization,
@@ -691,6 +701,16 @@ async def pre_authorize_game(
             detail={
                 "error_code": "MODE_NOT_FOUND",
                 "message": "模式不存在或已停用"
+            }
+        )
+
+    # 验证模式ID和模式名称是否匹配
+    if mode.mode_name != request_body.mode_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "MODE_NAME_MISMATCH",
+                "message": f"模式名称不匹配：期望'{mode.mode_name}'，实际收到'{request_body.mode_name}'"
             }
         )
 
