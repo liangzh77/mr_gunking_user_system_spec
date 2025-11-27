@@ -409,16 +409,27 @@ const handleConfirmLaunch = async () => {
     const tokenResponse = await http.post('/operators/generate-headset-token')
     const token = tokenResponse.data.data.token
 
-    // 2. 构建启动URL（不再传递mode_id）
+    // 2. 准备所有授权模式信息
+    const modes = (selectedApp.value.authorized_modes || [])
+      .filter(m => m.is_active)
+      .map(m => ({
+        id: m.id,
+        name: m.mode_name,
+        price: m.price
+      }))
+
+    // 3. 构建启动URL（包含所有模式信息）
     const protocol = `mrgun-${selectedApp.value.launch_exe_path}`
     const appCode = selectedApp.value.app_code
     const siteId = currentSite.value.site_id
+    const modesJson = JSON.stringify(modes)
 
-    const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}`
+    const launchUrl = `${protocol}://start?token=${encodeURIComponent(token)}&app_code=${encodeURIComponent(appCode)}&site_id=${encodeURIComponent(siteId)}&modes=${encodeURIComponent(modesJson)}`
 
     console.log('Launch URL:', launchUrl)
+    console.log('Modes data:', modes)
 
-    // 3. 尝试启动应用
+    // 4. 尝试启动应用
     // 创建隐藏的链接并自动点击，触发自定义协议
     const link = document.createElement('a')
     link.href = launchUrl
