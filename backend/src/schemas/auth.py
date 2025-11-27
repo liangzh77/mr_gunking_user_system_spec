@@ -263,6 +263,14 @@ class GameAuthorizeRequest(BaseModel):
         examples=["550e8400-e29b-41d4-a716-446655440000"]
     )
 
+    mode_name: str = Field(
+        ...,
+        description="应用模式名称(用于服务器校验)",
+        min_length=1,
+        max_length=64,
+        examples=["5分钟"]
+    )
+
     headset_ids: Optional[list[str]] = Field(
         default=None,
         description="头显设备ID列表(可选)",
@@ -276,6 +284,7 @@ class GameAuthorizeRequest(BaseModel):
                 "site_id": "site_beijing_001",
                 "player_count": 5,
                 "application_mode_id": "550e8400-e29b-41d4-a716-446655440000",
+                "mode_name": "5分钟",
                 "headset_ids": ["headset_001", "headset_002"]
             }
         }
