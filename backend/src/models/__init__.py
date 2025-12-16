@@ -26,6 +26,7 @@ from .admin import AdminAccount
 from .app_request import ApplicationRequest
 from .application import Application
 from .application_mode import ApplicationMode
+from .application_version import ApplicationVersion
 from .application_request_mode import ApplicationRequestMode
 from .authorization import OperatorAppAuthorization
 from .operator_app_authorization_mode import OperatorAppAuthorizationMode
@@ -47,6 +48,7 @@ __all__ = [
     "OperatorAccount",
     "Application",
     "ApplicationMode",
+    "ApplicationVersion",
     "ApplicationRequestMode",
     "OperationSite",
     "UsageRecord",

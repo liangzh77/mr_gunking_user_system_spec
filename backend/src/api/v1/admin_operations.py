@@ -5,7 +5,7 @@ This module handles admin operations like reviewing application authorization re
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
@@ -503,6 +503,318 @@ async def update_application(
     await cache_service.invalidate_all_authorizations_for_app(app.app_code)
 
     return ApplicationResponse.model_validate(app)
+
+
+@router.post(
+    "/applications/{app_id}/upload-apk",
+    response_model=ApplicationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload APK File",
+    description="Upload APK file for an application. The version will be extracted from the filename (e.g., AppName_1.0.3.apk)",
+)
+async def upload_application_apk(
+    app_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    file: UploadFile = File(..., description="APK file to upload"),
+) -> ApplicationResponse:
+    """Upload APK file for an application.
+
+    The version number will be automatically extracted from the filename.
+    Supported filename formats:
+    - AppName_1.0.3.apk
+    - AppName-1.0.3.apk
+    - AppName_v1.0.3.apk
+    - AppName-v1.0.3.apk
+
+    Args:
+        app_id: Application ID (UUID string)
+        file: APK file to upload
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        ApplicationResponse: Updated application data with version info
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from ...services.qiniu_service import qiniu_service
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Validate file
+    if not file.filename or not file.filename.lower().endswith('.apk'):
+        from ...core import BadRequestException
+        raise BadRequestException("Only APK files are allowed")
+
+    # Extract version from filename
+    version = qiniu_service.extract_version_from_filename(file.filename)
+    if not version:
+        from ...core import BadRequestException
+        raise BadRequestException(
+            "Cannot extract version from filename. "
+            "Please use format like: AppName_1.0.3.apk or AppName-v1.0.3.apk"
+        )
+
+    # Get application
+    stmt = select(Application).where(Application.id == app_uuid)
+    result = await db.execute(stmt)
+    app = result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Read file content
+    file_content = await file.read()
+    file_size = len(file_content)
+
+    # Generate key for Qiniu storage: files/应用名称/文件名(不含.apk)
+    # 路径用 files 而不是 apk，去掉 .apk 后缀，绕过七牛云测试域名的下载限制
+    # 原始文件名: test_1.0.5.apk -> 存储为: test_1.0.5
+    storage_filename = file.filename.rsplit('.', 1)[0]  # 去掉 .apk 后缀
+    key = f"files/{app.app_name}/{storage_filename}"
+
+    # Upload to Qiniu
+    success, result_url = qiniu_service.upload_file(file_content, key)
+    if not success:
+        from ...core import BadRequestException
+        raise BadRequestException(f"Failed to upload file: {result_url}")
+
+    # Get admin ID for uploaded_by
+    admin_id = get_token_subject(token)
+
+    # Create version record
+    version_record = ApplicationVersion(
+        application_id=app_uuid,
+        version=version,
+        filename=file.filename,
+        file_path=key,
+        apk_url=result_url,
+        file_size=file_size,
+        uploaded_by=admin_id,
+    )
+    db.add(version_record)
+
+    # Update application latest version
+    app.latest_version = version
+    app.apk_url = result_url
+
+    await db.commit()
+    await db.refresh(app)
+
+    # Invalidate cache
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_application_cache(app.app_code)
+
+    return ApplicationResponse.model_validate(app)
+
+
+# ==================== Application Version APIs ====================
+
+from ...schemas.application_version import (
+    ApplicationVersionResponse,
+    ApplicationVersionListResponse,
+    LatestVersionResponse,
+)
+
+
+@router.get(
+    "/applications/{app_id}/versions",
+    response_model=ApplicationVersionListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get All Versions",
+    description="Get all versions of an application",
+)
+async def get_application_versions(
+    app_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> ApplicationVersionListResponse:
+    """Get all versions of an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        ApplicationVersionListResponse: List of all versions
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Get application
+    stmt = select(Application).where(Application.id == app_uuid)
+    result = await db.execute(stmt)
+    app = result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Get all versions
+    versions_stmt = select(ApplicationVersion).where(
+        ApplicationVersion.application_id == app_uuid
+    ).order_by(ApplicationVersion.created_at.desc())
+
+    versions_result = await db.execute(versions_stmt)
+    versions = versions_result.scalars().all()
+
+    return ApplicationVersionListResponse(
+        items=[ApplicationVersionResponse.model_validate(v) for v in versions],
+        total=len(versions),
+        app_name=app.app_name,
+        app_code=app.app_code,
+    )
+
+
+@router.get(
+    "/applications/{app_id}/versions/latest",
+    response_model=LatestVersionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Latest Version",
+    description="Get the latest version of an application",
+)
+async def get_latest_version(
+    app_id: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> LatestVersionResponse:
+    """Get the latest version of an application.
+
+    Args:
+        app_id: Application ID (UUID string)
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        LatestVersionResponse: Latest version info
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Get application
+    stmt = select(Application).where(Application.id == app_uuid)
+    result = await db.execute(stmt)
+    app = result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Get latest version from version history
+    latest_stmt = select(ApplicationVersion).where(
+        ApplicationVersion.application_id == app_uuid
+    ).order_by(ApplicationVersion.created_at.desc()).limit(1)
+
+    latest_result = await db.execute(latest_stmt)
+    latest_version = latest_result.scalar_one_or_none()
+
+    return LatestVersionResponse(
+        app_code=app.app_code,
+        app_name=app.app_name,
+        latest_version=latest_version.version if latest_version else app.latest_version,
+        apk_url=latest_version.apk_url if latest_version else app.apk_url,
+        file_size=latest_version.file_size if latest_version else None,
+        updated_at=latest_version.created_at if latest_version else app.updated_at,
+    )
+
+
+@router.get(
+    "/applications/{app_id}/versions/{version}",
+    status_code=status.HTTP_200_OK,
+    summary="Get Download URL for Specific Version",
+    description="Get the download URL for a specific version of an application",
+)
+async def get_version_download_url(
+    app_id: str,
+    version: str,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """Get the download URL for a specific version.
+
+    Args:
+        app_id: Application ID (UUID string)
+        version: Version string (e.g., "1.0.3")
+        token: Current admin token
+        db: Database session
+
+    Returns:
+        dict: Download URL and version info
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from sqlalchemy import select
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Get application
+    app_stmt = select(Application).where(Application.id == app_uuid)
+    app_result = await db.execute(app_stmt)
+    app = app_result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Get specific version
+    version_stmt = select(ApplicationVersion).where(
+        ApplicationVersion.application_id == app_uuid,
+        ApplicationVersion.version == version
+    )
+
+    version_result = await db.execute(version_stmt)
+    version_record = version_result.scalar_one_or_none()
+
+    if not version_record:
+        from ...core import NotFoundException
+        raise NotFoundException(f"Version {version} not found for this application")
+
+    # 生成带签名的私有下载URL（有效期1小时）
+    from ...services.qiniu_service import qiniu_service
+    download_url = qiniu_service.get_download_url(version_record.file_path, private=True, expires=3600)
+
+    return {
+        "app_code": app.app_code,
+        "app_name": app.app_name,
+        "version": version_record.version,
+        "filename": version_record.filename,
+        "file_path": version_record.file_path,
+        "apk_url": download_url,
+        "file_size": version_record.file_size,
+        "uploaded_at": version_record.created_at.isoformat() if version_record.created_at else None,
+    }
 
 
 @router.put(
