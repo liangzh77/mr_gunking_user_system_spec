@@ -326,8 +326,8 @@ import { ElMessage, type FormInstance, type FormRules, type UploadRawFile } from
 import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
-// API基础地址
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+// API基础地址 - 使用相对路径，自动适配当前域名
+const apiBaseUrl = '/api/v1'
 
 // 上传请求头
 const uploadHeaders = computed(() => {
