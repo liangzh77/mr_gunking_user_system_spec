@@ -38,7 +38,30 @@
         style="width: 100%"
       >
         <el-table-column prop="app_name" label="应用名称" width="180" />
-        <el-table-column prop="description" label="描述" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
+        <el-table-column label="最新版本" width="150">
+          <template #default="{ row }">
+            <div class="version-cell">
+              <span v-if="row.latest_version" class="version-tag">v{{ row.latest_version }}</span>
+              <span v-else class="text-muted">暂无</span>
+              <el-upload
+                class="upload-btn"
+                :action="`${apiBaseUrl}/admins/applications/${row.id}/upload-apk`"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                :before-upload="beforeApkUpload"
+                :on-success="(response: any) => handleUploadSuccess(response, row)"
+                :on-error="handleUploadError"
+                accept=".apk"
+              >
+                <el-button type="primary" size="small" link>
+                  <el-icon><Upload /></el-icon>
+                  上传
+                </el-button>
+              </el-upload>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="模式单价" width="200">
           <template #default="{ row }">
             <div v-if="row.modes && row.modes.length > 0" class="mode-prices">
@@ -296,12 +319,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Plus } from '@element-plus/icons-vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { Search, Plus, Upload } from '@element-plus/icons-vue'
+import { ElMessage, type FormInstance, type FormRules, type UploadRawFile } from 'element-plus'
 import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
+
+// API基础地址
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
+// 上传请求头
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('admin_access_token')
+  return {
+    Authorization: token ? `Bearer ${token}` : ''
+  }
+})
 
 const router = useRouter()
 
@@ -347,6 +381,8 @@ interface Application {
   max_players: number
   is_active: boolean
   launch_exe_path?: string
+  latest_version?: string
+  apk_url?: string
   modes?: ApplicationMode[]
   created_at: string
   updated_at: string
@@ -634,6 +670,51 @@ const createApplication = () => {
   router.push('/admin/applications/create')
 }
 
+// APK上传前验证
+const beforeApkUpload = (file: UploadRawFile) => {
+  const isApk = file.name.toLowerCase().endsWith('.apk')
+  if (!isApk) {
+    ElMessage.error('只能上传APK文件!')
+    return false
+  }
+
+  // 验证文件名格式是否包含版本号
+  const versionPattern = /[_-]v?(\d+\.\d+(\.\d+)?)(\.apk)?$/i
+  if (!versionPattern.test(file.name)) {
+    ElMessage.error('文件名格式不正确，请使用如 AppName_1.0.3.apk 的格式')
+    return false
+  }
+
+  // 限制文件大小为500MB
+  const maxSize = 500 * 1024 * 1024
+  if (file.size > maxSize) {
+    ElMessage.error('文件大小不能超过500MB!')
+    return false
+  }
+
+  return true
+}
+
+// APK上传成功处理
+const handleUploadSuccess = (response: any, row: Application) => {
+  if (response && response.latest_version) {
+    ElMessage.success(`版本 ${response.latest_version} 上传成功`)
+    // 更新本地数据
+    row.latest_version = response.latest_version
+    row.apk_url = response.apk_url
+    // 刷新列表
+    fetchApplications()
+  } else {
+    ElMessage.error('上传失败，请重试')
+  }
+}
+
+// APK上传失败处理
+const handleUploadError = (error: Error) => {
+  console.error('Upload error:', error)
+  ElMessage.error('上传失败，请检查文件名格式是否正确')
+}
+
 onMounted(() => {
   fetchApplications()
 })
@@ -697,5 +778,25 @@ onMounted(() => {
 .text-muted {
   color: #909399;
   font-size: 13px;
+}
+
+.version-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-tag {
+  color: #67C23A;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.upload-btn {
+  display: inline-flex;
+}
+
+.upload-btn :deep(.el-upload) {
+  display: inline-flex;
 }
 </style>

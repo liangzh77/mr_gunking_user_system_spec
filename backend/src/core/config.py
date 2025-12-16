@@ -184,6 +184,28 @@ class Settings(BaseSettings):
         description="Company bank name and branch"
     )
 
+    # ========== Qiniu Cloud Storage Configuration ==========
+    QINIU_ACCESS_KEY: str = Field(
+        default="_eBkwOMQXLkji_CzFTKQCd7YI_868EUAv1esA9PQ",
+        description="Qiniu Access Key"
+    )
+    QINIU_SECRET_KEY: str = Field(
+        default="xqw_J69-RSEtAYoP7ZzSiinSpBnDGGHSyiZaYZYZ",
+        description="Qiniu Secret Key"
+    )
+    QINIU_BUCKET_NAME: str = Field(
+        default="mrgun",
+        description="Qiniu bucket name"
+    )
+    QINIU_UPLOAD_URL: str = Field(
+        default="https://up-z1.qiniup.com",
+        description="Qiniu upload endpoint"
+    )
+    QINIU_DOWNLOAD_URL: str = Field(
+        default="http://t7ca93euj.hb-bkt.clouddn.com",
+        description="Qiniu download endpoint (测试域名)"
+    )
+
     @field_validator("CORS_ORIGINS")
     @classmethod
     def parse_cors_origins(cls, v: str) -> list[str]:

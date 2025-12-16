@@ -89,6 +89,19 @@ class Application(Base):
         comment="最大玩家数"
     )
 
+    # ==================== 版本管理 ====================
+    latest_version: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
+        comment="最新版本号(如 1.0.3)"
+    )
+
+    apk_url: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+        comment="APK下载链接(七牛云存储)"
+    )
+
     # ==================== 状态管理 ====================
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -156,6 +169,15 @@ class Application(Base):
         lazy="selectin",
         cascade="all, delete-orphan",
         order_by="ApplicationMode.sort_order"
+    )
+
+    # 1:N - 一个应用有多个版本
+    versions: Mapped[list["ApplicationVersion"]] = relationship(
+        "ApplicationVersion",
+        back_populates="application",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="ApplicationVersion.created_at.desc()"
     )
 
     # ==================== 表级约束 ====================

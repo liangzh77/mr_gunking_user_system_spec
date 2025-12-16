@@ -87,6 +87,8 @@ class ApplicationResponse(UUIDMixin, TimestampMixin):
     description: str | None = Field(default=None, description="Application description")
     is_active: bool = Field(description="Application active status")
     launch_exe_path: str | None = Field(default=None, description="自定义协议名(如 notepad)")
+    latest_version: str | None = Field(default=None, description="最新版本号(如 1.0.3)")
+    apk_url: str | None = Field(default=None, description="APK下载链接")
     created_by: UUID | None = Field(default=None, description="Creator admin ID")
     modes: list[ApplicationModeResponse] = Field(default_factory=list, description="游戏模式列表")
 
