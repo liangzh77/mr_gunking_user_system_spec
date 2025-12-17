@@ -677,8 +677,26 @@ async def get_application_versions(
     versions_result = await db.execute(versions_stmt)
     versions = versions_result.scalars().all()
 
+    # 为每个版本生成带签名的私有下载URL
+    from ...services.qiniu_service import qiniu_service
+    version_items = []
+    for v in versions:
+        version_dict = {
+            "id": v.id,
+            "application_id": v.application_id,
+            "version": v.version,
+            "filename": v.filename,
+            "file_path": v.file_path,
+            "apk_url": qiniu_service.get_download_url(v.file_path, private=True, expires=3600),
+            "file_size": v.file_size,
+            "description": v.description,
+            "created_at": v.created_at,
+            "uploaded_by": v.uploaded_by,
+        }
+        version_items.append(ApplicationVersionResponse.model_validate(version_dict))
+
     return ApplicationVersionListResponse(
-        items=[ApplicationVersionResponse.model_validate(v) for v in versions],
+        items=version_items,
         total=len(versions),
         app_name=app.app_name,
         app_code=app.app_code,
@@ -735,11 +753,17 @@ async def get_latest_version(
     latest_result = await db.execute(latest_stmt)
     latest_version = latest_result.scalar_one_or_none()
 
+    # 生成带签名的私有下载URL
+    from ...services.qiniu_service import qiniu_service
+    apk_url = None
+    if latest_version and latest_version.file_path:
+        apk_url = qiniu_service.get_download_url(latest_version.file_path, private=True, expires=3600)
+
     return LatestVersionResponse(
         app_code=app.app_code,
         app_name=app.app_name,
         latest_version=latest_version.version if latest_version else app.latest_version,
-        apk_url=latest_version.apk_url if latest_version else app.apk_url,
+        apk_url=apk_url,
         file_size=latest_version.file_size if latest_version else None,
         updated_at=latest_version.created_at if latest_version else app.updated_at,
     )
