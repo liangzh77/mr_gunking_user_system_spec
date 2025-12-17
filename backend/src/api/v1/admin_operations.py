@@ -636,14 +636,12 @@ from ...schemas.application_version import (
 )
 async def get_application_versions(
     app_id: str,
-    token: CurrentUserToken,
     db: DatabaseSession,
 ) -> ApplicationVersionListResponse:
-    """Get all versions of an application.
+    """Get all versions of an application (public API, no auth required).
 
     Args:
         app_id: Application ID (UUID string)
-        token: Current admin token
         db: Database session
 
     Returns:
@@ -712,14 +710,12 @@ async def get_application_versions(
 )
 async def get_latest_version(
     app_id: str,
-    token: CurrentUserToken,
     db: DatabaseSession,
 ) -> LatestVersionResponse:
-    """Get the latest version of an application.
+    """Get the latest version of an application (public API, no auth required).
 
     Args:
         app_id: Application ID (UUID string)
-        token: Current admin token
         db: Database session
 
     Returns:
@@ -778,15 +774,13 @@ async def get_latest_version(
 async def get_version_download_url(
     app_id: str,
     version: str,
-    token: CurrentUserToken,
     db: DatabaseSession,
 ) -> dict:
-    """Get the download URL for a specific version.
+    """Get the download URL for a specific version (public API, no auth required).
 
     Args:
         app_id: Application ID (UUID string)
         version: Version string (e.g., "1.0.3")
-        token: Current admin token
         db: Database session
 
     Returns:
