@@ -628,6 +628,61 @@ from ...schemas.application_version import (
 
 
 @router.get(
+    "/applications/versions/all",
+    status_code=status.HTTP_200_OK,
+    summary="Get All Applications with Latest Versions",
+    description="Get all applications with their names and latest versions (public API, no auth required)",
+)
+async def get_all_applications_versions(
+    db: DatabaseSession,
+) -> list[dict]:
+    """Get all applications with their latest versions (public API, no auth required).
+
+    Args:
+        db: Database session
+
+    Returns:
+        List of applications with name and latest version info
+    """
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from sqlalchemy import select
+    from ...services.qiniu_service import qiniu_service
+
+    # Get all active applications
+    stmt = select(Application).where(Application.is_active == True).order_by(Application.app_name)
+    result = await db.execute(stmt)
+    apps = result.scalars().all()
+
+    app_versions = []
+    for app in apps:
+        # Get latest version for each app
+        latest_stmt = select(ApplicationVersion).where(
+            ApplicationVersion.application_id == app.id
+        ).order_by(ApplicationVersion.created_at.desc()).limit(1)
+
+        latest_result = await db.execute(latest_stmt)
+        latest_version = latest_result.scalar_one_or_none()
+
+        # Generate signed download URL if version exists
+        apk_url = None
+        if latest_version and latest_version.file_path:
+            apk_url = qiniu_service.get_download_url(latest_version.file_path, private=True, expires=3600)
+
+        app_versions.append({
+            "app_id": str(app.id),
+            "app_code": app.app_code,
+            "app_name": app.app_name,
+            "latest_version": latest_version.version if latest_version else app.latest_version,
+            "apk_url": apk_url,
+            "file_size": latest_version.file_size if latest_version else None,
+            "updated_at": latest_version.created_at.isoformat() if latest_version else None,
+        })
+
+    return app_versions
+
+
+@router.get(
     "/applications/{app_id}/versions",
     response_model=ApplicationVersionListResponse,
     status_code=status.HTTP_200_OK,
