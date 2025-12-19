@@ -191,3 +191,6 @@ frontend/tests/e2e/launch-application.spec.ts
 nginx/ssl/*.pem
 nginx/ssl/*.key
 nginx/ssl/*.crt
+
+# APK files (too large for git)
+*.apk
