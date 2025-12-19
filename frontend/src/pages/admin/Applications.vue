@@ -776,25 +776,43 @@ const handleFileChange = (uploadFile: UploadFile) => {
   startUpload(file)
 }
 
-// 开始上传
+// 开始上传 - 客户端直传七牛云
 const startUpload = async (file: File) => {
   if (!currentUploadApp.value) return
-
-  const formData = new FormData()
-  formData.append('file', file)
 
   // 创建取消令牌
   uploadCancelToken.value = axios.CancelToken.source()
 
   try {
     const token = localStorage.getItem('admin_access_token')
-    const response = await axios.post(
-      `${apiBaseUrl}/admins/applications/${currentUploadApp.value.id}/upload-apk`,
+
+    // 第一步：获取七牛云上传凭证
+    const tokenResponse = await axios.post(
+      `${apiBaseUrl}/admins/applications/${currentUploadApp.value.id}/upload-token`,
+      { filename: file.name },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : ''
+        },
+        cancelToken: uploadCancelToken.value.token,
+      }
+    )
+
+    const { token: qiniuToken, key, upload_url, version } = tokenResponse.data
+
+    // 第二步：直传到七牛云
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('token', qiniuToken)
+    formData.append('key', key)
+
+    const uploadResponse = await axios.post(
+      upload_url,
       formData,
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          Authorization: token ? `Bearer ${token}` : ''
         },
         timeout: 0, // 禁用超时，大文件上传需要较长时间
         cancelToken: uploadCancelToken.value.token,
@@ -806,18 +824,38 @@ const startUpload = async (file: File) => {
       }
     )
 
-    // 上传成功
-    uploadStatus.value = 'success'
-    if (response.data && response.data.latest_version) {
-      ElMessage.success(`版本 ${response.data.latest_version} 上传成功`)
-      // 更新本地数据
-      if (currentUploadApp.value) {
-        currentUploadApp.value.latest_version = response.data.latest_version
-        currentUploadApp.value.apk_url = response.data.apk_url
+    // 第三步：上传成功后，调用后端注册版本
+    const qiniuResult = uploadResponse.data
+    const registerResponse = await axios.post(
+      `${apiBaseUrl}/admins/applications/register-version`,
+      {
+        app_id: currentUploadApp.value.id,
+        version: version,
+        filename: file.name,
+        key: qiniuResult.key || key,
+        file_size: qiniuResult.fsize || file.size,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : ''
+        },
+        cancelToken: uploadCancelToken.value.token,
       }
-      // 刷新列表
-      fetchApplications()
+    )
+
+    // 注册成功
+    uploadStatus.value = 'success'
+    const result = registerResponse.data
+
+    ElMessage.success(`版本 ${result.version || version} 上传成功`)
+    // 更新本地数据
+    if (currentUploadApp.value) {
+      currentUploadApp.value.latest_version = result.version || version
+      currentUploadApp.value.apk_url = result.apk_url
     }
+    // 刷新列表
+    fetchApplications()
   } catch (error: any) {
     if (axios.isCancel(error)) {
       ElMessage.info('上传已取消')
@@ -825,7 +863,9 @@ const startUpload = async (file: File) => {
     } else {
       console.error('Upload error:', error)
       uploadStatus.value = 'exception'
-      ElMessage.error('上传失败，请重试')
+      // 显示更详细的错误信息
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || '上传失败，请重试'
+      ElMessage.error(errorMsg)
     }
   }
 }

@@ -5,7 +5,7 @@ This module handles admin operations like reviewing application authorization re
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import CurrentUserToken, DatabaseSession
@@ -505,12 +505,206 @@ async def update_application(
     return ApplicationResponse.model_validate(app)
 
 
+# ==================== Client Direct Upload to Qiniu ====================
+
+from pydantic import BaseModel
+
+
+class UploadTokenRequest(BaseModel):
+    """获取上传凭证请求"""
+    filename: str  # 原始文件名，如 mrgun_1.0.1.apk
+
+
+class UploadTokenResponse(BaseModel):
+    """上传凭证响应"""
+    token: str          # 七牛云上传凭证
+    key: str            # 文件存储key
+    upload_url: str     # 七牛云上传URL
+    version: str        # 从文件名提取的版本号
+
+
+class QiniuCallbackRequest(BaseModel):
+    """七牛云回调请求"""
+    app_id: str         # 应用ID
+    version: str        # 版本号
+    filename: str       # 原始文件名
+    key: str            # 存储key
+    file_size: int      # 文件大小
+    admin_id: str       # 上传者ID
+
+
+@router.post(
+    "/applications/{app_id}/upload-token",
+    response_model=UploadTokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Upload Token for Client Direct Upload",
+    description="Get Qiniu upload token for client-side direct upload. This enables faster uploads by bypassing the server.",
+)
+async def get_upload_token(
+    app_id: str,
+    request: UploadTokenRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+    http_request: Request,
+) -> UploadTokenResponse:
+    """获取客户端直传七牛云的上传凭证
+
+    Args:
+        app_id: 应用ID
+        request: 包含文件名的请求
+        token: 当前管理员token
+        db: 数据库会话
+        http_request: HTTP请求对象
+
+    Returns:
+        UploadTokenResponse: 上传凭证和相关信息
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...services.qiniu_service import qiniu_service
+    from sqlalchemy import select
+    import json
+
+    try:
+        app_uuid = UUID(app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Validate filename
+    if not request.filename or not request.filename.lower().endswith('.apk'):
+        from ...core import BadRequestException
+        raise BadRequestException("Only APK files are allowed")
+
+    # Extract version from filename
+    version = qiniu_service.extract_version_from_filename(request.filename)
+    if not version:
+        from ...core import BadRequestException
+        raise BadRequestException(
+            "Cannot extract version from filename. "
+            "Please use format like: AppName_1.0.3.apk or AppName-v1.0.3.apk"
+        )
+
+    # Get application
+    stmt = select(Application).where(Application.id == app_uuid)
+    result = await db.execute(stmt)
+    app = result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Generate storage key
+    storage_filename = request.filename.rsplit('.', 1)[0]  # 去掉 .apk 后缀
+    key = f"files/{app.app_name}/{storage_filename}"
+
+    # Get upload token (使用无回调模式，兼容本地和生产环境)
+    upload_info = qiniu_service.get_client_upload_token_simple(key=key)
+
+    return UploadTokenResponse(
+        token=upload_info["token"],
+        key=upload_info["key"],
+        upload_url=upload_info["upload_url"],
+        version=version,
+    )
+
+
+class RegisterVersionRequest(BaseModel):
+    """注册版本请求"""
+    app_id: str         # 应用ID
+    version: str        # 版本号
+    filename: str       # 原始文件名
+    key: str            # 存储key
+    file_size: int = 0  # 文件大小
+
+
+@router.post(
+    "/applications/register-version",
+    status_code=status.HTTP_200_OK,
+    summary="Register Version After Direct Upload",
+    description="Register a new application version after successful direct upload to Qiniu cloud.",
+)
+async def register_version_after_upload(
+    request: RegisterVersionRequest,
+    token: CurrentUserToken,
+    db: DatabaseSession,
+) -> dict:
+    """客户端直传成功后注册版本
+
+    在客户端直接上传文件到七牛云成功后，调用此接口注册版本信息。
+
+    Args:
+        request: 版本注册请求
+        token: 当前管理员token
+        db: 数据库会话
+
+    Returns:
+        注册结果
+    """
+    from uuid import UUID
+    from ...models.application import Application
+    from ...models.application_version import ApplicationVersion
+    from ...services.qiniu_service import qiniu_service
+    from sqlalchemy import select
+
+    admin_id = get_token_subject(token)
+
+    try:
+        app_uuid = UUID(request.app_id)
+    except ValueError:
+        from ...core import BadRequestException
+        raise BadRequestException("Invalid application ID format")
+
+    # Get application
+    stmt = select(Application).where(Application.id == app_uuid)
+    result = await db.execute(stmt)
+    app = result.scalar_one_or_none()
+
+    if not app:
+        from ...core import NotFoundException
+        raise NotFoundException("Application not found")
+
+    # Build file URL
+    file_url = f"{qiniu_service.download_url}/{request.key}"
+
+    # Create version record
+    version_record = ApplicationVersion(
+        application_id=app_uuid,
+        version=request.version,
+        filename=request.filename,
+        file_path=request.key,
+        apk_url=file_url,
+        file_size=request.file_size,
+        uploaded_by=admin_id,
+    )
+    db.add(version_record)
+
+    # Update application latest version
+    app.latest_version = request.version
+    app.apk_url = file_url
+
+    await db.commit()
+
+    # Invalidate cache
+    from ...core.cache import get_cache
+    from ...services.cache_service import CacheService
+    cache_service = CacheService(get_cache())
+    await cache_service.invalidate_application_cache(app.app_code)
+
+    return {
+        "success": True,
+        "app_id": request.app_id,
+        "version": request.version,
+        "apk_url": file_url,
+    }
+
+
 @router.post(
     "/applications/{app_id}/upload-apk",
     response_model=ApplicationResponse,
     status_code=status.HTTP_200_OK,
-    summary="Upload APK File",
-    description="Upload APK file for an application. The version will be extracted from the filename (e.g., AppName_1.0.3.apk)",
+    summary="Upload APK File (Legacy)",
+    description="Upload APK file through server. For large files, use /upload-token for client direct upload instead.",
 )
 async def upload_application_apk(
     app_id: str,
