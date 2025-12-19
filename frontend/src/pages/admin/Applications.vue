@@ -44,21 +44,10 @@
             <div class="version-cell">
               <span v-if="row.latest_version" class="version-tag">v{{ row.latest_version }}</span>
               <span v-else class="text-muted">暂无</span>
-              <el-upload
-                class="upload-btn"
-                :action="`${apiBaseUrl}/admins/applications/${row.id}/upload-apk`"
-                :headers="uploadHeaders"
-                :show-file-list="false"
-                :before-upload="beforeApkUpload"
-                :on-success="(response: any) => handleUploadSuccess(response, row)"
-                :on-error="handleUploadError"
-                accept=".apk"
-              >
-                <el-button type="primary" size="small" link>
-                  <el-icon><Upload /></el-icon>
-                  上传
-                </el-button>
-              </el-upload>
+              <el-button type="primary" size="small" link @click="openUploadDialog(row)">
+                <el-icon><Upload /></el-icon>
+                上传
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -315,14 +304,75 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- APK上传进度对话框 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="上传APK"
+      width="500px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="handleUploadDialogClose"
+    >
+      <div class="upload-dialog-content">
+        <div v-if="!uploadingFile" class="upload-select">
+          <el-upload
+            ref="uploadRef"
+            class="upload-area"
+            drag
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="handleFileChange"
+            accept=".apk"
+          >
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">
+              拖拽文件到此处，或<em>点击选择</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                文件名格式：AppName_1.0.3.apk，大小不超过500MB
+              </div>
+            </template>
+          </el-upload>
+        </div>
+        <div v-else class="upload-progress">
+          <div class="file-info">
+            <el-icon><Document /></el-icon>
+            <span class="file-name">{{ uploadingFile.name }}</span>
+            <span class="file-size">({{ formatFileSize(uploadingFile.size) }})</span>
+          </div>
+          <el-progress
+            :percentage="uploadProgress"
+            :status="uploadStatus"
+            :stroke-width="20"
+          />
+          <div class="upload-status-text">
+            <span v-if="uploadStatus === ''">正在上传... {{ uploadProgress }}%</span>
+            <span v-else-if="uploadStatus === 'success'">上传成功！</span>
+            <span v-else-if="uploadStatus === 'exception'">上传失败</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button v-if="!uploadingFile" @click="uploadDialogVisible = false">取消</el-button>
+        <el-button v-if="uploadingFile && uploadStatus === ''" type="danger" @click="cancelUpload">
+          取消上传
+        </el-button>
+        <el-button v-if="uploadingFile && uploadStatus !== ''" @click="resetUpload">
+          {{ uploadStatus === 'success' ? '完成' : '重试' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Plus, Upload } from '@element-plus/icons-vue'
-import { ElMessage, type FormInstance, type FormRules, type UploadRawFile } from 'element-plus'
+import { Search, Plus, Upload, Document } from '@element-plus/icons-vue'
+import { ElMessage, type FormInstance, type FormRules, type UploadRawFile, type UploadFile } from 'element-plus'
+import axios, { type CancelTokenSource } from 'axios'
 import { formatDateTime, formatAmount} from '@/utils/format'
 import http from '@/utils/http'
 
@@ -336,6 +386,15 @@ const uploadHeaders = computed(() => {
     Authorization: token ? `Bearer ${token}` : ''
   }
 })
+
+// 上传对话框状态
+const uploadDialogVisible = ref(false)
+const uploadingFile = ref<File | null>(null)
+const uploadProgress = ref(0)
+const uploadStatus = ref<'' | 'success' | 'exception'>('')
+const currentUploadApp = ref<Application | null>(null)
+const uploadCancelToken = ref<CancelTokenSource | null>(null)
+const uploadRef = ref()
 
 const router = useRouter()
 
@@ -670,49 +729,133 @@ const createApplication = () => {
   router.push('/admin/applications/create')
 }
 
-// APK上传前验证
-const beforeApkUpload = (file: UploadRawFile) => {
+// 打开上传对话框
+const openUploadDialog = (row: Application) => {
+  currentUploadApp.value = row
+  uploadingFile.value = null
+  uploadProgress.value = 0
+  uploadStatus.value = ''
+  uploadDialogVisible.value = true
+}
+
+// 文件大小格式化
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+// 文件选择处理
+const handleFileChange = (uploadFile: UploadFile) => {
+  const file = uploadFile.raw
+  if (!file) return
+
+  // 验证文件类型
   const isApk = file.name.toLowerCase().endsWith('.apk')
   if (!isApk) {
     ElMessage.error('只能上传APK文件!')
-    return false
+    return
   }
 
   // 验证文件名格式是否包含版本号
   const versionPattern = /[_-]v?(\d+\.\d+(\.\d+)?)(\.apk)?$/i
   if (!versionPattern.test(file.name)) {
     ElMessage.error('文件名格式不正确，请使用如 AppName_1.0.3.apk 的格式')
-    return false
+    return
   }
 
   // 限制文件大小为500MB
   const maxSize = 500 * 1024 * 1024
   if (file.size > maxSize) {
     ElMessage.error('文件大小不能超过500MB!')
-    return false
+    return
   }
 
-  return true
+  // 开始上传
+  uploadingFile.value = file
+  startUpload(file)
 }
 
-// APK上传成功处理
-const handleUploadSuccess = (response: any, row: Application) => {
-  if (response && response.latest_version) {
-    ElMessage.success(`版本 ${response.latest_version} 上传成功`)
-    // 更新本地数据
-    row.latest_version = response.latest_version
-    row.apk_url = response.apk_url
-    // 刷新列表
-    fetchApplications()
-  } else {
-    ElMessage.error('上传失败，请重试')
+// 开始上传
+const startUpload = async (file: File) => {
+  if (!currentUploadApp.value) return
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  // 创建取消令牌
+  uploadCancelToken.value = axios.CancelToken.source()
+
+  try {
+    const token = localStorage.getItem('admin_access_token')
+    const response = await axios.post(
+      `${apiBaseUrl}/admins/applications/${currentUploadApp.value.id}/upload-apk`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: token ? `Bearer ${token}` : ''
+        },
+        timeout: 0, // 禁用超时，大文件上传需要较长时间
+        cancelToken: uploadCancelToken.value.token,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          }
+        }
+      }
+    )
+
+    // 上传成功
+    uploadStatus.value = 'success'
+    if (response.data && response.data.latest_version) {
+      ElMessage.success(`版本 ${response.data.latest_version} 上传成功`)
+      // 更新本地数据
+      if (currentUploadApp.value) {
+        currentUploadApp.value.latest_version = response.data.latest_version
+        currentUploadApp.value.apk_url = response.data.apk_url
+      }
+      // 刷新列表
+      fetchApplications()
+    }
+  } catch (error: any) {
+    if (axios.isCancel(error)) {
+      ElMessage.info('上传已取消')
+      resetUpload()
+    } else {
+      console.error('Upload error:', error)
+      uploadStatus.value = 'exception'
+      ElMessage.error('上传失败，请重试')
+    }
   }
 }
 
-// APK上传失败处理
-const handleUploadError = (error: Error) => {
-  console.error('Upload error:', error)
-  ElMessage.error('上传失败，请检查文件名格式是否正确')
+// 取消上传
+const cancelUpload = () => {
+  if (uploadCancelToken.value) {
+    uploadCancelToken.value.cancel('用户取消上传')
+  }
+}
+
+// 重置上传状态
+const resetUpload = () => {
+  const wasSuccess = uploadStatus.value === 'success'
+  uploadingFile.value = null
+  uploadProgress.value = 0
+  uploadStatus.value = ''
+  uploadCancelToken.value = null
+  if (wasSuccess) {
+    uploadDialogVisible.value = false
+  }
+}
+
+// 对话框关闭处理
+const handleUploadDialogClose = () => {
+  if (uploadStatus.value === '' && uploadingFile.value) {
+    // 正在上传中，取消上传
+    cancelUpload()
+  }
+  resetUpload()
 }
 
 onMounted(() => {
@@ -798,5 +941,65 @@ onMounted(() => {
 
 .upload-btn :deep(.el-upload) {
   display: inline-flex;
+}
+
+/* 上传对话框样式 */
+.upload-dialog-content {
+  min-height: 200px;
+}
+
+.upload-select {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.upload-area {
+  width: 100%;
+}
+
+.upload-area :deep(.el-upload-dragger) {
+  width: 100%;
+  padding: 40px 20px;
+}
+
+.upload-progress {
+  padding: 20px 0;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.file-info .el-icon {
+  font-size: 24px;
+  color: #409EFF;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  color: #909399;
+  font-size: 13px;
+}
+
+.upload-status-text {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #606266;
 }
 </style>
