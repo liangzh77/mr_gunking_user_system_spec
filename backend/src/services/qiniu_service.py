@@ -6,9 +6,19 @@
 import re
 from typing import Optional
 from urllib.parse import quote
-from qiniu import Auth, put_data
+from qiniu import Auth, put_data, put_file, etag
+from qiniu import config as qiniu_config
+import tempfile
+import os
 
 from ..core.config import settings
+
+# 设置七牛云上传超时时间（单位：秒）
+# 对于大文件上传，需要足够长的超时时间
+qiniu_config.set_default(
+    connection_timeout=60000,  # 连接超时1000分钟
+    connection_retries=5,      # 重试5次
+)
 
 
 class QiniuService:
@@ -37,6 +47,8 @@ class QiniuService:
     def upload_file(self, file_data: bytes, key: str) -> tuple[bool, str]:
         """上传文件到七牛云
 
+        对于大文件(>10MB)，使用临时文件方式上传以提高稳定性
+
         Args:
             file_data: 文件二进制数据
             key: 文件在七牛云中的key（路径）
@@ -44,16 +56,43 @@ class QiniuService:
         Returns:
             (成功标志, 文件URL或错误信息)
         """
-        token = self.get_upload_token(key)
+        # 对于大文件使用临时文件上传
+        file_size = len(file_data)
+        use_temp_file = file_size > 10 * 1024 * 1024  # 大于10MB使用文件上传
+
+        # 增加token有效期到2小时
+        token = self.get_upload_token(key, expires=7200)
 
         try:
-            ret, info = put_data(token, key, file_data)
+            if use_temp_file:
+                # 写入临时文件后上传
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.apk') as tmp_file:
+                    tmp_file.write(file_data)
+                    tmp_path = tmp_file.name
+
+                try:
+                    ret, info = put_file(token, key, tmp_path)
+                finally:
+                    # 清理临时文件
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+            else:
+                ret, info = put_data(token, key, file_data)
+
             if ret is not None and 'key' in ret:
                 # 构建文件访问URL
                 file_url = f"{self.download_url}/{ret['key']}"
                 return True, file_url
             else:
-                error_msg = info.text_body if info else "Unknown error"
+                # 获取更详细的错误信息
+                error_msg = "Unknown error"
+                if info:
+                    if hasattr(info, 'text_body') and info.text_body:
+                        error_msg = info.text_body
+                    elif hasattr(info, 'error') and info.error:
+                        error_msg = info.error
+                    elif hasattr(info, 'status_code'):
+                        error_msg = f"HTTP {info.status_code}"
                 return False, f"Upload failed: {error_msg}"
         except Exception as e:
             return False, f"Upload exception: {str(e)}"
