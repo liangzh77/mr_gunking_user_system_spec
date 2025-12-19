@@ -1,9 +1,12 @@
 """七牛云存储服务
 
 提供文件上传功能，支持APK文件上传到七牛云存储。
+支持客户端直传模式。
 """
 
 import re
+import json
+import base64
 from typing import Optional
 from urllib.parse import quote
 from qiniu import Auth, put_data, put_file, etag
@@ -12,6 +15,16 @@ import tempfile
 import os
 
 from ..core.config import settings
+
+# 七牛云上传区域
+QINIU_UPLOAD_HOSTS = {
+    "z0": "https://up-z0.qiniup.com",      # 华东-浙江
+    "z1": "https://up-z1.qiniup.com",      # 华北-河北
+    "z2": "https://up-z2.qiniup.com",      # 华南-广东
+    "na0": "https://up-na0.qiniup.com",    # 北美
+    "as0": "https://up-as0.qiniup.com",    # 东南亚
+    "cn-east-2": "https://up-cn-east-2.qiniup.com",  # 华东-浙江2
+}
 
 # 设置七牛云上传超时时间（单位：秒）
 # 对于大文件上传，需要足够长的超时时间
@@ -43,6 +56,113 @@ class QiniuService:
             上传凭证字符串
         """
         return self.auth.upload_token(self.bucket_name, key, expires)
+
+    def get_client_upload_token_simple(
+        self,
+        key: str,
+        expires: int = 7200,
+    ) -> dict:
+        """获取客户端直传的上传凭证（无回调模式）
+
+        此方法不使用七牛云回调，适用于本地开发和生产环境。
+        上传成功后，七牛云直接返回文件信息给客户端。
+
+        Args:
+            key: 上传文件的key（存储路径）
+            expires: 凭证有效期（秒），默认2小时
+
+        Returns:
+            包含上传凭证和上传URL的字典
+        """
+        # 上传策略 - 只使用returnBody，不使用callback
+        policy = {
+            "scope": f"{self.bucket_name}:{key}",  # 指定上传的key
+            "deadline": int(__import__("time").time()) + expires,
+            # 返回给客户端的信息
+            "returnBody": '{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"fname":"$(fname)"}',
+        }
+
+        # 生成上传凭证
+        token = self.auth.upload_token(
+            self.bucket_name,
+            key,
+            expires,
+            policy,
+        )
+
+        # 获取上传区域（根据配置或默认华东）
+        upload_region = getattr(settings, 'QINIU_UPLOAD_REGION', 'z1')
+        upload_url = QINIU_UPLOAD_HOSTS.get(upload_region, QINIU_UPLOAD_HOSTS['z1'])
+
+        return {
+            "token": token,
+            "key": key,
+            "upload_url": upload_url,
+        }
+
+    def get_client_upload_token(
+        self,
+        key: str,
+        callback_url: str,
+        callback_body: str,
+        expires: int = 7200,
+    ) -> dict:
+        """获取客户端直传的上传凭证（带回调模式）
+
+        Args:
+            key: 上传文件的key（存储路径）
+            callback_url: 上传完成后七牛云回调的URL
+            callback_body: 回调时传递的参数（JSON格式字符串）
+            expires: 凭证有效期（秒），默认2小时
+
+        Returns:
+            包含上传凭证和上传URL的字典
+        """
+        # 上传策略
+        policy = {
+            "scope": f"{self.bucket_name}:{key}",  # 指定上传的key
+            "deadline": int(__import__("time").time()) + expires,
+            "callbackUrl": callback_url,
+            "callbackBody": callback_body,
+            "callbackBodyType": "application/json",
+            # 返回给客户端的信息
+            "returnBody": '{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"fname":"$(fname)"}',
+        }
+
+        # 生成上传凭证
+        token = self.auth.upload_token(
+            self.bucket_name,
+            key,
+            expires,
+            policy,
+        )
+
+        # 获取上传区域（根据配置或默认华东）
+        upload_region = getattr(settings, 'QINIU_UPLOAD_REGION', 'z1')
+        upload_url = QINIU_UPLOAD_HOSTS.get(upload_region, QINIU_UPLOAD_HOSTS['z1'])
+
+        return {
+            "token": token,
+            "key": key,
+            "upload_url": upload_url,
+        }
+
+    def verify_callback(self, callback_url: str, callback_body: str, authorization: str) -> bool:
+        """验证七牛云回调请求的合法性
+
+        Args:
+            callback_url: 回调URL
+            callback_body: 回调请求体
+            authorization: Authorization头
+
+        Returns:
+            验证是否通过
+        """
+        return self.auth.verify_callback(
+            authorization,
+            callback_url,
+            callback_body,
+        )
 
     def upload_file(self, file_data: bytes, key: str) -> tuple[bool, str]:
         """上传文件到七牛云
